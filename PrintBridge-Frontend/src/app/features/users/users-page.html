@@ -1,0 +1,229 @@
+<div class="page">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">Users</h1>
+    <button
+      type="button"
+      class="btn btn-primary btn-sm"
+      (click)="toggleCreate()"
+      data-cy="users-new"
+    >
+      {{ showCreate() ? 'Cancel' : 'New user' }}
+    </button>
+  </div>
+
+  @if (notice()) {
+    <div class="alert alert-success alert-dismissible py-2" role="status" data-cy="users-notice">
+      {{ notice() }}
+      <button
+        type="button"
+        class="btn-close"
+        aria-label="Close"
+        (click)="notice.set(null)"
+      ></button>
+    </div>
+  }
+  @if (error()) {
+    <div class="alert alert-danger alert-dismissible py-2" role="alert" data-cy="users-error">
+      {{ error() }}
+      <button type="button" class="btn-close" aria-label="Close" (click)="error.set(null)"></button>
+    </div>
+  }
+
+  @if (showCreate()) {
+    <form
+      class="card card-body mb-4"
+      [formGroup]="createForm"
+      (ngSubmit)="create()"
+      novalidate
+      data-cy="users-create-form"
+    >
+      <h2 class="h5 mb-3">New user</h2>
+      @if (createError()) {
+        <div class="alert alert-danger py-2" role="alert" data-cy="users-create-error">
+          {{ createError() }}
+        </div>
+      }
+      <div class="row g-3">
+        <div class="col-md-6">
+          <label class="form-label" for="new-username">Username</label>
+          <input
+            id="new-username"
+            class="form-control"
+            formControlName="username"
+            autocomplete="off"
+            [class.is-invalid]="fieldError(createForm.controls.username, 'Username')"
+            data-cy="users-create-username"
+          />
+          <div class="invalid-feedback">
+            {{ fieldError(createForm.controls.username, 'Username') }}
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="new-email">Email</label>
+          <input
+            id="new-email"
+            type="email"
+            class="form-control"
+            formControlName="email"
+            autocomplete="off"
+            [class.is-invalid]="fieldError(createForm.controls.email, 'Email')"
+            data-cy="users-create-email"
+          />
+          <div class="invalid-feedback">{{ fieldError(createForm.controls.email, 'Email') }}</div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="new-password">Password</label>
+          <input
+            id="new-password"
+            type="password"
+            class="form-control"
+            formControlName="password"
+            autocomplete="new-password"
+            [class.is-invalid]="fieldError(createForm.controls.password, 'Password')"
+            data-cy="users-create-password"
+          />
+          <div class="invalid-feedback">
+            {{ fieldError(createForm.controls.password, 'Password') }}
+          </div>
+        </div>
+        <div class="col-md-6">
+          <label class="form-label" for="new-confirm">Confirm password</label>
+          <input
+            id="new-confirm"
+            type="password"
+            class="form-control"
+            formControlName="confirmPassword"
+            autocomplete="new-password"
+            [class.is-invalid]="
+              createForm.controls.confirmPassword.touched && createForm.hasError('passwordMismatch')
+            "
+            data-cy="users-create-confirm-password"
+          />
+          <div class="invalid-feedback">Passwords do not match</div>
+        </div>
+      </div>
+      <div class="mt-3">
+        <button
+          type="submit"
+          class="btn btn-primary"
+          [disabled]="creating()"
+          data-cy="users-create-submit"
+        >
+          {{ creating() ? 'Creating…' : 'Create user' }}
+        </button>
+      </div>
+    </form>
+  }
+
+  @if (loading()) {
+    <p class="text-body-secondary" data-cy="users-loading">Loading…</p>
+  } @else {
+    <ul class="list-group" data-cy="users-list">
+      @for (user of users(); track user.id) {
+        <li class="list-group-item py-3" [attr.data-cy]="'user-row-' + user.username">
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <div class="me-auto">
+              <span class="fw-semibold">{{ user.username }}</span>
+              @if (user.role === 'ADMIN') {
+                <span class="badge text-bg-primary ms-1">admin</span>
+              }
+              @if (isSelf(user)) {
+                <span class="text-body-secondary small ms-1">(you)</span>
+              }
+              <div class="text-body-secondary small">
+                {{ user.email }} · created {{ user.createdAt | date: 'mediumDate' }}
+              </div>
+            </div>
+            <ng-container *ngTemplateOutlet="actions; context: { $implicit: user }" />
+          </div>
+
+          @if (resettingId() === user.id) {
+            <div class="d-flex flex-wrap gap-2 mt-3" data-cy="user-reset-form">
+              <input
+                type="password"
+                class="form-control form-control-sm w-auto flex-grow-1"
+                placeholder="New password (min. 8 characters)"
+                autocomplete="new-password"
+                [formControl]="resetPassword"
+                [class.is-invalid]="fieldError(resetPassword, 'Password')"
+                data-cy="user-reset-password"
+              />
+              <button
+                type="button"
+                class="btn btn-sm btn-primary"
+                [disabled]="busyId() === user.id"
+                (click)="saveReset(user)"
+                data-cy="user-reset-save"
+              >
+                Save
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                (click)="cancelReset()"
+              >
+                Cancel
+              </button>
+              @if (fieldError(resetPassword, 'Password'); as message) {
+                <div class="w-100 small text-danger">{{ message }}</div>
+              }
+            </div>
+          }
+
+          @if (confirmingDeleteId() === user.id) {
+            <div
+              class="alert alert-danger d-flex flex-wrap align-items-center gap-2 mt-3 mb-0 py-2"
+              data-cy="user-delete-confirm"
+            >
+              <span class="me-auto"
+                >Delete <strong>{{ user.username }}</strong>? Their requests will be deleted
+                too.</span
+              >
+              <button
+                type="button"
+                class="btn btn-sm btn-danger"
+                [disabled]="busyId() === user.id"
+                (click)="confirmDelete(user)"
+                data-cy="user-delete-yes"
+              >
+                Delete
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                (click)="cancelDelete()"
+              >
+                Cancel
+              </button>
+            </div>
+          }
+        </li>
+      } @empty {
+        <li class="list-group-item text-body-secondary">No users yet.</li>
+      }
+    </ul>
+  }
+</div>
+
+<ng-template #actions let-user>
+  <div class="d-flex gap-2">
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-secondary"
+      (click)="startReset(user)"
+      data-cy="user-reset"
+    >
+      Reset password
+    </button>
+    @if (!isSelf(user)) {
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-danger"
+        (click)="askDelete(user)"
+        data-cy="user-delete"
+      >
+        Delete
+      </button>
+    }
+  </div>
+</ng-template>

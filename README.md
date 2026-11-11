@@ -28,6 +28,7 @@ Status flow: `SUBMITTED → IN_REVIEW → ACCEPTED / DECLINED → COMPLETED`
 PrintBridge-Backend/    Quarkus API
 PrintBridge-Frontend/   Angular app
 local/                  docker-compose for local dependencies (Postgres, Spoolman)
+docs/                   architecture, auth, API and per-feature documentation
 .env.example            configuration template
 ```
 
@@ -38,8 +39,11 @@ local/                  docker-compose for local dependencies (Postgres, Spoolma
    ```sh
    cd local && cp .env.example .env && docker compose up -d
    ```
-3. Generate the JWT keys (also described in `local/README.md`).
-4. Run the backend (`./gradlew quarkusDev` in `PrintBridge-Backend`) and the frontend (`npm start` in `PrintBridge-Frontend`).
+3. Run the backend: `./gradlew quarkusDev` in `PrintBridge-Backend` (JDK 21+). It connects to the local Postgres with the `DB_*` defaults and runs the Flyway migrations.
+4. Run the frontend: `npm start` in `PrintBridge-Frontend`, then open http://localhost:4200. The dev server proxies `/api` to the backend on :8080.
+5. The first visit asks you to create the admin account.
+
+JWT keys are only needed in production (see `local/README.md`); dev and tests generate throwaway keys. Documentation lives in [`docs/`](docs/README.md).
 
 All external connections (database, Spoolman, file storage) are configured through environment variables.
 

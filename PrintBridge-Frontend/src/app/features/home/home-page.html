@@ -1,0 +1,13 @@
+<div class="page">
+  <h1 class="h3" data-cy="home-greeting">Hi {{ auth.user()?.username }}</h1>
+  <div class="card card-body mt-3">
+    <p class="mb-0 text-body-secondary">Print requests will show up here soon.</p>
+    @if (auth.isAdmin()) {
+      <p class="mb-0 mt-2">
+        Meanwhile you can
+        <a routerLink="/admin/users" data-cy="home-users-link">create accounts</a> for the people
+        who will send you print requests.
+      </p>
+    }
+  </div>
+</div>

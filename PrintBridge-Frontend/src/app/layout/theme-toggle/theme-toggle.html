@@ -1,0 +1,10 @@
+<button
+  type="button"
+  class="btn btn-secondary rounded-circle shadow"
+  (click)="theme.toggle()"
+  [attr.aria-label]="theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+  [title]="theme.theme() === 'dark' ? 'Switch to light mode' : 'Switch to dark mode'"
+  data-cy="theme-toggle"
+>
+  {{ theme.theme() === 'dark' ? '☀' : '☾' }}
+</button>

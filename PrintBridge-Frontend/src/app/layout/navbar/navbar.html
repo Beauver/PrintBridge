@@ -1,0 +1,63 @@
+<nav class="navbar navbar-expand-md border-bottom bg-body-tertiary">
+  <div class="container-lg">
+    <a class="navbar-brand fw-semibold" routerLink="/" (click)="closeMenu()" data-cy="nav-brand"
+      >PrintBridge</a
+    >
+
+    <button
+      class="navbar-toggler"
+      type="button"
+      aria-label="Toggle navigation"
+      [attr.aria-expanded]="menuOpen()"
+      (click)="toggleMenu()"
+      data-cy="nav-toggle"
+    >
+      <span class="navbar-toggler-icon"></span>
+    </button>
+
+    <div class="collapse navbar-collapse" [class.show]="menuOpen()">
+      <ul class="navbar-nav me-auto">
+        <li class="nav-item">
+          <a
+            class="nav-link"
+            routerLink="/"
+            routerLinkActive="active"
+            [routerLinkActiveOptions]="{ exact: true }"
+            (click)="closeMenu()"
+            data-cy="nav-home"
+            >Home</a
+          >
+        </li>
+        @if (auth.isAdmin()) {
+          <li class="nav-item">
+            <a
+              class="nav-link"
+              routerLink="/admin/users"
+              routerLinkActive="active"
+              (click)="closeMenu()"
+              data-cy="nav-users"
+              >Users</a
+            >
+          </li>
+        }
+      </ul>
+
+      <div class="d-flex align-items-center gap-2 py-2 py-md-0">
+        <span class="text-body-secondary small" data-cy="nav-username">
+          {{ auth.user()?.username }}
+          @if (auth.isAdmin()) {
+            <span class="badge text-bg-primary ms-1">admin</span>
+          }
+        </span>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-danger"
+          (click)="logout()"
+          data-cy="logout"
+        >
+          Log out
+        </button>
+      </div>
+    </div>
+  </div>
+</nav>
