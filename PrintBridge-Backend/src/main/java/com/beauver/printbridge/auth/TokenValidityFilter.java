@@ -28,7 +28,15 @@ public class TokenValidityFilter {
         if (identity.isAnonymous() || !(identity.getPrincipal() instanceof JsonWebToken jwt)) {
             return null;
         }
-        if (validity.isValid(Long.parseLong(jwt.getSubject()), jwt.getIssuedAtTime())) {
+        final long subjectId;
+        try {
+            subjectId = Long.parseLong(jwt.getSubject());
+        } catch (NumberFormatException e) {
+            return Response.status(Response.Status.UNAUTHORIZED)
+                    .entity(new ApiError(RefreshTokenService.INVALID))
+                    .build();
+        }
+        if (validity.isValid(subjectId, jwt.getIssuedAtTime())) {
             return null;
         }
         return Response.status(Response.Status.UNAUTHORIZED)
