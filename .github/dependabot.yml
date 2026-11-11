@@ -1,0 +1,18 @@
+version: 2
+updates:
+  - package-ecosystem: gradle
+    directory: /PrintBridge-Backend
+    schedule: { interval: weekly }
+    target-branch: dev
+  - package-ecosystem: npm
+    directory: /PrintBridge-Frontend
+    schedule: { interval: weekly }
+    target-branch: dev
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }
+    target-branch: dev
+  - package-ecosystem: docker
+    directory: /PrintBridge-Frontend
+    schedule: { interval: weekly }
+    target-branch: dev

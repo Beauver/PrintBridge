@@ -1,0 +1,75 @@
+name: Release
+
+on:
+  release:
+    types: [published]
+
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  publish:
+    name: Publish ${{ matrix.image }}
+    needs: ci
+    runs-on: ubuntu-latest
+    strategy:
+      matrix:
+        include:
+          - image: printbridge-backend
+            context: PrintBridge-Backend
+            file: PrintBridge-Backend/src/main/docker/Dockerfile.jvm
+          - image: printbridge-frontend
+            context: PrintBridge-Frontend
+            file: PrintBridge-Frontend/Dockerfile
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Compute tags
+        id: tags
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          TAG: ${{ github.event.release.tag_name }}
+          PRERELEASE: ${{ github.event.release.prerelease }}
+          IMAGE: beauver/${{ matrix.image }}
+        run: |
+          version="${TAG#v}"
+          tags="$IMAGE:$version"
+          # "latest" only if this release is GitHub's current latest (never for prereleases)
+          latest_tag=$(gh api "repos/$REPO/releases/latest" --jq .tag_name 2>/dev/null || true)
+          if [ "$PRERELEASE" != "true" ] && [ "$latest_tag" = "$TAG" ]; then
+            tags="$tags,$IMAGE:latest"
+          fi
+          echo "tags=$tags" >> "$GITHUB_OUTPUT"
+          echo "Tags: $tags"
+
+      - uses: actions/setup-java@v4
+        if: matrix.image == 'printbridge-backend'
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v4
+        if: matrix.image == 'printbridge-backend'
+      - name: Build backend app
+        if: matrix.image == 'printbridge-backend'
+        working-directory: PrintBridge-Backend
+        run: chmod +x gradlew && ./gradlew quarkusBuild -x test --no-daemon
+
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: ${{ matrix.context }}
+          file: ${{ matrix.file }}
+          platforms: linux/amd64,linux/arm64
+          push: true
+          tags: ${{ steps.tags.outputs.tags }}
+          cache-from: type=gha,scope=${{ matrix.image }}
+          cache-to: type=gha,mode=max,scope=${{ matrix.image }}

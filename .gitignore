@@ -19,3 +19,28 @@ gradle-app.setting
 .project
 # JDT-specific (Eclipse Java Development Tools)
 .classpath
+
+# Environment / secrets
+.env
+.env.*
+!.env.example
+
+# IDEs
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.iml
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Local runtime data (uploads, db dumps, JWT keys)
+local/data/
+local/keys/
+*.pem
+!**/*.pub.pem.example
+uploads/
+
+# Logs
+*.log
