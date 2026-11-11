@@ -15,7 +15,7 @@ Packages under `com.beauver.printbridge`, one per domain:
 
 | Package | Contents |
 |---|---|
-| `auth` | Setup, login/refresh/logout, JWT and refresh tokens, `CurrentUser`, token validity check |
+| `auth` | Setup, login/refresh/logout, JWT and refresh tokens, `CurrentUser`, stale-token filter |
 | `user` | `User` entity, user management, password hashing |
 | `common.error` | Domain exceptions and their HTTP mapping |
 
@@ -47,4 +47,4 @@ Angular style: standalone components, signals for state, `inject()`, lazy-loaded
 ## Testing
 
 - Backend: Mockito unit tests for services, `@QuarkusTest` + RestAssured for resources against a throwaway Postgres (Dev Services, needs Docker). Coverage: `./gradlew test` → `build/reports/jacoco/test/html`.
-- Frontend: Vitest via `ng test`; coverage with `ng test --no-watch --coverage` → `coverage/`.
+- Frontend: Vitest via `ng test`, testing component and service logic rather than rendered HTML; coverage with `ng test --no-watch --coverage` → `coverage/` (templates excluded).

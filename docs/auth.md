@@ -27,7 +27,7 @@ Flow:
 
 **Revocation:**
 - Logout revokes the current refresh token and clears the cookie.
-- Password reset revokes all refresh tokens and sets `users.credentials_changed_at`; access tokens issued before that are rejected straight away (`ActiveUserAugmentor`).
+- Password reset revokes all refresh tokens and sets `users.credentials_changed_at`; access tokens issued before that are rejected straight away (`TokenValidityFilter`).
 - Deleting a user deletes their refresh tokens (cascade); their access tokens are rejected straight away.
 
 ## Passwords

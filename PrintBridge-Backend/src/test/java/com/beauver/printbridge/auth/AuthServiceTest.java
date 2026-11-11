@@ -82,7 +82,7 @@ class AuthServiceTest {
         when(users.findByLogin("ghost")).thenReturn(Optional.empty());
 
         assertThrows(InvalidCredentialsException.class, () -> service.login("ghost", "pw"));
-        verify(passwordHasher).matchesNothing("pw");
+        verify(passwordHasher).simulateVerification("pw");
     }
 
     @Test

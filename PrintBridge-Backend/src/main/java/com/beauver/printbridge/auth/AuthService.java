@@ -33,10 +33,11 @@ public class AuthService {
     @Transactional
     public AuthSession login(String login, String password) {
         User user = users.findByLogin(login.trim()).orElse(null);
-        boolean valid = user == null
-                ? passwordHasher.matchesNothing(password)
-                : passwordHasher.matches(password, user.passwordHash);
-        if (!valid) {
+        if (user == null) {
+            passwordHasher.simulateVerification(password);
+            throw new InvalidCredentialsException(INVALID_CREDENTIALS);
+        }
+        if (!passwordHasher.matches(password, user.passwordHash)) {
             throw new InvalidCredentialsException(INVALID_CREDENTIALS);
         }
         return startSession(user);

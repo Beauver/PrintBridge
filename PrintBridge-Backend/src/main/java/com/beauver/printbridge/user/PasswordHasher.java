@@ -19,9 +19,12 @@ public class PasswordHasher {
         return BcryptUtil.matches(password, hash);
     }
 
-    /** Burns the same time as a real check; always false. */
-    public boolean matchesNothing(String password) {
+    /**
+     * Used by login when the username/email doesn't exist: does a real bcrypt check against a
+     * dummy hash so the response takes as long as for an existing account. Otherwise the
+     * response time would reveal which usernames exist.
+     */
+    public void simulateVerification(String password) {
         BcryptUtil.matches(password, dummyHash);
-        return false;
     }
 }

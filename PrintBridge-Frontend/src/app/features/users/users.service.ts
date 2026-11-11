@@ -8,7 +8,7 @@ import { NewAccount, User } from '../../core/models';
 export class UsersService {
   private readonly http = inject(HttpClient);
 
-  list(): Observable<User[]> {
+  getAll(): Observable<User[]> {
     return this.http.get<User[]>('/api/users');
   }
 

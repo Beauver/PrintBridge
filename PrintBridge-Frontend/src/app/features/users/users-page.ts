@@ -46,7 +46,7 @@ export class UsersPage implements OnInit {
 
   protected load(): void {
     this.loading.set(true);
-    this.usersService.list().subscribe({
+    this.usersService.getAll().subscribe({
       next: (users) => {
         this.users.set(users);
         this.loading.set(false);

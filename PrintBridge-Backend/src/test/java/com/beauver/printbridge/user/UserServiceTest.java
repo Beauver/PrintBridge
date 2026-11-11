@@ -54,7 +54,7 @@ class UserServiceTest {
     @Test
     void listMapsToDtos() {
         when(users.listAllByUsername()).thenReturn(List.of(user(1, "a"), user(2, "b")));
-        List<UserDto> result = service.list();
+        List<UserDto> result = service.getAll();
         assertEquals(List.of("a", "b"), result.stream().map(UserDto::username).toList());
     }
 

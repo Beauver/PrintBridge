@@ -1,5 +1,6 @@
 <div class="page">
   <h1 class="h3" data-cy="home-greeting">Hi {{ auth.user()?.username }}</h1>
+  <!-- TODO: #4 replace this placeholder with the print requests list. -->
   <div class="card card-body mt-3">
     <p class="mb-0 text-body-secondary">Print requests will show up here soon.</p>
     @if (auth.isAdmin()) {

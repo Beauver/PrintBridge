@@ -105,7 +105,8 @@ class AuthResourceTest {
         User alice = data.user("alice");
         String token = data.accessToken(alice);
         userService.delete(alice.id, admin.id);
-        given().auth().oauth2(token).get("/api/auth/me").then().statusCode(401);
+        given().auth().oauth2(token).get("/api/auth/me").then().statusCode(401)
+                .body("message", is(RefreshTokenService.INVALID));
     }
 
     @Test

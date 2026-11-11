@@ -1,60 +1,52 @@
 import { HttpErrorResponse } from '@angular/common/http';
-import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { TestBed } from '@angular/core/testing';
 import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { ALICE } from '../../core/testing';
-import { byCy, submit, type } from '../../core/testing-dom';
 import { LoginPage } from './login-page';
 
 describe('LoginPage', () => {
-  let fixture: ComponentFixture<LoginPage>;
+  let page: LoginPage;
   const auth = { login: vi.fn() };
   const router = { navigate: vi.fn().mockResolvedValue(true) };
 
-  beforeEach(async () => {
+  beforeEach(() => {
     vi.clearAllMocks();
     TestBed.configureTestingModule({
-      imports: [LoginPage],
       providers: [
         { provide: AuthService, useValue: auth },
         { provide: Router, useValue: router },
       ],
     });
-    fixture = TestBed.createComponent(LoginPage);
-    await fixture.whenStable();
+    page = TestBed.createComponent(LoginPage).componentInstance;
   });
 
-  it('logs in and goes to the start page', async () => {
+  it('logs in and goes to the start page', () => {
     auth.login.mockReturnValue(of(ALICE));
-    type(fixture, 'login-name', 'alice');
-    type(fixture, 'login-password', 'secret');
-    submit(fixture, 'login-form');
-    await fixture.whenStable();
+    page['form'].setValue({ login: 'alice', password: 'secret' });
+    page['submit']();
 
     expect(auth.login).toHaveBeenCalledWith('alice', 'secret');
     expect(router.navigate).toHaveBeenCalledWith(['/']);
   });
 
-  it('requires both fields', async () => {
-    submit(fixture, 'login-form');
-    await fixture.whenStable();
+  it('requires both fields', () => {
+    page['submit']();
     expect(auth.login).not.toHaveBeenCalled();
-    expect(byCy(fixture, 'login-name')!.classList).toContain('is-invalid');
   });
 
-  it('shows invalid credentials and clears the password', async () => {
+  it('shows the error and clears the password on failure', () => {
     auth.login.mockReturnValue(
       throwError(
         () => new HttpErrorResponse({ status: 401, error: { message: 'Invalid credentials' } }),
       ),
     );
-    type(fixture, 'login-name', 'alice');
-    type(fixture, 'login-password', 'wrong');
-    submit(fixture, 'login-form');
-    await fixture.whenStable();
+    page['form'].setValue({ login: 'alice', password: 'wrong' });
+    page['submit']();
 
-    expect(byCy(fixture, 'login-error')!.textContent).toContain('Invalid credentials');
-    expect(byCy<HTMLInputElement>(fixture, 'login-password')!.value).toBe('');
+    expect(page['error']()).toBe('Invalid credentials');
+    expect(page['form'].controls.password.value).toBe('');
+    expect(page['busy']()).toBe(false);
   });
 });

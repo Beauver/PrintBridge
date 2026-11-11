@@ -3,7 +3,10 @@ package com.beauver.printbridge.common.error;
 import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
 
-/** Translates domain exceptions thrown by services into HTTP responses. */
+/**
+ * Translates domain exceptions thrown by services into HTTP responses, so services stay free of
+ * HTTP types and can be called from anywhere (other services, tests).
+ */
 public class ExceptionMappers {
 
     @ServerExceptionMapper

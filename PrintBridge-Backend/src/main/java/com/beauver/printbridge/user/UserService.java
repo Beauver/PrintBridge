@@ -27,7 +27,7 @@ public class UserService {
     @Inject
     RefreshTokenService refreshTokens;
 
-    public List<UserDto> list() {
+    public List<UserDto> getAll() {
         return users.listAllByUsername().stream().map(mapper::toDto).toList();
     }
 

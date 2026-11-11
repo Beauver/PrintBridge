@@ -19,7 +19,7 @@ describe('UsersService', () => {
   afterEach(() => http.verify());
 
   it('calls the users API', () => {
-    service.list().subscribe();
+    service.getAll().subscribe();
     http.expectOne({ method: 'GET', url: '/api/users' }).flush([ALICE]);
 
     const account = { username: 'bob', email: 'bob@example.com', password: 'password1' };

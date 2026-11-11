@@ -28,8 +28,8 @@ public class UserResource {
     CurrentUser currentUser;
 
     @GET
-    public List<UserDto> list() {
-        return userService.list();
+    public List<UserDto> getAll() {
+        return userService.getAll();
     }
 
     @POST
