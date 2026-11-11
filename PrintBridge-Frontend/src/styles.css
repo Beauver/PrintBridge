@@ -1,1 +1,66 @@
-/* You can add global styles to this file, and also import other style files */
+/* Bootstrap is loaded from angular.json; this only tunes it. Dark palette borrowed from tcg-collector. */
+[data-bs-theme='dark'] {
+  --bs-body-bg: #14161a;
+  --bs-body-color: #e8eaf0;
+  --bs-secondary-bg: #1c1f26;
+  --bs-tertiary-bg: #242832;
+  --bs-border-color: #333947;
+  --bs-secondary-color: #a2aab9;
+  --bs-emphasis-color: #ffffff;
+  --bs-primary: #5b9dff;
+  --bs-primary-rgb: 91, 157, 255;
+  --bs-link-color: #5b9dff;
+  --bs-link-color-rgb: 91, 157, 255;
+  --bs-link-hover-color: #8bb9ff;
+  --bs-link-hover-color-rgb: 139, 185, 255;
+  --bs-danger: #ff6b6b;
+  --bs-danger-rgb: 255, 107, 107;
+  --bs-success: #4cc38a;
+  --bs-success-rgb: 76, 195, 138;
+}
+
+[data-bs-theme='dark'] .btn-primary {
+  --bs-btn-color: #08111f;
+  --bs-btn-bg: #5b9dff;
+  --bs-btn-border-color: #5b9dff;
+  --bs-btn-hover-color: #08111f;
+  --bs-btn-hover-bg: #7ab0ff;
+  --bs-btn-hover-border-color: #7ab0ff;
+  --bs-btn-active-color: #08111f;
+  --bs-btn-active-bg: #8bb9ff;
+  --bs-btn-active-border-color: #8bb9ff;
+  --bs-btn-disabled-color: #08111f;
+  --bs-btn-disabled-bg: #5b9dff;
+  --bs-btn-disabled-border-color: #5b9dff;
+}
+
+[data-bs-theme='dark'] .card,
+[data-bs-theme='dark'] .list-group {
+  --bs-card-bg: var(--bs-secondary-bg);
+  --bs-list-group-bg: var(--bs-secondary-bg);
+}
+
+[data-bs-theme='dark'] .table {
+  --bs-table-bg: var(--bs-secondary-bg);
+}
+
+body {
+  min-height: 100vh;
+}
+
+.page {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 1.5rem 1rem;
+}
+
+.page-narrow {
+  max-width: 26rem;
+  margin: 0 auto;
+  padding: 3rem 1rem;
+}
+
+/* Leave room for the floating theme toggle so it never covers the last buttons on a page. */
+main {
+  padding-bottom: 4rem;
+}

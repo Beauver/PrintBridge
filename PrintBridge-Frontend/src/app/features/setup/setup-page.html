@@ -1,0 +1,79 @@
+<div class="page-narrow">
+  <h1 class="h3 mb-1">Welcome to PrintBridge</h1>
+  <p class="text-body-secondary mb-4">
+    Create the admin account to get started. This can only be done once.
+  </p>
+
+  <form
+    class="card card-body"
+    [formGroup]="form"
+    (ngSubmit)="submit()"
+    novalidate
+    data-cy="setup-form"
+  >
+    @if (error()) {
+      <div class="alert alert-danger py-2" role="alert" data-cy="setup-error">{{ error() }}</div>
+    }
+
+    <div class="mb-3">
+      <label class="form-label" for="setup-username">Username</label>
+      <input
+        id="setup-username"
+        class="form-control"
+        formControlName="username"
+        autocomplete="username"
+        [class.is-invalid]="fieldError(form.controls.username, 'Username')"
+        data-cy="setup-username"
+      />
+      <div class="invalid-feedback">{{ fieldError(form.controls.username, 'Username') }}</div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="setup-email">Email</label>
+      <input
+        id="setup-email"
+        type="email"
+        class="form-control"
+        formControlName="email"
+        autocomplete="email"
+        [class.is-invalid]="fieldError(form.controls.email, 'Email')"
+        data-cy="setup-email"
+      />
+      <div class="invalid-feedback">{{ fieldError(form.controls.email, 'Email') }}</div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="setup-password">Password</label>
+      <input
+        id="setup-password"
+        type="password"
+        class="form-control"
+        formControlName="password"
+        autocomplete="new-password"
+        [class.is-invalid]="fieldError(form.controls.password, 'Password')"
+        data-cy="setup-password"
+      />
+      <div class="invalid-feedback">{{ fieldError(form.controls.password, 'Password') }}</div>
+    </div>
+
+    <div class="mb-4">
+      <label class="form-label" for="setup-confirm">Confirm password</label>
+      <input
+        id="setup-confirm"
+        type="password"
+        class="form-control"
+        formControlName="confirmPassword"
+        autocomplete="new-password"
+        [class.is-invalid]="
+          form.controls.confirmPassword.touched && form.hasError('passwordMismatch')
+        "
+        data-cy="setup-confirm-password"
+      />
+      <div class="invalid-feedback" data-cy="setup-mismatch">Passwords do not match</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100" [disabled]="busy()" data-cy="setup-submit">
+      {{ busy() ? 'Creating…' : 'Create admin account' }}
+    </button>
+  </form>
+</div>

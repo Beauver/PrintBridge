@@ -1,12 +1,14 @@
-import { Component, signal } from '@angular/core';
+import { Component, inject } from '@angular/core';
 import { RouterOutlet } from '@angular/router';
+import { AuthService } from './core/auth/auth.service';
+import { Navbar } from './layout/navbar/navbar';
+import { ThemeToggle } from './layout/theme-toggle/theme-toggle';
 
 @Component({
-  imports: [RouterOutlet],
   selector: 'app-root',
-  styleUrl: './app.css',
+  imports: [RouterOutlet, Navbar, ThemeToggle],
   templateUrl: './app.html',
 })
 export class App {
-  protected readonly title = signal('PrintBridge-Frontend');
+  protected readonly auth = inject(AuthService);
 }
