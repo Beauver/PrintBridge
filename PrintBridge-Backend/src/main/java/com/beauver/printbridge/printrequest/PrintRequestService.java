@@ -13,10 +13,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
+import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 
 /**
  * Print requests and their model files. Users only ever see their own requests; the admin sees
@@ -57,10 +60,13 @@ public class PrintRequestService {
 
     /** The caller's own requests, newest first. */
     public List<PrintRequestSummaryDto> listOwn(long ownerId) {
-        return requests.listNewestFirst(ownerId).stream().map(mapper::toSummary).toList();
+        return requests.listOwnNewestFirst(ownerId).stream().map(mapper::toSummary).toList();
     }
 
-    // TODO: #5 listAll(filters) for the admin overview, via requests.listNewestFirst(null).
+    /** Admin overview: everyone's requests in the given statuses, optionally searched, newest first. */
+    public List<PrintRequestSummaryDto> listAll(Set<RequestStatus> statuses, String search) {
+        return requests.searchNewestFirst(statuses, search).stream().map(mapper::toSummary).toList();
+    }
 
     public PrintRequestDto get(long id, Caller caller) {
         return mapper.toDto(findVisible(id, caller));
@@ -105,6 +111,64 @@ public class PrintRequestService {
         return mapper.toDto(request);
     }
 
+    /**
+     * Moves a request along the status flow (admin only). Final requests can't change, a move
+     * outside {@link RequestStatus#nextStatuses()} is refused, and completing needs a price.
+     */
+    @Transactional
+    public PrintRequestDto changeStatus(long id, RequestStatus target, String declineReason) {
+        PrintRequest request = findForReview(id);
+        if (!request.status.canMoveTo(target)) {
+            throw new ConflictException("Cannot change status from " + request.status + " to " + target);
+        }
+        if (target == RequestStatus.COMPLETED && request.finalPrice == null) {
+            throw new ConflictException("Set a final price before completing the request");
+        }
+        request.status = target;
+        if (target == RequestStatus.DECLINED) {
+            request.declineReason = blankToNull(declineReason);
+        }
+        requests.flush();
+        return mapper.toDto(request);
+    }
+
+    /**
+     * Sets or clears ({@code null}) the final price of a non-final request (admin only). A paid
+     * request keeps its price until it is marked unpaid, so the paid amount stays correct.
+     */
+    @Transactional
+    public PrintRequestDto changePrice(long id, BigDecimal finalPrice) {
+        PrintRequest request = findForReview(id);
+        if (request.paidAt != null) {
+            throw new ConflictException("Mark the request as unpaid before changing the price");
+        }
+        request.finalPrice = finalPrice;
+        requests.flush();
+        return mapper.toDto(request);
+    }
+
+    /**
+     * Marks an ACCEPTED or COMPLETED request with a price as paid, or undoes that (admin only).
+     * Marking an already paid request again keeps the original moment.
+     */
+    @Transactional
+    public PrintRequestDto changePaid(long id, boolean paid) {
+        PrintRequest request = requests.findWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        if (!request.status.allowsPayment()) {
+            throw new ConflictException("Only accepted or completed requests can be marked as paid");
+        }
+        if (!paid) {
+            request.paidAt = null;
+        } else if (request.finalPrice == null) {
+            throw new ConflictException("Set a final price before marking the request as paid");
+        } else if (request.paidAt == null) {
+            request.paidAt = Instant.now();
+        }
+        requests.flush();
+        return mapper.toDto(request);
+    }
+
     /** The file of a request, for download by the owner or the admin. */
     public StoredFile file(long requestId, long fileId, Caller caller) {
         RequestFile file = findVisible(requestId, caller).files.stream()
@@ -144,6 +208,16 @@ public class PrintRequestService {
     private void deleteFilesAfterCommit(long requestId) {
         String directory = directoryOf(requestId);
         afterTransaction.onCommit(() -> storage.deleteDirectory(directory));
+    }
+
+    /** A request the admin may still change: it must exist and not be final. */
+    private PrintRequest findForReview(long id) {
+        PrintRequest request = requests.findWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        if (request.status.isFinal()) {
+            throw new ConflictException("This request is " + request.status + " and can no longer be changed");
+        }
+        return request;
     }
 
     private PrintRequest findVisible(long id, Caller caller) {

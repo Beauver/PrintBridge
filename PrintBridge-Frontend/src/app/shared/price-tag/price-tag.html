@@ -1,0 +1,10 @@
+@if (formatted(); as price) {
+  @if (paid()) {
+    <del class="text-body-secondary" data-cy="price-amount">{{ price }}</del>
+    <span class="badge text-bg-success ms-1" data-cy="price-paid">Paid</span>
+  } @else {
+    <span data-cy="price-amount">{{ price }}</span>
+  }
+} @else {
+  <span class="text-body-secondary" data-cy="price-pending">Price pending</span>
+}

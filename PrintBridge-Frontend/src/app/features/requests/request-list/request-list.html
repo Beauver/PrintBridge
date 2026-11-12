@@ -25,11 +25,7 @@
           </span>
         </td>
         <td data-cy="request-price">
-          @if (request.finalPrice !== null) {
-            {{ request.finalPrice | currency: 'EUR' }}
-          } @else {
-            <span class="text-body-secondary">Price pending</span>
-          }
+          <app-price-tag [price]="request.finalPrice" [paidAt]="request.paidAt" />
         </td>
         <td>{{ request.createdAt | date: 'mediumDate' }}</td>
       </tr>
@@ -52,11 +48,7 @@
       </div>
       <div class="d-flex justify-content-between small text-body-secondary mt-1">
         <span>
-          @if (request.finalPrice !== null) {
-            {{ request.finalPrice | currency: 'EUR' }}
-          } @else {
-            Price pending
-          }
+          <app-price-tag [price]="request.finalPrice" [paidAt]="request.paidAt" />
         </span>
         <span>
           @if (showOwner()) {

@@ -58,17 +58,26 @@ public class TestData {
 
     /** Creates a request with a small binary STL through the service, then forces its status. */
     public PrintRequestDto printRequest(User owner, RequestStatus status) {
+        return printRequest(owner, "Benchy", status);
+    }
+
+    public PrintRequestDto printRequest(User owner, String name, RequestStatus status) {
         try {
             Path upload = Files.createTempFile("upload", ".stl");
             Files.write(upload, ModelFiles.binaryStl(1));
             PrintRequestDto created = printRequestService.create(owner.id,
-                    new NewPrintRequest("Benchy", null, new UploadedModel("benchy.stl", upload, Files.size(upload))));
+                    new NewPrintRequest(name, null, new UploadedModel("benchy.stl", upload, Files.size(upload))));
             Files.delete(upload);
             setStatus(created.id(), status);
             return created;
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    @Transactional
+    public void setPrice(long requestId, java.math.BigDecimal price) {
+        em.find(PrintRequest.class, requestId).finalPrice = price;
     }
 
     @Transactional

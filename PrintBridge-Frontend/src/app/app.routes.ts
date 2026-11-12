@@ -45,6 +45,15 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'admin/requests',
+        canActivate: [adminGuard],
+        title: 'All requests · PrintBridge',
+        loadComponent: () =>
+          import('./features/requests/all-requests/all-requests-page').then(
+            (m) => m.AllRequestsPage,
+          ),
+      },
+      {
         path: 'admin/users',
         canActivate: [adminGuard],
         title: 'Users · PrintBridge',

@@ -242,7 +242,7 @@ class PrintRequestServiceTest {
     void listOwnMapsSummaries() {
         PrintRequest r = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
         r.finalPrice = new BigDecimal("12.50");
-        when(requests.listNewestFirst(2L)).thenReturn(List.of(r));
+        when(requests.listOwnNewestFirst(2L)).thenReturn(List.of(r));
 
         PrintRequestSummaryDto summary = service.listOwn(2).getFirst();
 
@@ -269,6 +269,170 @@ class PrintRequestServiceTest {
     void unknownRequestIsNotFound() {
         when(requests.findWithDetails(4)).thenReturn(Optional.empty());
         assertThrows(ResourceNotFoundException.class, () -> service.get(4, ADMIN));
+    }
+
+    @Test
+    void listAllPassesFilterAndSearch() {
+        when(requests.searchNewestFirst(RequestStatus.OPEN, "ben"))
+                .thenReturn(List.of(request(4, user(2, "bob"), RequestStatus.SUBMITTED)));
+        assertEquals("bob", service.listAll(RequestStatus.OPEN, "ben").getFirst().ownerUsername());
+    }
+
+    @Test
+    void detailListsNextStatuses() {
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(request(4, user(2, "bob"), RequestStatus.IN_REVIEW)));
+        assertEquals(List.of(RequestStatus.ACCEPTED, RequestStatus.DECLINED), service.get(4, ADMIN).nextStatuses());
+    }
+
+    // --- review: status ---
+
+    private PrintRequest reviewed(RequestStatus status) {
+        PrintRequest r = request(4, user(2, "bob"), status);
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+        return r;
+    }
+
+    @Test
+    void changeStatusMovesAlongTheFlow() {
+        PrintRequest r = reviewed(RequestStatus.SUBMITTED);
+        PrintRequestDto dto = service.changeStatus(4, RequestStatus.IN_REVIEW, "ignored");
+        assertEquals(RequestStatus.IN_REVIEW, r.status);
+        assertNull(r.declineReason, "reason is only kept when declining");
+        assertEquals(RequestStatus.IN_REVIEW, dto.status());
+        verify(requests).flush();
+    }
+
+    @Test
+    void declineStoresTrimmedReason() {
+        PrintRequest r = reviewed(RequestStatus.IN_REVIEW);
+        PrintRequestDto dto = service.changeStatus(4, RequestStatus.DECLINED, "  Too big for my printer ");
+        assertEquals("Too big for my printer", r.declineReason);
+        assertEquals("Too big for my printer", dto.declineReason());
+        assertTrue(dto.nextStatuses().isEmpty());
+    }
+
+    @Test
+    void declineWithoutReasonKeepsItEmpty() {
+        PrintRequest r = reviewed(RequestStatus.SUBMITTED);
+        service.changeStatus(4, RequestStatus.DECLINED, " ");
+        assertNull(r.declineReason);
+    }
+
+    @Test
+    void invalidTransitionIsConflict() {
+        PrintRequest r = reviewed(RequestStatus.SUBMITTED);
+        var e = assertThrows(ConflictException.class, () -> service.changeStatus(4, RequestStatus.COMPLETED, null));
+        assertEquals("Cannot change status from SUBMITTED to COMPLETED", e.getMessage());
+        assertEquals(RequestStatus.SUBMITTED, r.status);
+    }
+
+    @Test
+    void completingNeedsAPrice() {
+        PrintRequest r = reviewed(RequestStatus.ACCEPTED);
+        var e = assertThrows(ConflictException.class, () -> service.changeStatus(4, RequestStatus.COMPLETED, null));
+        assertEquals("Set a final price before completing the request", e.getMessage());
+
+        r.finalPrice = BigDecimal.TEN;
+        service.changeStatus(4, RequestStatus.COMPLETED, null);
+        assertEquals(RequestStatus.COMPLETED, r.status);
+    }
+
+    @Test
+    void acceptingDoesNotNeedAPrice() {
+        PrintRequest r = reviewed(RequestStatus.SUBMITTED);
+        service.changeStatus(4, RequestStatus.ACCEPTED, null);
+        assertEquals(RequestStatus.ACCEPTED, r.status);
+    }
+
+    @Test
+    void finalRequestCannotChangeStatus() {
+        reviewed(RequestStatus.DECLINED);
+        var e = assertThrows(ConflictException.class, () -> service.changeStatus(4, RequestStatus.IN_REVIEW, null));
+        assertEquals("This request is DECLINED and can no longer be changed", e.getMessage());
+    }
+
+    @Test
+    void reviewingUnknownRequestIsNotFound() {
+        when(requests.findWithDetails(4)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> service.changeStatus(4, RequestStatus.IN_REVIEW, null));
+        assertThrows(ResourceNotFoundException.class, () -> service.changePrice(4, BigDecimal.ONE));
+    }
+
+    // --- review: price ---
+
+    @Test
+    void changePriceSetsAndClears() {
+        PrintRequest r = reviewed(RequestStatus.ACCEPTED);
+        assertEquals(new BigDecimal("12.50"), service.changePrice(4, new BigDecimal("12.50")).finalPrice());
+        assertEquals(new BigDecimal("12.50"), r.finalPrice);
+
+        assertNull(service.changePrice(4, null).finalPrice());
+        assertNull(r.finalPrice);
+    }
+
+    @Test
+    void paidRequestKeepsItsPrice() {
+        PrintRequest r = reviewed(RequestStatus.ACCEPTED);
+        r.finalPrice = BigDecimal.ONE;
+        r.paidAt = Instant.EPOCH;
+        var e = assertThrows(ConflictException.class, () -> service.changePrice(4, BigDecimal.TEN));
+        assertEquals("Mark the request as unpaid before changing the price", e.getMessage());
+        assertEquals(BigDecimal.ONE, r.finalPrice);
+    }
+
+    // --- review: paid ---
+
+    @Test
+    void marksAcceptedAndCompletedRequestsPaid() {
+        PrintRequest r = reviewed(RequestStatus.ACCEPTED);
+        r.finalPrice = BigDecimal.TEN;
+        assertNotNull(service.changePaid(4, true).paidAt());
+        assertNotNull(r.paidAt);
+
+        r.status = RequestStatus.COMPLETED;
+        assertNull(service.changePaid(4, false).paidAt());
+        assertNull(r.paidAt);
+    }
+
+    @Test
+    void markingPaidAgainKeepsTheOriginalMoment() {
+        PrintRequest r = reviewed(RequestStatus.COMPLETED);
+        r.finalPrice = BigDecimal.TEN;
+        r.paidAt = Instant.EPOCH;
+        service.changePaid(4, true);
+        assertEquals(Instant.EPOCH, r.paidAt);
+    }
+
+    @Test
+    void paidNeedsAPrice() {
+        PrintRequest r = reviewed(RequestStatus.ACCEPTED);
+        var e = assertThrows(ConflictException.class, () -> service.changePaid(4, true));
+        assertEquals("Set a final price before marking the request as paid", e.getMessage());
+        assertNull(r.paidAt);
+    }
+
+    @Test
+    void paidOnlyForAcceptedOrCompleted() {
+        PrintRequest r = reviewed(RequestStatus.IN_REVIEW);
+        r.finalPrice = BigDecimal.TEN;
+        var e = assertThrows(ConflictException.class, () -> service.changePaid(4, true));
+        assertEquals("Only accepted or completed requests can be marked as paid", e.getMessage());
+        r.status = RequestStatus.DECLINED;
+        assertThrows(ConflictException.class, () -> service.changePaid(4, false));
+    }
+
+    @Test
+    void paidOfUnknownRequestIsNotFound() {
+        when(requests.findWithDetails(4)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> service.changePaid(4, true));
+    }
+
+    @Test
+    void finalRequestCannotChangePrice() {
+        PrintRequest r = reviewed(RequestStatus.COMPLETED);
+        r.finalPrice = BigDecimal.ONE;
+        assertThrows(ConflictException.class, () -> service.changePrice(4, BigDecimal.TEN));
+        assertEquals(BigDecimal.ONE, r.finalPrice);
     }
 
     // --- file download ---

@@ -1,4 +1,4 @@
-import { CurrencyPipe, DatePipe } from '@angular/common';
+import { DatePipe } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { Component, computed, inject, input, numberAttribute, OnInit, signal } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
@@ -6,16 +6,22 @@ import { AuthService } from '../../../core/auth/auth.service';
 import { FileSaverService } from '../../../core/files/file-saver.service';
 import { errorMessage } from '../../../core/http/api-error';
 import { PrintRequest, RequestFile } from '../../../core/models/print-request.model';
-import { formatBytes, statusBadgeClass, statusLabel } from '../../../shared/print-request-display';
+import { PriceTag } from '../../../shared/price-tag/price-tag';
+import {
+  allowsPayment,
+  formatBytes,
+  statusBadgeClass,
+  statusLabel,
+} from '../../../shared/print-request-display';
 import { PrintRequestsService } from '../print-requests.service';
+import { ReviewPanel } from './review-panel/review-panel';
 
 const FILE_TYPE_LABELS: Record<RequestFile['type'], string> = { STL: 'STL', THREE_MF: '3MF' };
 
-/** One print request: details, file download and delete. */
-// TODO: #5 admin review actions (status, price, decline reason).
+/** One print request: details, file download, delete and (admin) review. */
 @Component({
   selector: 'app-request-detail-page',
-  imports: [RouterLink, DatePipe, CurrencyPipe],
+  imports: [RouterLink, DatePipe, PriceTag, ReviewPanel],
   templateUrl: './request-detail-page.html',
   styleUrl: './request-detail-page.css',
 })
@@ -42,6 +48,26 @@ export class RequestDetailPage implements OnInit {
     return !!request && (this.auth.isAdmin() || request.status === 'SUBMITTED');
   });
 
+  /**
+   * The admin reviews non-final requests, and can still mark completed ones (un)paid. The
+   * backend refuses anything else.
+   */
+  protected readonly canReview = computed(() => {
+    const request = this.request();
+    if (!request || !this.auth.isAdmin()) {
+      return false;
+    }
+    return request.nextStatuses.length > 0 || allowsPayment(request.status);
+  });
+
+  /** The admin comes from the overview, users from their own list. */
+  protected readonly back = computed(() => {
+    if (this.auth.isAdmin()) {
+      return { link: '/admin/requests', label: 'All requests' };
+    }
+    return { link: '/', label: 'My requests' };
+  });
+
   protected readonly statusLabel = statusLabel;
   protected readonly statusBadgeClass = statusBadgeClass;
   protected readonly formatBytes = formatBytes;
@@ -61,6 +87,10 @@ export class RequestDetailPage implements OnInit {
         this.loading.set(false);
       },
     });
+  }
+
+  protected onReviewed(updated: PrintRequest): void {
+    this.request.set(updated);
   }
 
   protected fileTypeLabel(file: RequestFile): string {

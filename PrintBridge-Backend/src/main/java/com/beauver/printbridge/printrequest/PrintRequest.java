@@ -38,6 +38,10 @@ public class PrintRequest extends PanacheEntityBase {
     @Column(name = "decline_reason", length = 2000)
     public String declineReason;
 
+    /** When the admin marked it paid; {@code null} while not paid. */
+    @Column(name = "paid_at")
+    public Instant paidAt;
+
     @Column(name = "created_at", nullable = false)
     public Instant createdAt;
 

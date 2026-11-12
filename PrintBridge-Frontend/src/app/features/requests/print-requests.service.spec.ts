@@ -40,6 +40,51 @@ describe('PrintRequestsService', () => {
     http.expectOne({ method: 'DELETE', url: '/api/requests/4' }).flush(null);
   });
 
+  it('lists all requests with status filter and trimmed search', () => {
+    service.listAll('OPEN', '  ben ').subscribe();
+    const search = http.expectOne((req) => {
+      return req.url === '/api/requests/all';
+    });
+    expect(search.request.params.get('status')).toBe('OPEN');
+    expect(search.request.params.get('q')).toBe('ben');
+    search.flush([REQUEST_SUMMARY]);
+
+    service.listAll('ALL', ' ').subscribe();
+    const all = http.expectOne((req) => {
+      return req.url === '/api/requests/all';
+    });
+    expect(all.request.params.get('status')).toBe('ALL');
+    expect(all.request.params.has('q')).toBe(false);
+    all.flush([]);
+  });
+
+  it('changes status and price', () => {
+    service.changeStatus(4, 'DECLINED', 'Too big').subscribe();
+    const status = http.expectOne({ method: 'PUT', url: '/api/requests/4/status' });
+    expect(status.request.body).toEqual({ status: 'DECLINED', declineReason: 'Too big' });
+    status.flush(REQUEST);
+
+    service.changeStatus(4, 'IN_REVIEW').subscribe();
+    const review = http.expectOne({ method: 'PUT', url: '/api/requests/4/status' });
+    expect(review.request.body).toEqual({ status: 'IN_REVIEW', declineReason: null });
+    review.flush(REQUEST);
+
+    service.changePrice(4, 12.5).subscribe();
+    const price = http.expectOne({ method: 'PUT', url: '/api/requests/4/price' });
+    expect(price.request.body).toEqual({ finalPrice: 12.5 });
+    price.flush(REQUEST);
+
+    service.changePrice(4, null).subscribe();
+    const clear = http.expectOne({ method: 'PUT', url: '/api/requests/4/price' });
+    expect(clear.request.body).toEqual({ finalPrice: null });
+    clear.flush(REQUEST);
+
+    service.changePaid(4, true).subscribe();
+    const paid = http.expectOne({ method: 'PUT', url: '/api/requests/4/paid' });
+    expect(paid.request.body).toEqual({ paid: true });
+    paid.flush(REQUEST);
+  });
+
   it('downloads a file as a blob', () => {
     service.downloadFile(4, 7).subscribe((blob) => {
       expect(blob).toBeInstanceOf(Blob);

@@ -1,5 +1,5 @@
 <div class="page">
-  <a class="small" routerLink="/" data-cy="request-back">&larr; My requests</a>
+  <a class="small" [routerLink]="back().link" data-cy="request-back">&larr; {{ back().label }}</a>
 
   @if (loading()) {
     <div class="text-body-secondary mt-3" data-cy="request-loading">
@@ -33,6 +33,10 @@
       >
     </div>
 
+    @if (canReview()) {
+      <app-review-panel [request]="request" (changed)="onReviewed($event)" />
+    }
+
     <div class="card card-body mb-3">
       <dl class="row mb-0">
         @if (auth.isAdmin()) {
@@ -41,11 +45,7 @@
         }
         <dt class="col-sm-3">Price</dt>
         <dd class="col-sm-9" data-cy="request-price">
-          @if (request.finalPrice !== null) {
-            {{ request.finalPrice | currency: 'EUR' }}
-          } @else {
-            <span class="text-body-secondary">Price pending</span>
-          }
+          <app-price-tag [price]="request.finalPrice" [paidAt]="request.paidAt" />
         </dd>
         @if (request.declineReason) {
           <dt class="col-sm-3">Decline reason</dt>
