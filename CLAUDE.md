@@ -21,6 +21,7 @@ Stack: Quarkus + Panache + PostgreSQL + Flyway (`PrintBridge-Backend`), Angular 
   - Services: business logic, ownership checks (users only see their own requests), querying and filtering.
 - Never return entities from controllers: use DTOs (records) with mappers.
 - Mappers/utils are fine when something is reused.
+- Records (DTOs etc.): one component per line once a record has more than 3 components or the header doesn't fit in 120 characters.
 - Spoolman is read-only and backend-only (REST client + cache). Pricing goes through `PricingStrategy`.
 - Schema changes only via Flyway migrations (`db/migration`); Hibernate never alters the schema.
 - Config only through env vars / `application.properties`; no hardcoded secrets or URLs.
