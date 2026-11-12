@@ -71,9 +71,18 @@ final class Transform {
 
     /** How the transform scales volumes (negative when it mirrors). */
     double determinant() {
-        return m[0] * (m[4] * m[8] - m[5] * m[7])
-                - m[1] * (m[3] * m[8] - m[5] * m[6])
-                + m[2] * (m[3] * m[7] - m[4] * m[6]);
+        // The 3×3 part without the translation: where the x, y and z axes end up.
+        double xAxisX = m[0];
+        double xAxisY = m[1];
+        double xAxisZ = m[2];
+        double yAxisX = m[3];
+        double yAxisY = m[4];
+        double yAxisZ = m[5];
+        double zAxisX = m[6];
+        double zAxisY = m[7];
+        double zAxisZ = m[8];
+        // The volume of the box the transformed axes span: 1 for a pure rotation, 8 for scale 2.
+        return Vectors.tripleProduct(xAxisX, xAxisY, xAxisZ, yAxisX, yAxisY, yAxisZ, zAxisX, zAxisY, zAxisZ);
     }
 
     private static String abbreviate(String value) {

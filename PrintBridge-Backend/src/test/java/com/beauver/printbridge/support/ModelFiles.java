@@ -24,7 +24,11 @@ public final class ModelFiles {
         return buffer.array();
     }
 
-    /** Binary STL of a closed cube from (0,0,0) to (size,size,size). */
+    /**
+     * Binary STL of a closed cube from (0,0,0) to (size,size,size). The model analysis tests need
+     * a real shape with a known size and volume; {@link #binaryStl(int)} only passes the upload
+     * check (its triangles are all zeros).
+     */
     public static byte[] cubeStl(float size) {
         float[][] corners = {
                 {0, 0, 0}, {size, 0, 0}, {size, size, 0}, {0, size, 0},

@@ -62,12 +62,26 @@ final class Xml {
      * {@link ReadBudget}) reaches us wrapped by the parser; that one is the real reason.
      */
     static ModelAnalysisException failure(String message, Throwable error) {
-        for (Throwable cause = error; cause != null; cause = cause.getCause()) {
+        Throwable cause = error;
+        while (cause != null) {
             if (cause instanceof ModelAnalysisException analysisException) {
                 return analysisException;
             }
+            cause = wrappedBy(cause);
         }
         return new ModelAnalysisException(message, error);
+    }
+
+    /**
+     * The exception inside another one. The JDK's XML parser (up to at least Java 21) keeps a
+     * read error only as the "nested exception" of an XMLStreamException, not as its cause.
+     */
+    private static Throwable wrappedBy(Throwable error) {
+        if (error instanceof XMLStreamException streamException && streamException.getNestedException() != null
+                && streamException.getNestedException() != error) {
+            return streamException.getNestedException();
+        }
+        return error.getCause();
     }
 
     static void close(XMLStreamReader reader) {

@@ -258,30 +258,15 @@ final class BambuProject {
         }
     }
 
-    private void readSliceInfo(XMLStreamReader reader) throws XMLStreamException {
-        Map<String, String> plate = null;
-        List<FilamentUsage> used = null;
-        while (reader.hasNext()) {
-            int event = reader.next();
-            if (event == XMLStreamConstants.END_ELEMENT && reader.getLocalName().equals("plate") && plate != null) {
-                Integer index = parseInt(plate.get("index"));
-                if (index != null) {
-                    sliced.put(index, new SlicedPlate(parseDouble(plate.get("weight")),
-                            parseLong(plate.get("prediction")), used));
-                }
-                plate = null;
-                used = null;
-            }
-            if (event != XMLStreamConstants.START_ELEMENT || !isInPlate(plate, reader)) {
-                continue;
-            }
+    /** A {@code <plate>} of slice_info.config while it is being read. */
+    private static final class SliceInfoPlate {
+        final Map<String, String> metadata = new HashMap<>();
+        final List<FilamentUsage> filaments = new ArrayList<>();
+
+        void read(XMLStreamReader reader) {
             switch (reader.getLocalName()) {
-                case "plate" -> {
-                    plate = new HashMap<>();
-                    used = new ArrayList<>();
-                }
-                case "metadata" -> plate.put(Xml.attribute(reader, "key"), Xml.attribute(reader, "value"));
-                case "filament" -> used.add(new FilamentUsage(SlicerText.clean(Xml.attribute(reader, "type")),
+                case "metadata" -> metadata.put(Xml.attribute(reader, "key"), Xml.attribute(reader, "value"));
+                case "filament" -> filaments.add(new FilamentUsage(SlicerText.clean(Xml.attribute(reader, "type")),
                         SlicerText.color(Xml.attribute(reader, "color")),
                         parseDouble(Xml.attribute(reader, "used_g"))));
                 default -> {
@@ -291,9 +276,30 @@ final class BambuProject {
         }
     }
 
-    /** Elements are only read inside a {@code <plate>}, which itself always starts one. */
-    private static boolean isInPlate(Map<String, String> plate, XMLStreamReader reader) {
-        return plate != null || reader.getLocalName().equals("plate");
+    /** Elements outside a {@code <plate>} (the header) are skipped. */
+    private void readSliceInfo(XMLStreamReader reader) throws XMLStreamException {
+        SliceInfoPlate plate = null;
+        while (reader.hasNext()) {
+            int event = reader.next();
+            boolean isPlate = (event == XMLStreamConstants.START_ELEMENT || event == XMLStreamConstants.END_ELEMENT)
+                    && reader.getLocalName().equals("plate");
+            if (event == XMLStreamConstants.START_ELEMENT && isPlate) {
+                plate = new SliceInfoPlate();
+            } else if (event == XMLStreamConstants.END_ELEMENT && isPlate && plate != null) {
+                addSlicedPlate(plate);
+                plate = null;
+            } else if (event == XMLStreamConstants.START_ELEMENT && plate != null) {
+                plate.read(reader);
+            }
+        }
+    }
+
+    private void addSlicedPlate(SliceInfoPlate plate) {
+        Integer index = parseInt(plate.metadata.get("index"));
+        if (index != null) {
+            sliced.put(index, new SlicedPlate(parseDouble(plate.metadata.get("weight")),
+                    parseLong(plate.metadata.get("prediction")), plate.filaments));
+        }
     }
 
     private static Integer parseInt(String value) {

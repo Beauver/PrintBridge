@@ -1,9 +1,8 @@
 package com.beauver.printbridge.modelinfo;
 
 import io.quarkus.logging.Log;
-import io.quarkus.runtime.StartupEvent;
+import io.quarkus.runtime.Startup;
 import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -22,7 +21,9 @@ public class ModelInfoBackfill {
     @ConfigProperty(name = "printbridge.model-info.backfill-on-start", defaultValue = "true")
     boolean enabled;
 
-    void onStart(@Observes StartupEvent event) {
+    /** Called by Quarkus once the application has started. */
+    @Startup
+    void onStart() {
         if (enabled) {
             Thread.ofVirtual().name("model-info-backfill").start(this::run);
         }
