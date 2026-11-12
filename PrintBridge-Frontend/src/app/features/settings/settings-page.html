@@ -1,0 +1,62 @@
+<div class="page">
+  <h1 class="h3 mb-3">Settings</h1>
+
+  @if (notice()) {
+    <div class="alert alert-success alert-dismissible py-2" role="status" data-cy="settings-notice">
+      {{ notice() }}
+      <button
+        type="button"
+        class="btn-close"
+        aria-label="Close"
+        (click)="notice.set(null)"
+      ></button>
+    </div>
+  }
+  @if (error()) {
+    <div class="alert alert-danger alert-dismissible py-2" role="alert" data-cy="settings-error">
+      {{ error() }}
+      <button type="button" class="btn-close" aria-label="Close" (click)="error.set(null)"></button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="text-body-secondary" data-cy="settings-loading">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading…
+    </div>
+  } @else {
+    <form
+      class="card card-body"
+      [formGroup]="form"
+      (ngSubmit)="save()"
+      novalidate
+      data-cy="settings-form"
+    >
+      <h2 class="h5">Build plate</h2>
+      <p class="text-body-secondary small">
+        The printer's build volume in millimetres. Models that are bigger get a warning on their
+        request.
+      </p>
+      <div class="row g-3">
+        @for (axis of axes; track axis.key) {
+          <div class="col-sm-4">
+            <label class="form-label" [for]="'plate-' + axis.key">{{ axis.label }}</label>
+            <input
+              [id]="'plate-' + axis.key"
+              class="form-control"
+              inputmode="numeric"
+              [formControlName]="axis.key"
+              [class.is-invalid]="sizeError(form.controls[axis.key])"
+              [attr.data-cy]="'settings-plate-' + axis.key"
+            />
+            <div class="invalid-feedback">{{ sizeError(form.controls[axis.key]) }}</div>
+          </div>
+        }
+      </div>
+      <div class="mt-3">
+        <button type="submit" class="btn btn-primary" [disabled]="saving()" data-cy="settings-save">
+          {{ saving() ? 'Saving…' : 'Save' }}
+        </button>
+      </div>
+    </form>
+  }
+</div>

@@ -14,6 +14,7 @@ import {
   statusLabel,
 } from '../../../shared/print-request-display';
 import { PrintRequestsService } from '../print-requests.service';
+import { ModelInfoCard } from './model-info-card/model-info-card';
 import { ReviewPanel } from './review-panel/review-panel';
 
 const FILE_TYPE_LABELS: Record<RequestFile['type'], string> = { STL: 'STL', THREE_MF: '3MF' };
@@ -21,7 +22,7 @@ const FILE_TYPE_LABELS: Record<RequestFile['type'], string> = { STL: 'STL', THRE
 /** One print request: details, file download, delete and (admin) review. */
 @Component({
   selector: 'app-request-detail-page',
-  imports: [RouterLink, DatePipe, PriceTag, ReviewPanel],
+  imports: [RouterLink, DatePipe, PriceTag, ReviewPanel, ModelInfoCard],
   templateUrl: './request-detail-page.html',
   styleUrl: './request-detail-page.css',
 })

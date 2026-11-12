@@ -38,7 +38,7 @@ public class ModelFileValidator {
     }
 
     /** Binary STL: 80-byte header, uint32 triangle count, then exactly 50 bytes per triangle. */
-    static boolean isBinaryStl(Path file) throws IOException {
+    public static boolean isBinaryStl(Path file) throws IOException {
         long size = Files.size(file);
         if (size < STL_BINARY_PREFIX + STL_TRIANGLE_SIZE) {
             return false;

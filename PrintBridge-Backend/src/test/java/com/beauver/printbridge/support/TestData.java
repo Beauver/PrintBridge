@@ -47,7 +47,9 @@ public class TestData {
 
     @Transactional
     public void reset() {
-        em.createNativeQuery("TRUNCATE users, refresh_tokens, print_requests, request_files RESTART IDENTITY CASCADE")
+        em.createNativeQuery("TRUNCATE users, refresh_tokens, print_requests, request_files, model_info "
+                + "RESTART IDENTITY CASCADE").executeUpdate();
+        em.createNativeQuery("UPDATE app_settings SET build_plate_x = NULL, build_plate_y = NULL, build_plate_z = NULL")
                 .executeUpdate();
         deleteRecursively(storageRoot());
     }

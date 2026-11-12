@@ -3,10 +3,15 @@ package com.beauver.printbridge.printrequest;
 import com.beauver.printbridge.printrequest.dto.PrintRequestDto;
 import com.beauver.printbridge.printrequest.dto.PrintRequestSummaryDto;
 import com.beauver.printbridge.printrequest.dto.RequestFileDto;
+import com.beauver.printbridge.modelinfo.ModelInfoService;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
 
 @ApplicationScoped
 public class PrintRequestMapper {
+
+    @Inject
+    ModelInfoService modelInfo;
 
     public PrintRequestSummaryDto toSummary(PrintRequest r) {
         return new PrintRequestSummaryDto(r.id, r.name, r.status, r.finalPrice, r.paidAt, r.owner.username,
@@ -20,6 +25,7 @@ public class PrintRequestMapper {
     }
 
     public RequestFileDto toDto(RequestFile f) {
-        return new RequestFileDto(f.id, f.originalFilename, f.fileType, f.sizeBytes, f.createdAt);
+        return new RequestFileDto(f.id, f.originalFilename, f.fileType, f.sizeBytes, f.createdAt,
+                modelInfo.describe(f));
     }
 }

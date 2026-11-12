@@ -11,7 +11,7 @@ Issue: #4 (part of #2).
   - A progress bar shows while the file uploads. Afterwards the new request opens.
   - Errors appear above the form, and nothing is created.
 - **Request detail** (`/requests/:id`):
-  - Shows the name, status, price, decline reason (if any), description, created/updated dates and the file (name, type, size) with a *Download* button.
+  - Shows the name, status, price, decline reason (if any), description, created/updated dates, a *Model* card (size, plates, filament, print time, see [model info](model-info.md)) and the file (name, type, size) with a *Download* button.
   - The admin also sees who submitted it.
   - *Delete request* asks for confirmation, then removes the request and its file.
     - Owners only get the button while the request is *Submitted*.
@@ -54,4 +54,4 @@ This is a sanity check, not a full parse: a file that passes may still not be pr
 
 ## Not included
 
-Review (see [admin review](admin-review.md)), 3D preview, comments, editing, multiple files per request, Spoolman/pricing.
+Review (see [admin review](admin-review.md)), 3D preview (#13), comments, editing, multiple files per request, Spoolman/pricing (#11).
