@@ -83,6 +83,9 @@ describe('PrintRequestsService', () => {
     const paid = http.expectOne({ method: 'PUT', url: '/api/requests/4/paid' });
     expect(paid.request.body).toEqual({ paid: true });
     paid.flush(REQUEST);
+
+    service.reslice(4).subscribe();
+    http.expectOne({ method: 'POST', url: '/api/requests/4/reslice' }).flush(REQUEST);
   });
 
   it('downloads a file as a blob', () => {

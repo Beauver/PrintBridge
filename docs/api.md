@@ -56,6 +56,7 @@ Admin only (users get `403`):
 | PUT | `/requests/{id}/status` | `{status, declineReason}` (reason optional, max 2000, only kept when declining) | `200` request; `409` move not allowed, request final, or completing without a price; `404`; `400` invalid |
 | PUT | `/requests/{id}/price` | `{finalPrice}` (EUR, 0–99999999.99, max 2 decimals; `null` clears) | `200` request; `409` request final or paid; `404`; `400` invalid |
 | PUT | `/requests/{id}/paid` | `{paid}` (`true`/`false`) | `200` request; `409` not ACCEPTED/COMPLETED, or marking paid without a price; `404`; `400` missing `paid` |
+| POST | `/requests/{id}/reslice` | – | `200` request (files queued for server slicing); `409` slicing is off or a file is still queued/running; `404` |
 
 Allowed moves: SUBMITTED → IN_REVIEW / ACCEPTED / DECLINED; IN_REVIEW → ACCEPTED / DECLINED; ACCEPTED → COMPLETED. DECLINED and COMPLETED are final.
 
@@ -65,7 +66,10 @@ Summary: `{id, name, status, finalPrice, paidAt, ownerUsername, createdAt}`.
 Request: `{id, name, description, status, finalPrice, declineReason, paidAt, ownerId, ownerUsername, createdAt, updatedAt, files: [{id, originalFilename, type, sizeBytes, createdAt, modelInfo}], nextStatuses}` (`nextStatuses`: where the admin may move it; empty once final).
 `status` is `SUBMITTED | IN_REVIEW | ACCEPTED | DECLINED | COMPLETED`; `type` is `STL | THREE_MF`; `finalPrice` is EUR or `null` (pending); `paidAt` is when it was marked paid, or `null`.
 
-`modelInfo` is what the analyser read from the file, see [model info](features/model-info.md): `{status, source, volumeCm3, estimatedGrams, slicedGrams, printSeconds, fits, plates: [{index, name, width, depth, height, grams, printSeconds, fits, filaments: [{type, color, grams}]}]}`. `status` is `PENDING` (not analysed yet), `ANALYZED` or `FAILED`; unless ANALYZED, the other fields are `null` and `plates` is empty. `source` is `MESH | BAMBU | PRUSA`.
+`modelInfo` is what is known about the file, see [model info](features/model-info.md) and [server slicing](features/server-slicing.md): `{status, source, volumeCm3, totalGrams, weight, printSeconds, fits, plates: [{index, name, width, depth, height, grams, estimated, printSeconds, fits, filaments: [{type, color, grams}], sliceError}], slicing: {enabled, status, nozzle, madeForNozzle, error}}`.
+- `status` is `PENDING` (not analysed yet), `ANALYZED` or `FAILED`; unless ANALYZED, only `status` and `slicing` are set and `plates` is empty. `source` is `MESH | BAMBU`.
+- `weight` is `EXACT`, `PARTLY_ESTIMATED` or `ESTIMATED`; a plate's `estimated` says whether its `grams` come from its volume.
+- `slicing.status` is `null` (never queued), `QUEUED`, `RUNNING`, `DONE` or `FAILED`. `slicing.error` and the plates' `sliceError` are only filled in for the admin.
 
 Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file is empty`, `The file is larger than N MB`, `The file is not a valid STL file` / `3MF file`. Missing name or file gives a validation error (`violations`).
 
@@ -73,5 +77,18 @@ Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file 
 
 | Method | Path | Body | Result |
 |---|---|---|---|
-| GET | `/settings` | – | `200 {buildPlateX, buildPlateY, buildPlateZ}` (mm; `null` until set) |
-| PUT | `/settings` | `{buildPlateX, buildPlateY, buildPlateZ}`, each a whole number 1–2000, all required | `200` settings; `400` invalid |
+| GET | `/settings` | – | `200 {buildPlate: {x, y, z}, slicing: {enabled, timeoutMinutes, printer, ownedNozzles, defaultNozzle, process, filament}}` (build plate in mm, `null` until set) |
+| PUT | `/settings/build-plate` | `{x, y, z}`, each a whole number 1–2000, all required | `200` settings; `400` invalid |
+| PUT | `/settings/slicing` | `{enabled, timeoutMinutes (1–60), printer, ownedNozzles, defaultNozzle, process, filament}`; switching on needs all of them, and the default nozzle must be owned | `200` settings; `400` invalid |
+
+Switching slicing off drops queued jobs.
+
+## Slicer (admin only)
+
+What the slicer service offers, for the settings page. `503 {message}` when it isn't set up or can't be reached (except `status`).
+
+| Method | Path | Result |
+|---|---|---|
+| GET | `/slicer/status` | `200 {configured, reachable, orcaVersion, message}` |
+| GET | `/slicer/printers` | `200 [{model, vendor, nozzles: [{diameter, machine, bed: {x, y, z}}]}]` |
+| GET | `/slicer/profiles?printer=&nozzle=` | `200 {machine, processes, filaments}`; `400` missing/invalid parameters |

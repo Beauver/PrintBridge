@@ -32,7 +32,8 @@ final class StlAnalyzer {
         if (mesh.triangles() == 0) {
             throw new ModelAnalysisException("The model has no triangles");
         }
-        PlateAnalysis plate = new PlateAnalysis(1, null, mesh.bounds().dimensions(), null, null, List.of());
+        PlateAnalysis plate = new PlateAnalysis(1, null, mesh.bounds().dimensions(), mesh.volume(), null, null,
+                List.of());
         return new ModelAnalysis(ModelSource.MESH, mesh.volume(), List.of(plate));
     }
 

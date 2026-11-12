@@ -1,4 +1,10 @@
-import { formatDimensions, formatDuration, formatGrams, formatVolume } from './model-info-display';
+import {
+  formatDimensions,
+  formatDuration,
+  formatGrams,
+  formatNozzle,
+  formatVolume,
+} from './model-info-display';
 
 describe('model info display helpers', () => {
   it('formats dimensions the Dutch way', () => {
@@ -9,6 +15,11 @@ describe('model info display helpers', () => {
     expect(formatVolume(63.17)).toBe('63,2 cm³');
     expect(formatGrams(33.69)).toBe('33,69 g');
     expect(formatGrams(78)).toBe('78 g');
+  });
+
+  it('formats nozzle sizes', () => {
+    expect(formatNozzle(0.4)).toBe('0,4 mm');
+    expect(formatNozzle(0.25)).toBe('0,25 mm');
   });
 
   it('formats print times', () => {

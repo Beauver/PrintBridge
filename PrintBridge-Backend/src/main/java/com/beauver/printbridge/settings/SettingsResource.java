@@ -1,6 +1,8 @@
 package com.beauver.printbridge.settings;
 
+import com.beauver.printbridge.settings.dto.BuildPlateDto;
 import com.beauver.printbridge.settings.dto.SettingsDto;
+import com.beauver.printbridge.settings.dto.SlicingSettingsDto;
 import com.beauver.printbridge.user.Role;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -25,7 +27,14 @@ public class SettingsResource {
     }
 
     @PUT
-    public SettingsDto update(@Valid @NotNull SettingsDto settings) {
-        return service.update(settings);
+    @Path("/build-plate")
+    public SettingsDto updateBuildPlate(@Valid @NotNull BuildPlateDto buildPlate) {
+        return service.updateBuildPlate(buildPlate);
+    }
+
+    @PUT
+    @Path("/slicing")
+    public SettingsDto updateSlicing(@Valid @NotNull SlicingSettingsDto slicing) {
+        return service.updateSlicing(slicing);
     }
 }

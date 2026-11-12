@@ -5,6 +5,7 @@ import com.beauver.printbridge.modelinfo.analysis.ModelAnalyzer;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.printrequest.RequestFile;
 import com.beauver.printbridge.settings.SettingsService;
+import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.storage.FileStorage;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -42,6 +43,9 @@ public class ModelInfoService {
     @Inject
     EntityManager entityManager;
 
+    @Inject
+    SlicingService slicing;
+
     /** Analyses a stored file and saves the result. Runs inside the caller's transaction. */
     @Transactional(Transactional.TxType.MANDATORY)
     public void analyze(RequestFile file) {
@@ -74,12 +78,19 @@ public class ModelInfoService {
         }
     }
 
+    /** Its own transaction: the backfill calls it from a background thread without one. */
+    @Transactional
     public List<Long> fileIdsWithoutInfo() {
         return repository.fileIdsWithoutInfo();
     }
 
-    /** The stored analysis of a file, with the fit check against the current build plate. */
-    public ModelInfoDto describe(RequestFile file) {
-        return mapper.toDto(repository.findById(file.id), settings.buildPlate());
+    /**
+     * The stored analysis of a file combined with its server slicing result, with the fit check
+     * against the current build plate. Slicing errors are only included for the admin.
+     */
+    public ModelInfoDto describe(RequestFile file, boolean admin) {
+        ModelInfoMapper.Context context = new ModelInfoMapper.Context(settings.buildPlate(),
+                settings.slicing().enabled(), admin);
+        return mapper.toDto(repository.findById(file.id), slicing.find(file.id).orElse(null), context);
     }
 }

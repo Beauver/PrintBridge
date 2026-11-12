@@ -5,6 +5,7 @@
 ```
 Browser ── /            ──▶ Angular app (nginx in production, ng serve in dev)
         └─ /api/*       ──▶ Quarkus backend ──▶ PostgreSQL
+                                   └──────────▶ slicer service (optional, OrcaSlicer, SLICER_URL)
 ```
 
 The browser only ever talks to one origin: `/api` is proxied to the backend (`proxy.conf.json` in dev, nginx `BACKEND_URL` in the frontend image). That keeps the refresh-token cookie first-party and removes the need for CORS in normal use.
@@ -19,7 +20,8 @@ Packages under `com.beauver.printbridge`, one per domain:
 | `user` | `User` entity, user management, password hashing |
 | `printrequest` | Print requests and their model files: entities, upload validation, access rules |
 | `modelinfo` | Model analysis of uploaded files (`analysis`: STL/3MF readers), stored results, startup backfill |
-| `settings` | Admin-editable application settings (build plate size) |
+| `settings` | Admin-editable application settings (build plate size, server slicing) |
+| `slicing` | Server slicing: job queue, planner (which printer/nozzle/profiles), background worker, client for the slicer service |
 | `storage` | `FileStorage`: files on disk under `STORAGE_PATH` |
 | `common.error` | Domain exceptions and their HTTP mapping |
 | `common.transaction` | `AfterTransaction`: run disk side effects only after commit/rollback |
@@ -36,6 +38,10 @@ Conventions:
 - Unannotated endpoints are denied (`quarkus.security.jaxrs.deny-unannotated-endpoints`); every resource states its access rule.
 - Schema changes only via Flyway (`src/main/resources/db/migration`). Hibernate validates the mapping against it in tests and never changes it.
 - Config via env vars, see `application.properties` and `/.env.example`.
+
+## Slicer service (`PrintBridge-Slicer`)
+
+Optional. OrcaSlicer's command line behind a small Python HTTP API (standard library only), in its own Docker image. The backend calls it over HTTP from a single background worker; see [server slicing](features/server-slicing.md) and the service's README.
 
 ## Frontend (`PrintBridge-Frontend`)
 

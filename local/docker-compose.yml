@@ -37,6 +37,17 @@ services:
       timeout: 5s
       retries: 10
 
+  # Optional: server slicing (OrcaSlicer, ~1.6 GB). Start with: docker compose --profile slicer up -d
+  slicer:
+    profiles: [slicer]
+    build:
+      context: ../PrintBridge-Slicer
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+    ports:
+      - "${SLICER_PORT:-18000}:8000"
+
 volumes:
   postgres-data:
   spoolman-data:

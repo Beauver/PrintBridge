@@ -6,25 +6,26 @@ import com.beauver.printbridge.modelinfo.analysis.ModelSource;
 import java.util.List;
 
 /**
- * What is known about a model file. Everything but {@code status} is {@code null} (and
- * {@code plates} empty) unless the status is ANALYZED.
+ * What is known about a model file. Unless the status is ANALYZED, only {@code status} and
+ * {@code slicing} are set and {@code plates} is empty.
  *
- * @param estimatedGrams rough weight of the whole model, from its volume
- * @param slicedGrams    exact total from the slicer; only when every plate with objects is sliced
- * @param printSeconds   total print time; only when every plate with objects is sliced
- * @param fits           whether every plate fits the build plate; {@code null} when no plate size is set
+ * @param totalGrams   sum over the plates with objects (exact and estimated)
+ * @param weight       how much of {@code totalGrams} is exact
+ * @param printSeconds total print time; only when every plate with objects has one
+ * @param fits         whether every plate fits the build plate; {@code null} when no plate size is set
  */
 public record ModelInfoDto(
         ModelInfoStatus status,
         ModelSource source,
         Double volumeCm3,
-        Double estimatedGrams,
-        Double slicedGrams,
+        Double totalGrams,
+        WeightKind weight,
         Long printSeconds,
         Boolean fits,
-        List<PlateDto> plates) {
+        List<PlateDto> plates,
+        SlicingInfoDto slicing) {
 
-    public static ModelInfoDto withStatus(ModelInfoStatus status) {
-        return new ModelInfoDto(status, null, null, null, null, null, null, List.of());
+    public static ModelInfoDto withStatus(ModelInfoStatus status, SlicingInfoDto slicing) {
+        return new ModelInfoDto(status, null, null, null, null, null, null, List.of(), slicing);
     }
 }

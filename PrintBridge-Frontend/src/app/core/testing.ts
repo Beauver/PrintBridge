@@ -1,5 +1,5 @@
 import { AuthResponse, User } from './models/account.model';
-import { ModelInfo } from './models/model-info.model';
+import { ModelInfo, SlicingInfo } from './models/model-info.model';
 import { PrintRequest, PrintRequestSummary } from './models/print-request.model';
 
 export const ADMIN: User = {
@@ -40,7 +40,11 @@ export const REQUEST: PrintRequest = {
       type: 'STL',
       sizeBytes: 2048,
       createdAt: '2026-02-01T10:00:00Z',
-      modelInfo: { status: 'PENDING' } as ModelInfo,
+      modelInfo: {
+        status: 'PENDING',
+        plates: [],
+        slicing: { status: null },
+      } as unknown as ModelInfo,
     },
   ],
   nextStatuses: ['IN_REVIEW', 'ACCEPTED', 'DECLINED'],
@@ -56,13 +60,22 @@ export const REQUEST_SUMMARY: PrintRequestSummary = {
   createdAt: '2026-02-01T10:00:00Z',
 };
 
-/** An analysed STL: one plate of 20 × 10 × 5 mm. */
+/** Server slicing switched off, file never queued. */
+export const NO_SLICING: SlicingInfo = {
+  enabled: false,
+  status: null,
+  nozzle: null,
+  madeForNozzle: null,
+  error: null,
+};
+
+/** An analysed STL: one plate of 20 × 10 × 5 mm with an estimated weight. */
 export const STL_INFO: ModelInfo = {
   status: 'ANALYZED',
   source: 'MESH',
   volumeCm3: 1,
-  estimatedGrams: 0,
-  slicedGrams: null,
+  totalGrams: 4,
+  weight: 'ESTIMATED',
   printSeconds: null,
   fits: null,
   plates: [
@@ -72,10 +85,13 @@ export const STL_INFO: ModelInfo = {
       width: 20,
       depth: 10,
       height: 5,
-      grams: null,
+      grams: 4,
+      estimated: true,
       printSeconds: null,
       fits: null,
       filaments: [],
+      sliceError: null,
     },
   ],
+  slicing: NO_SLICING,
 };

@@ -1,13 +1,35 @@
 <div class="card mb-3" data-cy="model-info">
   <div class="card-header d-flex flex-wrap align-items-center gap-2">
     <h2 class="h6 mb-0 me-auto">Model</h2>
+    @if (slicingPending()) {
+      <span class="badge text-bg-info" data-cy="model-info-slicing">
+        <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Slicing…
+      </span>
+    }
     @if (doesNotFit()) {
       <span class="badge text-bg-danger" data-cy="model-info-no-fit"
         >Doesn't fit the build plate</span
       >
     }
+    @if (canReslice()) {
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        [disabled]="reslicing()"
+        (click)="requestReslice()"
+        data-cy="model-info-reslice"
+      >
+        {{ reslicing() ? 'Queuing…' : 'Re-slice' }}
+      </button>
+    }
   </div>
   <div class="card-body">
+    @if (slicingError(); as error) {
+      <div class="alert alert-warning py-2 small" data-cy="model-info-slicing-error">
+        Slicing failed: {{ error }}
+      </div>
+    }
+
     @switch (info().status) {
       @case ('PENDING') {
         <p class="text-body-secondary mb-0" data-cy="model-info-pending">
@@ -35,14 +57,18 @@
             <dt class="col-sm-3">Filament</dt>
             <dd class="col-sm-9" data-cy="model-info-weight">
               {{ weight.text }}
-              @if (weight.estimate) {
-                <span class="text-body-secondary small">(estimate)</span>
+              @if (weight.note) {
+                <span class="text-body-secondary small">{{ weight.note }}</span>
               }
             </dd>
           }
           @if (printTime()) {
             <dt class="col-sm-3">Print time</dt>
             <dd class="col-sm-9" data-cy="model-info-time">{{ printTime() }}</dd>
+          }
+          @if (slicedFor()) {
+            <dt class="col-sm-3">Nozzle</dt>
+            <dd class="col-sm-9" data-cy="model-info-nozzle">{{ slicedFor() }}</dd>
           }
           @if (!showPlates() && filaments().length > 0) {
             <dt class="col-sm-3">Filaments</dt>
@@ -60,6 +86,11 @@
             </dd>
           }
         </dl>
+        @if (!showPlates() && singlePlate()?.sliceError; as reason) {
+          <p class="small text-warning-emphasis mt-2 mb-0" data-cy="model-info-plate-error">
+            OrcaSlicer refused this model: {{ reason }}
+          </p>
+        }
 
         @if (showPlates()) {
           <div class="table-responsive mt-3">
@@ -76,7 +107,14 @@
               <tbody>
                 @for (plate of info().plates; track plate.index) {
                   <tr data-cy="model-info-plate">
-                    <td class="text-break">{{ plateLabel(plate) }}</td>
+                    <td class="text-break">
+                      {{ plateLabel(plate) }}
+                      @if (plate.sliceError) {
+                        <div class="small text-warning-emphasis" data-cy="model-info-plate-error">
+                          Refused: {{ plate.sliceError }}
+                        </div>
+                      }
+                    </td>
                     <td class="text-nowrap">
                       @if (plateDimensions(plate); as size) {
                         {{ size }}
@@ -87,9 +125,7 @@
                         <span class="text-body-secondary">Empty</span>
                       }
                     </td>
-                    <td class="text-nowrap">
-                      {{ plateGrams(plate) ?? '–' }}
-                    </td>
+                    <td class="text-nowrap">{{ plateGrams(plate) ?? '–' }}</td>
                     <td class="text-nowrap">{{ plateTime(plate) ?? '–' }}</td>
                     <td>
                       <span class="filaments">

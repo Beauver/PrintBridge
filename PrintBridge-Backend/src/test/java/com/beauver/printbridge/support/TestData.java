@@ -22,6 +22,9 @@ import java.io.UncheckedIOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.Comparator;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 import java.util.stream.Stream;
 
 /** Database helpers for @QuarkusTest tests. */
@@ -49,8 +52,9 @@ public class TestData {
     public void reset() {
         em.createNativeQuery("TRUNCATE users, refresh_tokens, print_requests, request_files, model_info "
                 + "RESTART IDENTITY CASCADE").executeUpdate();
-        em.createNativeQuery("UPDATE app_settings SET build_plate_x = NULL, build_plate_y = NULL, build_plate_z = NULL")
-                .executeUpdate();
+        em.createNativeQuery("UPDATE app_settings SET build_plate_x = NULL, build_plate_y = NULL, build_plate_z = NULL, "
+                + "slicing_enabled = FALSE, slicing_timeout_minutes = 10, slicer_printer = NULL, owned_nozzles = NULL, "
+                + "default_nozzle = NULL, slicer_process = NULL, slicer_filament = NULL").executeUpdate();
         deleteRecursively(storageRoot());
     }
 
@@ -96,6 +100,19 @@ public class TestData {
         } catch (IOException e) {
             throw new UncheckedIOException(e);
         }
+    }
+
+    /** A complete server slicing settings body (P1S, owned 0.2 + 0.4, default 0.4, 5 minutes). */
+    public static Map<String, Object> slicingSettings(boolean enabled) {
+        Map<String, Object> slicing = new HashMap<>();
+        slicing.put("enabled", enabled);
+        slicing.put("timeoutMinutes", 5);
+        slicing.put("printer", "Bambu Lab P1S");
+        slicing.put("ownedNozzles", List.of(0.4, 0.2, 0.40));
+        slicing.put("defaultNozzle", 0.4);
+        slicing.put("process", "0.20mm Standard @BBL X1C");
+        slicing.put("filament", "Bambu PLA Basic @BBL X1C");
+        return slicing;
     }
 
     public User admin() {

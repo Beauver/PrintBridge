@@ -6,6 +6,7 @@ import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
+import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.storage.FileStorage;
 import com.beauver.printbridge.user.UserRepository;
@@ -58,6 +59,9 @@ public class PrintRequestService {
     @Inject
     ModelInfoService modelInfo;
 
+    @Inject
+    SlicingService slicing;
+
     public UploadConfigDto uploadConfig() {
         return new UploadConfigDto(maxSizeBytes(), allowedTypes().stream().map(ModelFileType::extension).toList());
     }
@@ -73,13 +77,14 @@ public class PrintRequestService {
     }
 
     public PrintRequestDto get(long id, Caller caller) {
-        return mapper.toDto(findVisible(id, caller));
+        return mapper.toDto(findVisible(id, caller), caller.admin());
     }
 
     /**
      * Validates the upload, stores the file and creates the request in status SUBMITTED. If the
-     * transaction rolls back, the stored file is removed again. The file is analysed right away;
-     * an analysis that fails is recorded but doesn't stop the upload.
+     * transaction rolls back, the stored file is removed again. The file is analysed right away
+     * (an analysis that fails is recorded but doesn't stop the upload) and queued for server
+     * slicing when that is on.
      */
     @Transactional
     public PrintRequestDto create(long ownerId, NewPrintRequest input) {
@@ -114,7 +119,9 @@ public class PrintRequestService {
         request.addFile(file);
         requests.flush();
         modelInfo.analyze(file);
-        return mapper.toDto(request);
+        slicing.enqueueIfEnabled(file);
+        // A fresh upload has no slicing errors yet, so nothing admin-only to show.
+        return mapper.toDto(request, false);
     }
 
     /**
@@ -135,7 +142,7 @@ public class PrintRequestService {
             request.declineReason = blankToNull(declineReason);
         }
         requests.flush();
-        return mapper.toDto(request);
+        return mapper.toDto(request, true);
     }
 
     /**
@@ -150,7 +157,7 @@ public class PrintRequestService {
         }
         request.finalPrice = finalPrice;
         requests.flush();
-        return mapper.toDto(request);
+        return mapper.toDto(request, true);
     }
 
     /**
@@ -172,7 +179,19 @@ public class PrintRequestService {
             request.paidAt = Instant.now();
         }
         requests.flush();
-        return mapper.toDto(request);
+        return mapper.toDto(request, true);
+    }
+
+    /**
+     * Queues the request's files for server slicing again (admin), e.g. after changing the
+     * profiles. Refused while slicing is off or a file is already queued or running.
+     */
+    @Transactional
+    public PrintRequestDto reslice(long id) {
+        PrintRequest request = requests.findWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        slicing.reslice(request.files);
+        return mapper.toDto(request, true);
     }
 
     /** The file of a request, for download by the owner or the admin. */

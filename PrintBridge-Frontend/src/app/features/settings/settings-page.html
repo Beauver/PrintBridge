@@ -25,7 +25,7 @@
     </div>
   } @else {
     <form
-      class="card card-body"
+      class="card card-body mb-4"
       [formGroup]="form"
       (ngSubmit)="save()"
       novalidate
@@ -36,6 +36,11 @@
         The printer's build volume in millimetres. Models that are bigger get a warning on their
         request.
       </p>
+      @if (filledFrom()) {
+        <div class="alert alert-info py-2 small" data-cy="settings-plate-filled">
+          Filled in from {{ filledFrom() }}. Save to keep it.
+        </div>
+      }
       <div class="row g-3">
         @for (axis of axes; track axis.key) {
           <div class="col-sm-4">
@@ -58,5 +63,13 @@
         </button>
       </div>
     </form>
+
+    @if (settings(); as settings) {
+      <app-slicing-settings
+        [settings]="settings.slicing"
+        (saved)="onSlicingSaved($event)"
+        (bedSuggested)="onBedSuggested($event)"
+      />
+    }
   }
 </div>
