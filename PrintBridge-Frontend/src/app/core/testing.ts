@@ -27,6 +27,7 @@ export const REQUEST: PrintRequest = {
   status: 'SUBMITTED',
   finalPrice: null,
   declineReason: null,
+  paidAt: null,
   ownerId: 2,
   ownerUsername: 'alice',
   createdAt: '2026-02-01T10:00:00Z',
@@ -40,6 +41,7 @@ export const REQUEST: PrintRequest = {
       createdAt: '2026-02-01T10:00:00Z',
     },
   ],
+  nextStatuses: ['IN_REVIEW', 'ACCEPTED', 'DECLINED'],
 };
 
 export const REQUEST_SUMMARY: PrintRequestSummary = {
@@ -47,6 +49,7 @@ export const REQUEST_SUMMARY: PrintRequestSummary = {
   name: 'Benchy',
   status: 'SUBMITTED',
   finalPrice: null,
+  paidAt: null,
   ownerUsername: 'alice',
   createdAt: '2026-02-01T10:00:00Z',
 };

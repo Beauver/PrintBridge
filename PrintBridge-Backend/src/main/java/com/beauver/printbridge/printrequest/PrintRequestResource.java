@@ -6,6 +6,7 @@ import com.beauver.printbridge.user.Role;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotNull;
 import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
@@ -16,7 +17,7 @@ import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 
-/** Print requests of the logged-in user; the admin can also open and delete anyone's. */
+/** Print requests: users manage their own; the admin can open, review and delete any of them. */
 @Path("/requests")
 @Produces(MediaType.APPLICATION_JSON)
 @RolesAllowed({Role.USER_ROLE, Role.ADMIN_ROLE})
@@ -28,10 +29,20 @@ public class PrintRequestResource {
     @Inject
     CurrentUser currentUser;
 
-    // TODO: #5 admin overview of all requests (with filters).
     @GET
     public List<PrintRequestSummaryDto> listOwn() {
         return service.listOwn(currentUser.id());
+    }
+
+    /**
+     * Admin overview. {@code status}: {@code OPEN} (default), {@code ALL} or a single status;
+     * {@code q}: matches request name or username.
+     */
+    @GET
+    @Path("/all")
+    @RolesAllowed(Role.ADMIN_ROLE)
+    public List<PrintRequestSummaryDto> listAll(@QueryParam("status") String status, @QueryParam("q") String search) {
+        return service.listAll(StatusFilter.parse(status), search);
     }
 
     @GET
@@ -66,6 +77,30 @@ public class PrintRequestResource {
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition(file.filename()))
                 .header(HttpHeaders.CONTENT_LENGTH, file.size())
                 .build();
+    }
+
+    @PUT
+    @Path("/{id}/status")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed(Role.ADMIN_ROLE)
+    public PrintRequestDto changeStatus(@PathParam("id") long id, @Valid @NotNull StatusChangeRequest request) {
+        return service.changeStatus(id, request.status(), request.declineReason());
+    }
+
+    @PUT
+    @Path("/{id}/price")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed(Role.ADMIN_ROLE)
+    public PrintRequestDto changePrice(@PathParam("id") long id, @Valid @NotNull PriceChangeRequest request) {
+        return service.changePrice(id, request.finalPrice());
+    }
+
+    @PUT
+    @Path("/{id}/paid")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed(Role.ADMIN_ROLE)
+    public PrintRequestDto changePaid(@PathParam("id") long id, @Valid @NotNull PaidChangeRequest request) {
+        return service.changePaid(id, request.paid());
     }
 
     @DELETE

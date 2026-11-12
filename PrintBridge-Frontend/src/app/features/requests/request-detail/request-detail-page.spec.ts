@@ -96,6 +96,36 @@ describe('RequestDetailPage', () => {
     });
   });
 
+  describe('review', () => {
+    it('is offered to the admin on non-final requests and for paying completed ones', () => {
+      isAdmin.set(true);
+      expect(create()['canReview']()).toBe(true);
+      const completed: PrintRequest = { ...REQUEST, status: 'COMPLETED', nextStatuses: [] };
+      expect(create(completed)['canReview']()).toBe(true);
+      const declined: PrintRequest = { ...REQUEST, status: 'DECLINED', nextStatuses: [] };
+      expect(create(declined)['canReview']()).toBe(false);
+    });
+
+    it('is never offered to users', () => {
+      expect(create()['canReview']()).toBe(false);
+      expect(create(null)['canReview']()).toBe(false);
+    });
+
+    it('shows the updated request after a review change', () => {
+      const page = create();
+      const updated = { ...REQUEST, status: 'IN_REVIEW' as const };
+      page['onReviewed'](updated);
+      expect(page['request']()).toEqual(updated);
+    });
+
+    it('links back to the right list', () => {
+      const page = create();
+      expect(page['back']()).toEqual({ link: '/', label: 'My requests' });
+      isAdmin.set(true);
+      expect(page['back']()).toEqual({ link: '/admin/requests', label: 'All requests' });
+    });
+  });
+
   describe('download', () => {
     it('saves the downloaded file under its original name', () => {
       const blob = new Blob(['x']);

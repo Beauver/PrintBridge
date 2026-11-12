@@ -16,6 +16,18 @@ const STATUS_BADGES: Record<RequestStatus, string> = {
   COMPLETED: 'text-bg-success',
 };
 
+/** Statuses after which nothing on a request can change. */
+const FINAL_STATUSES: RequestStatus[] = ['DECLINED', 'COMPLETED'];
+
+export function isFinalStatus(status: RequestStatus): boolean {
+  return FINAL_STATUSES.includes(status);
+}
+
+/** Whether the admin may mark a request (un)paid in this status; mirrors the backend. */
+export function allowsPayment(status: RequestStatus): boolean {
+  return status === 'ACCEPTED' || status === 'COMPLETED';
+}
+
 export function statusLabel(status: RequestStatus): string {
   return STATUS_LABELS[status];
 }

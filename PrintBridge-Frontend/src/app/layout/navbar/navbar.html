@@ -42,6 +42,16 @@
           <li class="nav-item">
             <a
               class="nav-link"
+              routerLink="/admin/requests"
+              routerLinkActive="active"
+              (click)="closeMenu()"
+              data-cy="nav-all-requests"
+              >All requests</a
+            >
+          </li>
+          <li class="nav-item">
+            <a
+              class="nav-link"
               routerLink="/admin/users"
               routerLinkActive="active"
               (click)="closeMenu()"

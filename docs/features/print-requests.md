@@ -4,7 +4,7 @@ Issue: #4 (part of #2).
 
 ## What it does
 
-- **My requests** (start page, *My requests* in the navbar): the logged-in user's own requests, newest first. Shows the name, a status badge, the price ("Price pending" until the admin sets one in #5) and the creation date. It's a table on wider screens and cards on phones. With no requests yet, the page shows a *New request* button (plus a hint to create accounts for the admin).
+- **My requests** (start page, *My requests* in the navbar): the logged-in user's own requests, newest first. Shows the name, a status badge, the price ("Price pending" until the admin sets one, see [admin review](admin-review.md)) and the creation date. It's a table on wider screens and cards on phones. With no requests yet, the page shows a *New request* button (plus a hint to create accounts for the admin).
 - **New request** (*New request* in the navbar, `/requests/new`):
   - Fields: name (required, max 100), description (optional, max 2000) and one model file (`.stl` or `.3mf`).
   - The file's extension and size are checked in the browser before uploading; the limits come from the backend.
@@ -16,7 +16,7 @@ Issue: #4 (part of #2).
   - *Delete request* asks for confirmation, then removes the request and its file.
     - Owners only get the button while the request is *Submitted*.
     - The admin always gets it.
-- **Admin:** can submit their own requests like any user. Others' requests are opened by URL for now (the overview list comes in #5). The detail page is read-only apart from download and delete.
+- **Admin:** can submit their own requests like any user. Everyone's requests are in *All requests*; reviewing (status, price) is described in [admin review](admin-review.md).
 - **Deleting a user** also deletes their requests and the files on disk.
 
 ## Rules
@@ -25,7 +25,7 @@ Issue: #4 (part of #2).
 |---|---|---|---|
 | Owner | own requests | own files | own, only while SUBMITTED (else `409`) |
 | Other user | `404` | `404` | `404` |
-| Admin | every request (list only own until #5) | every file | any, in any status |
+| Admin | every request (*All requests*) | every file | any, in any status |
 
 ## Upload validation (backend)
 
@@ -49,9 +49,9 @@ This is a sanity check, not a full parse: a file that passes may still not be pr
 
 ## Data
 
-- `print_requests`: owner, name, description, `final_price` (`NUMERIC(10,2)`, EUR, null = pending), status (`SUBMITTED`, `IN_REVIEW`, `ACCEPTED`, `DECLINED`, `COMPLETED`; only SUBMITTED is used until #5), decline reason, timestamps. `ON DELETE CASCADE` from users.
+- `print_requests`: owner, name, description, `final_price` (`NUMERIC(10,2)`, EUR, null = pending), status (`SUBMITTED`, `IN_REVIEW`, `ACCEPTED`, `DECLINED`, `COMPLETED`; see [admin review](admin-review.md) for the flow), decline reason, timestamps. `ON DELETE CASCADE` from users. `paid_at` (V3) marks when it was paid; only possible with a price.
 - `request_files`: one row per file (exactly one for now): original filename, storage path, type (`STL`/`THREE_MF`), size. `ON DELETE CASCADE` from requests.
 
 ## Not included
 
-Admin overview and filters, review actions (#5), 3D preview, comments, editing, multiple files per request, Spoolman/pricing.
+Review (see [admin review](admin-review.md)), 3D preview, comments, editing, multiple files per request, Spoolman/pricing.

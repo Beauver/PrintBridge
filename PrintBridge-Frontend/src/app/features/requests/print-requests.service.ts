@@ -1,10 +1,12 @@
-import { HttpClient, HttpEventType } from '@angular/common/http';
+import { HttpClient, HttpEventType, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { filter, map, Observable } from 'rxjs';
 import {
   NewPrintRequest,
   PrintRequest,
   PrintRequestSummary,
+  RequestStatus,
+  StatusFilter,
   UploadConfig,
 } from '../../core/models/print-request.model';
 
@@ -17,9 +19,31 @@ export type UploadEvent =
 export class PrintRequestsService {
   private readonly http = inject(HttpClient);
 
-  // TODO: #5 add listAll(filters) for the admin overview.
   listOwn(): Observable<PrintRequestSummary[]> {
     return this.http.get<PrintRequestSummary[]>('/api/requests');
+  }
+
+  /** Admin overview: everyone's requests, filtered by status and searched by name/username. */
+  listAll(status: StatusFilter, search: string): Observable<PrintRequestSummary[]> {
+    let params = new HttpParams().set('status', status);
+    if (search.trim()) {
+      params = params.set('q', search.trim());
+    }
+    return this.http.get<PrintRequestSummary[]>('/api/requests/all', { params });
+  }
+
+  /** Admin: move a request to another status. `declineReason` is only used when declining. */
+  changeStatus(
+    id: number,
+    status: RequestStatus,
+    declineReason: string | null = null,
+  ): Observable<PrintRequest> {
+    return this.http.put<PrintRequest>(`/api/requests/${id}/status`, { status, declineReason });
+  }
+
+  /** Admin: set the final price in EUR, or clear it with `null`. */
+  changePrice(id: number, finalPrice: number | null): Observable<PrintRequest> {
+    return this.http.put<PrintRequest>(`/api/requests/${id}/price`, { finalPrice });
   }
 
   get(id: number): Observable<PrintRequest> {
@@ -56,6 +80,11 @@ export class PrintRequestsService {
           return event !== null;
         }),
       );
+  }
+
+  /** Admin: mark an accepted/completed request with a price as paid, or undo that. */
+  changePaid(id: number, paid: boolean): Observable<PrintRequest> {
+    return this.http.put<PrintRequest>(`/api/requests/${id}/paid`, { paid });
   }
 
   downloadFile(requestId: number, fileId: number): Observable<Blob> {
