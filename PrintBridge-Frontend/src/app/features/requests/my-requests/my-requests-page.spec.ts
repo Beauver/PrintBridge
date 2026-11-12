@@ -24,7 +24,9 @@ describe('MyRequestsPage', () => {
     return page;
   }
 
-  beforeEach(() => vi.clearAllMocks());
+  beforeEach(() => {
+    vi.clearAllMocks();
+  });
 
   it('loads the own requests', () => {
     requestsService.listOwn.mockReturnValue(of([REQUEST_SUMMARY]));
@@ -36,7 +38,9 @@ describe('MyRequestsPage', () => {
 
   it('shows a load error and can retry', () => {
     requestsService.listOwn.mockReturnValue(
-      throwError(() => new HttpErrorResponse({ status: 500 })),
+      throwError(() => {
+        return new HttpErrorResponse({ status: 500 });
+      }),
     );
     const page = create();
     expect(page['error']()).toBe('Could not load your requests.');

@@ -3,7 +3,7 @@ import { Component, computed, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { errorMessage } from '../../../core/http/api-error';
-import { UploadConfig } from '../../../core/models';
+import { UploadConfig } from '../../../core/models/print-request.model';
 import { fieldError } from '../../../shared/account-form';
 import { formatBytes } from '../../../shared/print-request-display';
 import { PrintRequestsService } from '../print-requests.service';
@@ -35,22 +35,22 @@ export class NewRequestPage implements OnInit {
   protected readonly progress = signal(0);
   protected readonly error = signal<string | null>(null);
 
-  protected readonly accept = computed(() =>
-    this.config()
-      .allowedExtensions.map((ext) => `.${ext}`)
-      .join(','),
-  );
+  protected readonly accept = computed(() => {
+    return dotted(this.config().allowedExtensions).join(',');
+  });
 
   /** Client-side file check, mirroring the backend (which also checks the content). */
   protected readonly fileError = computed(() => {
     const file = this.file();
     if (!file) {
-      return this.submitted() ? 'A model file is required' : null;
+      if (this.submitted()) {
+        return 'A model file is required';
+      }
+      return null;
     }
     const { allowedExtensions, maxSizeBytes } = this.config();
-    const extension = file.name.includes('.') ? file.name.split('.').pop()!.toLowerCase() : '';
-    if (!allowedExtensions.includes(extension)) {
-      return `Only ${allowedExtensions.map((e) => `.${e}`).join(', ')} files are allowed`;
+    if (!allowedExtensions.includes(extensionOf(file.name))) {
+      return `Only ${dotted(allowedExtensions).join(', ')} files are allowed`;
     }
     if (file.size === 0) {
       return 'The file is empty';
@@ -66,15 +66,22 @@ export class NewRequestPage implements OnInit {
 
   ngOnInit(): void {
     this.requestsService.uploadConfig().subscribe({
-      next: (config) => this.config.set(config),
-      // Keep the fallback; the server still enforces its limits.
-      error: () => undefined,
+      next: (config) => {
+        this.config.set(config);
+      },
+      error: () => {
+        // Keep the fallback; the server still enforces its limits.
+      },
     });
   }
 
   protected onFileSelected(event: Event): void {
     const files = (event.target as HTMLInputElement).files;
-    this.file.set(files && files.length > 0 ? files[0] : null);
+    if (files && files.length > 0) {
+      this.file.set(files[0]);
+    } else {
+      this.file.set(null);
+    }
   }
 
   protected submit(): void {
@@ -108,8 +115,27 @@ export class NewRequestPage implements OnInit {
     // 413 comes from the HTTP layer before the app sees the request, so it has no message body.
     if (err instanceof HttpErrorResponse && err.status === 413) {
       const max = this.config().maxSizeBytes;
-      return max > 0 ? `The file is larger than ${formatBytes(max)}` : 'The file is too large';
+      if (max > 0) {
+        return `The file is larger than ${formatBytes(max)}`;
+      }
+      return 'The file is too large';
     }
     return errorMessage(err, 'Could not submit your request.');
   }
+}
+
+/** Lower-case extension without the dot, or '' when the name has none. */
+function extensionOf(filename: string): string {
+  const dot = filename.lastIndexOf('.');
+  if (dot < 0) {
+    return '';
+  }
+  return filename.substring(dot + 1).toLowerCase();
+}
+
+/** ['stl', '3mf'] → ['.stl', '.3mf'] */
+function dotted(extensions: string[]): string[] {
+  return extensions.map((extension) => {
+    return `.${extension}`;
+  });
 }

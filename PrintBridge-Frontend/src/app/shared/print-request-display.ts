@@ -1,4 +1,4 @@
-import { RequestStatus } from '../core/models';
+import { RequestStatus } from '../core/models/print-request.model';
 
 const STATUS_LABELS: Record<RequestStatus, string> = {
   SUBMITTED: 'Submitted',
@@ -34,5 +34,8 @@ export function formatBytes(bytes: number): string {
     value /= 1024;
     unit++;
   }
-  return `${unit === 0 ? value : value.toFixed(1)} ${units[unit]}`;
+  if (unit === 0) {
+    return `${value} ${units[unit]}`;
+  }
+  return `${value.toFixed(1)} ${units[unit]}`;
 }

@@ -5,7 +5,7 @@ import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FileSaverService } from '../../../core/files/file-saver.service';
 import { errorMessage } from '../../../core/http/api-error';
-import { PrintRequest, RequestFile } from '../../../core/models';
+import { PrintRequest, RequestFile } from '../../../core/models/print-request.model';
 import { formatBytes, statusBadgeClass, statusLabel } from '../../../shared/print-request-display';
 import { PrintRequestsService } from '../print-requests.service';
 

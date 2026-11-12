@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { finalize, firstValueFrom, map, Observable, shareReplay, tap } from 'rxjs';
-import { AuthResponse, NewAccount, User } from '../models';
+import { AuthResponse, NewAccount, User } from '../models/account.model';
 
 /**
  * Holds the logged-in user and the access token (in memory only). The refresh token is an

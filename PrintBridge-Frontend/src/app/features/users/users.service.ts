@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { NewAccount, User } from '../../core/models';
+import { NewAccount, User } from '../../core/models/account.model';
 
 /** Admin account management API. */
 @Injectable({ providedIn: 'root' })

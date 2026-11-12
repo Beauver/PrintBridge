@@ -1,26 +1,3 @@
-export type Role = 'USER' | 'ADMIN';
-
-export interface User {
-  id: number;
-  username: string;
-  email: string;
-  role: Role;
-  createdAt: string;
-}
-
-export interface AuthResponse {
-  accessToken: string;
-  /** Seconds until the access token expires. */
-  expiresIn: number;
-  user: User;
-}
-
-export interface NewAccount {
-  username: string;
-  email: string;
-  password: string;
-}
-
 export type RequestStatus = 'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'DECLINED' | 'COMPLETED';
 
 export type ModelFileType = 'STL' | 'THREE_MF';

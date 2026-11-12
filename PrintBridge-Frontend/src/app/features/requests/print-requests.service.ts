@@ -6,7 +6,7 @@ import {
   PrintRequest,
   PrintRequestSummary,
   UploadConfig,
-} from '../../core/models';
+} from '../../core/models/print-request.model';
 
 /** Progress of an upload: percentages while sending, then the created request. */
 export type UploadEvent =
@@ -41,17 +41,20 @@ export class PrintRequestsService {
         map((event): UploadEvent | null => {
           if (event.type === HttpEventType.UploadProgress) {
             const total = event.total ?? request.file.size;
-            return {
-              type: 'progress',
-              percent: total ? Math.round((100 * event.loaded) / total) : 0,
-            };
+            let percent = 0;
+            if (total > 0) {
+              percent = Math.round((100 * event.loaded) / total);
+            }
+            return { type: 'progress', percent };
           }
           if (event.type === HttpEventType.Response && event.body) {
             return { type: 'done', request: event.body };
           }
           return null;
         }),
-        filter((event): event is UploadEvent => event !== null),
+        filter((event): event is UploadEvent => {
+          return event !== null;
+        }),
       );
   }
 

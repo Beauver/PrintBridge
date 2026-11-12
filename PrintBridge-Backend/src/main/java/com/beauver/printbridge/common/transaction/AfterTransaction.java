@@ -1,4 +1,4 @@
-package com.beauver.printbridge.common.tx;
+package com.beauver.printbridge.common.transaction;
 
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
@@ -29,9 +29,13 @@ public class AfterTransaction {
 
     private void register(Runnable action, boolean onCommit) {
         registry.registerInterposedSynchronization(new Synchronization() {
+            /*
+             * Required by the Synchronization interface (it has no default). It runs before the
+             * commit, while the transaction can still fail, so it's the wrong moment for disk
+             * side effects; afterCompletion is the one that matters here.
+             */
             @Override
             public void beforeCompletion() {
-                // nothing to do before completion
             }
 
             @Override

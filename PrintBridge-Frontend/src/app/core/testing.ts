@@ -1,4 +1,5 @@
-import { AuthResponse, PrintRequest, PrintRequestSummary, User } from './models';
+import { AuthResponse, User } from './models/account.model';
+import { PrintRequest, PrintRequestSummary } from './models/print-request.model';
 
 export const ADMIN: User = {
   id: 1,

@@ -5,7 +5,7 @@ import { provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FileSaverService } from '../../../core/files/file-saver.service';
-import { PrintRequest } from '../../../core/models';
+import { PrintRequest } from '../../../core/models/print-request.model';
 import { REQUEST } from '../../../core/testing';
 import { PrintRequestsService } from '../print-requests.service';
 import { RequestDetailPage } from './request-detail-page';
@@ -15,11 +15,23 @@ describe('RequestDetailPage', () => {
   const fileSaver = { save: vi.fn() };
   const isAdmin = signal(false);
   let router: Router;
-  const httpError = (status: number, message?: string) =>
-    throwError(() => new HttpErrorResponse({ status, error: message ? { message } : null }));
+
+  function httpError(status: number, message?: string) {
+    let error: { message: string } | null = null;
+    if (message) {
+      error = { message };
+    }
+    return throwError(() => {
+      return new HttpErrorResponse({ status, error });
+    });
+  }
 
   function create(request: PrintRequest | null = REQUEST): RequestDetailPage {
-    requestsService.get.mockReturnValue(request ? of(request) : httpError(404));
+    if (request) {
+      requestsService.get.mockReturnValue(of(request));
+    } else {
+      requestsService.get.mockReturnValue(httpError(404));
+    }
     const fixture = TestBed.createComponent(RequestDetailPage);
     fixture.componentRef.setInput('id', 4);
     const page = fixture.componentInstance;

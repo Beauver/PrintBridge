@@ -2,7 +2,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
 import { errorMessage } from '../../../core/http/api-error';
-import { PrintRequestSummary } from '../../../core/models';
+import { PrintRequestSummary } from '../../../core/models/print-request.model';
 import { PrintRequestsService } from '../print-requests.service';
 import { RequestList } from '../request-list/request-list';
 

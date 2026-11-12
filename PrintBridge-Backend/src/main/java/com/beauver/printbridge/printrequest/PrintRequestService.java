@@ -4,7 +4,7 @@ import com.beauver.printbridge.auth.Caller;
 import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
-import com.beauver.printbridge.common.tx.AfterTransaction;
+import com.beauver.printbridge.common.transaction.AfterTransaction;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.storage.FileStorage;
 import com.beauver.printbridge.user.UserRepository;

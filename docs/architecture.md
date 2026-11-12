@@ -20,7 +20,7 @@ Packages under `com.beauver.printbridge`, one per domain:
 | `printrequest` | Print requests and their model files: entities, upload validation, access rules |
 | `storage` | `FileStorage`: files on disk under `STORAGE_PATH` |
 | `common.error` | Domain exceptions and their HTTP mapping |
-| `common.tx` | `AfterTransaction`: run disk side effects only after commit/rollback |
+| `common.transaction` | `AfterTransaction`: run disk side effects only after commit/rollback |
 
 Layering:
 - **Resource** (`*Resource`): HTTP only. Paths, status codes, `@RolesAllowed`/`@PermitAll`, Bean Validation on DTOs. No business logic.

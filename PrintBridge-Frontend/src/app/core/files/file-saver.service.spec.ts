@@ -4,12 +4,14 @@ import { FileSaverService } from './file-saver.service';
 describe('FileSaverService', () => {
   it('clicks a temporary download link and revokes the object URL', () => {
     vi.useFakeTimers();
-    const createUrl = vi.fn(() => 'blob:url');
+    const createUrl = vi.fn(() => {
+      return 'blob:url';
+    });
     const revokeUrl = vi.fn();
     vi.stubGlobal('URL', { ...URL, createObjectURL: createUrl, revokeObjectURL: revokeUrl });
-    const click = vi
-      .spyOn(HTMLAnchorElement.prototype, 'click')
-      .mockImplementation(() => undefined);
+    const click = vi.spyOn(HTMLAnchorElement.prototype, 'click').mockImplementation(() => {
+      // don't navigate in tests
+    });
 
     const blob = new Blob(['x']);
     TestBed.inject(FileSaverService).save(blob, 'cube.stl');

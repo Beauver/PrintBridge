@@ -16,6 +16,8 @@ export class FileSaverService {
     link.download = filename;
     link.click();
     // Revoke on the next tick: the click starts the download synchronously in all browsers.
-    setTimeout(() => URL.revokeObjectURL(url));
+    setTimeout(() => {
+      URL.revokeObjectURL(url);
+    });
   }
 }

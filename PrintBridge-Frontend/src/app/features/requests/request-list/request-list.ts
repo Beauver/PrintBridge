@@ -1,7 +1,7 @@
 import { CurrencyPipe, DatePipe } from '@angular/common';
 import { Component, input } from '@angular/core';
 import { RouterLink } from '@angular/router';
-import { PrintRequestSummary } from '../../../core/models';
+import { PrintRequestSummary } from '../../../core/models/print-request.model';
 import { statusBadgeClass, statusLabel } from '../../../shared/print-request-display';
 
 /**

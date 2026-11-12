@@ -42,7 +42,7 @@ This is a sanity check, not a full parse: a file that passes may still not be pr
 ## Storage
 
 - Files are stored under `STORAGE_PATH` as `<requestId>/<random-uuid>.<ext>`. The client's filename is never used in a path; it is only kept for display and as the download name.
-- In production, mount a volume on `STORAGE_PATH`. It must not be served by a web server.
+- In production, set `STORAGE_PATH` to an absolute path (e.g. `/data/uploads`) and mount a volume there. A relative path is resolved against the backend's working directory. The directory must not be served by a web server.
 - Disk work follows the database transaction:
   - If creating a request fails after the file was stored, the file is removed again.
   - Files of deleted requests or users are removed after the commit. A failure there is logged and leaves an orphan file; the deletion still succeeds.

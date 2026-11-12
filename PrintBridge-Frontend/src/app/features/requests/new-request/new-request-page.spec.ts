@@ -11,9 +11,18 @@ describe('NewRequestPage', () => {
   let router: Router;
   const requestsService = { uploadConfig: vi.fn(), create: vi.fn() };
   const MB = 1024 * 1024;
-  const stl = (size = 10, name = 'cube.stl') => new File([new Uint8Array(size)], name);
-  const select = (file: File | null) =>
-    page['onFileSelected']({ target: { files: file ? [file] : [] } } as unknown as Event);
+
+  function stl(size = 10, name = 'cube.stl'): File {
+    return new File([new Uint8Array(size)], name);
+  }
+
+  function select(file: File | null): void {
+    const files: File[] = [];
+    if (file) {
+      files.push(file);
+    }
+    page['onFileSelected']({ target: { files } } as unknown as Event);
+  }
 
   beforeEach(() => {
     vi.clearAllMocks();
@@ -36,7 +45,11 @@ describe('NewRequestPage', () => {
     });
 
     it('keeps the fallback when loading fails', () => {
-      requestsService.uploadConfig.mockReturnValue(throwError(() => new Error('down')));
+      requestsService.uploadConfig.mockReturnValue(
+        throwError(() => {
+          return new Error('down');
+        }),
+      );
       const other = TestBed.createComponent(NewRequestPage).componentInstance;
       other.ngOnInit();
       expect(other['config']()).toEqual({ maxSizeBytes: 0, allowedExtensions: ['stl', '3mf'] });

@@ -16,13 +16,19 @@ describe('PrintRequestsService', () => {
     http = TestBed.inject(HttpTestingController);
   });
 
-  afterEach(() => http.verify());
+  afterEach(() => {
+    http.verify();
+  });
 
   it('calls the read and delete endpoints', () => {
-    service.listOwn().subscribe((list) => expect(list).toEqual([REQUEST_SUMMARY]));
+    service.listOwn().subscribe((list) => {
+      expect(list).toEqual([REQUEST_SUMMARY]);
+    });
     http.expectOne({ method: 'GET', url: '/api/requests' }).flush([REQUEST_SUMMARY]);
 
-    service.get(4).subscribe((r) => expect(r).toEqual(REQUEST));
+    service.get(4).subscribe((request) => {
+      expect(request).toEqual(REQUEST);
+    });
     http.expectOne({ method: 'GET', url: '/api/requests/4' }).flush(REQUEST);
 
     service.uploadConfig().subscribe();
@@ -35,7 +41,9 @@ describe('PrintRequestsService', () => {
   });
 
   it('downloads a file as a blob', () => {
-    service.downloadFile(4, 7).subscribe((blob) => expect(blob).toBeInstanceOf(Blob));
+    service.downloadFile(4, 7).subscribe((blob) => {
+      expect(blob).toBeInstanceOf(Blob);
+    });
     const req = http.expectOne({ method: 'GET', url: '/api/requests/4/files/7' });
     expect(req.request.responseType).toBe('blob');
     req.flush(new Blob(['x']));
@@ -44,7 +52,9 @@ describe('PrintRequestsService', () => {
   it('uploads as multipart and reports progress then the created request', () => {
     const file = new File(['solid'], 'cube.stl');
     const events: UploadEvent[] = [];
-    service.create({ name: 'Cube', description: 'Small', file }).subscribe((e) => events.push(e));
+    service.create({ name: 'Cube', description: 'Small', file }).subscribe((event) => {
+      events.push(event);
+    });
 
     const req = http.expectOne({ method: 'POST', url: '/api/requests' });
     const body = req.request.body as FormData;
@@ -69,7 +79,9 @@ describe('PrintRequestsService', () => {
     const events: UploadEvent[] = [];
     service
       .create({ name: 'Empty', description: '', file: new File([], 'a.stl') })
-      .subscribe((e) => events.push(e));
+      .subscribe((event) => {
+        events.push(event);
+      });
     const req = http.expectOne('/api/requests');
     req.event({ type: HttpEventType.UploadProgress, loaded: 0 });
     req.flush(REQUEST);
