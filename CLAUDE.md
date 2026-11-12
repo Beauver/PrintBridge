@@ -12,6 +12,7 @@ Stack: Quarkus + Panache + PostgreSQL + Flyway (`PrintBridge-Backend`), Angular 
   - Components never call HTTP directly; services do.
 - Angular defaults: standalone components, signals, `inject()`, lazy-loaded routes, auth interceptor + route guards.
 - UI: Bootstrap. Functional and tidy, not polished.
+- Component styles go in a `.css` file next to the component (`styleUrl`), never inline in the TypeScript or HTML.
 - Add `data-cy="..."` attributes to interactive elements/key content (Cypress convention). Cypress tests are only written when asked.
 
 ### Backend
@@ -20,12 +21,14 @@ Stack: Quarkus + Panache + PostgreSQL + Flyway (`PrintBridge-Backend`), Angular 
   - Services: business logic, ownership checks (users only see their own requests), querying and filtering.
 - Never return entities from controllers: use DTOs (records) with mappers.
 - Mappers/utils are fine when something is reused.
+- Records (DTOs etc.): one component per line once a record has more than 3 components or the header doesn't fit in 120 characters.
 - Spoolman is read-only and backend-only (REST client + cache). Pricing goes through `PricingStrategy`.
 - Schema changes only via Flyway migrations (`db/migration`); Hibernate never alters the schema.
 - Config only through env vars / `application.properties`; no hardcoded secrets or URLs.
 
 ## Testing
 - Target 80–100% unit-test coverage on controllers and services, frontend and backend. It is a target (report it), not a CI gate.
+- Frontend: test component and service logic (methods, signals, service calls), not the rendered HTML, unless a template has complex logic. Templates are excluded from coverage.
 - Run the relevant tests before reporting something as done.
 - No Cypress/E2E tests unless asked.
 
@@ -45,6 +48,7 @@ Stack: Quarkus + Panache + PostgreSQL + Flyway (`PrintBridge-Backend`), Angular 
 - Project board "PrintBridge - SCRUM" collects issues automatically. Moving cards (Backlog → Sprint → In progress → ...) is allowed but the user may do it too.
 - `docs/`: markdown per feature (what exists and how it behaves) plus standing docs (architecture, API, auth). Update with each feature.
 - Javadoc/comments where useful (the why, not the what).
+- Code that will change in a later issue gets a `TODO: #<issue> ...` comment (`// TODO:` in code, `<!-- TODO: -->` in templates).
 
 ## Branching & PRs
 - `main`: always working. Only via PR; pipeline must pass.

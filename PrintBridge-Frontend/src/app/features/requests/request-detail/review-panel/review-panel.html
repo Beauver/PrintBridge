@@ -1,0 +1,161 @@
+<section class="card card-body mb-3 border-primary-subtle" data-cy="review-panel">
+  <h2 class="h5 mb-3">Review</h2>
+
+  @if (notice()) {
+    <div class="alert alert-success py-2" role="status" data-cy="review-notice">
+      {{ notice() }}
+    </div>
+  }
+  @if (error()) {
+    <div class="alert alert-danger py-2" role="alert" data-cy="review-error">{{ error() }}</div>
+  }
+
+  @if (editable()) {
+    <div class="row g-3">
+      <div class="col-md-6">
+        <label class="form-label" for="review-status">Status</label>
+        <select
+          id="review-status"
+          class="form-select"
+          [formControl]="status"
+          data-cy="review-status"
+        >
+          @for (option of statusOptions(); track option) {
+            <option [value]="option" [disabled]="isOptionDisabled(option)">
+              {{ statusLabel(option) }}
+              @if (isOptionDisabled(option)) {
+                (set a price first)
+              }
+            </option>
+          }
+        </select>
+        @if (needsPrice() && request().nextStatuses.includes('COMPLETED')) {
+          <div class="form-text" data-cy="review-needs-price">
+            Set a final price before marking it completed.
+          </div>
+        }
+      </div>
+
+      <div class="col-md-6">
+        <label class="form-label" for="review-price">Final price</label>
+        <div class="input-group has-validation">
+          <span class="input-group-text">€</span>
+          <input
+            id="review-price"
+            type="text"
+            inputmode="decimal"
+            autocomplete="off"
+            class="form-control"
+            placeholder="69,42"
+            [formControl]="price"
+            [class.is-invalid]="priceError()"
+            (keydown.enter)="savePrice()"
+            data-cy="review-price"
+          />
+          @if (!paid()) {
+            <button
+              type="button"
+              class="btn btn-primary"
+              [disabled]="saving()"
+              (click)="savePrice()"
+              data-cy="review-price-save"
+            >
+              Save
+            </button>
+            @if (request().finalPrice !== null) {
+              <button
+                type="button"
+                class="btn btn-outline-secondary"
+                [disabled]="saving()"
+                (click)="clearPrice()"
+                data-cy="review-price-clear"
+              >
+                Clear
+              </button>
+            }
+          }
+          <div class="invalid-feedback">{{ priceError() }}</div>
+        </div>
+        @if (paid()) {
+          <div class="form-text" data-cy="review-price-locked">
+            Mark as unpaid to change the price.
+          </div>
+        }
+      </div>
+    </div>
+  }
+
+  @if (canPay()) {
+    <div class="d-flex flex-wrap align-items-center gap-2" [class.mt-3]="editable()">
+      @if (paid()) {
+        <button
+          type="button"
+          class="btn btn-outline-secondary btn-sm"
+          [disabled]="saving()"
+          (click)="togglePaid()"
+          data-cy="review-unpaid"
+        >
+          Mark as unpaid
+        </button>
+      } @else {
+        <button
+          type="button"
+          class="btn btn-success btn-sm"
+          [disabled]="saving() || needsPrice()"
+          (click)="togglePaid()"
+          data-cy="review-paid"
+        >
+          Mark as paid
+        </button>
+        @if (needsPrice()) {
+          <span class="form-text m-0" data-cy="review-paid-needs-price"
+            >Set a final price first.</span
+          >
+        }
+      }
+    </div>
+  }
+
+  @if (pendingStatus(); as pending) {
+    <div class="alert alert-warning mt-3 mb-0" data-cy="review-confirm">
+      <p class="mb-2">
+        Mark this request as <strong>{{ statusLabel(pending) }}</strong>? This is final: status and
+        price can't be changed afterwards.
+      </p>
+      @if (pending === 'DECLINED') {
+        <label class="form-label" for="decline-reason"
+          >Reason
+          <span class="text-body-secondary small">(optional, shown to the user)</span></label
+        >
+        <textarea
+          id="decline-reason"
+          class="form-control mb-2"
+          rows="3"
+          maxlength="2000"
+          [formControl]="declineReason"
+          data-cy="review-decline-reason"
+        ></textarea>
+      }
+      <div class="d-flex gap-2">
+        <button
+          type="button"
+          class="btn btn-sm btn-warning"
+          [disabled]="saving()"
+          (click)="confirmPending()"
+          data-cy="review-confirm-yes"
+        >
+          {{ statusLabel(pending) }}
+        </button>
+        <button
+          type="button"
+          class="btn btn-sm btn-outline-secondary"
+          [disabled]="saving()"
+          (click)="cancelPending()"
+          data-cy="review-confirm-no"
+        >
+          Cancel
+        </button>
+      </div>
+    </div>
+  }
+</section>

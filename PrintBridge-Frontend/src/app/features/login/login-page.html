@@ -1,0 +1,49 @@
+<div class="page-narrow">
+  <h1 class="h3 mb-4 text-center">Log in to PrintBridge</h1>
+
+  <form
+    class="card card-body"
+    [formGroup]="form"
+    (ngSubmit)="submit()"
+    novalidate
+    data-cy="login-form"
+  >
+    @if (error()) {
+      <div class="alert alert-danger py-2" role="alert" data-cy="login-error">{{ error() }}</div>
+    }
+
+    <div class="mb-3">
+      <label class="form-label" for="login-name">Username or email</label>
+      <input
+        id="login-name"
+        class="form-control"
+        formControlName="login"
+        autocomplete="username"
+        [class.is-invalid]="form.controls.login.touched && form.controls.login.invalid"
+        data-cy="login-name"
+      />
+      <div class="invalid-feedback">Username or email is required</div>
+    </div>
+
+    <div class="mb-4">
+      <label class="form-label" for="login-password">Password</label>
+      <input
+        id="login-password"
+        type="password"
+        class="form-control"
+        formControlName="password"
+        autocomplete="current-password"
+        [class.is-invalid]="form.controls.password.touched && form.controls.password.invalid"
+        data-cy="login-password"
+      />
+      <div class="invalid-feedback">Password is required</div>
+    </div>
+
+    <button type="submit" class="btn btn-primary w-100" [disabled]="busy()" data-cy="login-submit">
+      {{ busy() ? 'Logging in…' : 'Log in' }}
+    </button>
+  </form>
+  <p class="text-body-secondary small text-center mt-3">
+    No account? Ask the owner to create one for you.
+  </p>
+</div>

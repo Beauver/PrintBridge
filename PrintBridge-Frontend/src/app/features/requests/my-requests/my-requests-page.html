@@ -1,0 +1,43 @@
+<div class="page">
+  <div class="d-flex align-items-center justify-content-between mb-3">
+    <h1 class="h3 mb-0">My requests</h1>
+    @if (requests().length > 0) {
+      <a class="btn btn-primary btn-sm" routerLink="/requests/new" data-cy="requests-new"
+        >New request</a
+      >
+    }
+  </div>
+
+  @if (error()) {
+    <div class="alert alert-danger py-2" role="alert" data-cy="requests-error">
+      {{ error() }}
+      <button type="button" class="btn btn-link btn-sm p-0 ms-2 align-baseline" (click)="load()">
+        Try again
+      </button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="text-body-secondary" data-cy="requests-loading">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading…
+    </div>
+  } @else if (!error() && requests().length === 0) {
+    <div class="card card-body text-center py-5" data-cy="requests-empty">
+      <p class="mb-3">You haven't requested any prints yet.</p>
+      <div>
+        <a class="btn btn-primary" routerLink="/requests/new" data-cy="requests-empty-new"
+          >New request</a
+        >
+      </div>
+      @if (auth.isAdmin()) {
+        <p class="small text-body-secondary mt-3 mb-0">
+          You can also
+          <a routerLink="/admin/users" data-cy="requests-users-link">create accounts</a> for the
+          people who will send you print requests.
+        </p>
+      }
+    </div>
+  } @else if (requests().length > 0) {
+    <app-request-list [requests]="requests()" />
+  }
+</div>

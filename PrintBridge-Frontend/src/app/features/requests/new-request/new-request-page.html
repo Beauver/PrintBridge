@@ -1,0 +1,95 @@
+<div class="page">
+  <h1 class="h3 mb-3">New request</h1>
+
+  <form class="card card-body" [formGroup]="form" (ngSubmit)="submit()" novalidate>
+    @if (error()) {
+      <div class="alert alert-danger py-2" role="alert" data-cy="new-request-error">
+        {{ error() }}
+      </div>
+    }
+
+    <div class="mb-3">
+      <label class="form-label" for="request-name">Name</label>
+      <input
+        id="request-name"
+        class="form-control"
+        formControlName="name"
+        maxlength="100"
+        [class.is-invalid]="fieldError(form.controls.name, 'Name')"
+        data-cy="new-request-name"
+      />
+      <div class="invalid-feedback">{{ fieldError(form.controls.name, 'Name') }}</div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="request-description"
+        >Description <span class="text-body-secondary small">(optional)</span></label
+      >
+      <textarea
+        id="request-description"
+        class="form-control"
+        rows="4"
+        formControlName="description"
+        maxlength="2000"
+        placeholder="Colour, size, number of copies, anything we should know"
+        [class.is-invalid]="fieldError(form.controls.description, 'Description')"
+        data-cy="new-request-description"
+      ></textarea>
+      <div class="invalid-feedback">
+        {{ fieldError(form.controls.description, 'Description') }}
+      </div>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="request-file">Model file</label>
+      <input
+        id="request-file"
+        type="file"
+        class="form-control"
+        [accept]="accept()"
+        [disabled]="uploading()"
+        [class.is-invalid]="fileError()"
+        (change)="onFileSelected($event)"
+        data-cy="new-request-file"
+      />
+      <div class="invalid-feedback" data-cy="new-request-file-error">{{ fileError() }}</div>
+      <div class="form-text">
+        {{ accept() }}
+        @if (config().maxSizeBytes > 0) {
+          · max {{ formatBytes(config().maxSizeBytes) }}
+        }
+      </div>
+    </div>
+
+    @if (uploading()) {
+      <div
+        class="progress mb-3"
+        role="progressbar"
+        aria-label="Upload progress"
+        [attr.aria-valuenow]="progress()"
+        aria-valuemin="0"
+        aria-valuemax="100"
+        data-cy="new-request-progress"
+      >
+        <div class="progress-bar" [style.width.%]="progress()">{{ progress() }}%</div>
+      </div>
+    }
+
+    <div class="d-flex gap-2">
+      <button
+        type="submit"
+        class="btn btn-primary"
+        [disabled]="uploading()"
+        data-cy="new-request-submit"
+      >
+        @if (uploading()) {
+          <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>
+          Uploading…
+        } @else {
+          Submit request
+        }
+      </button>
+      <a class="btn btn-outline-secondary" routerLink="/" data-cy="new-request-cancel">Cancel</a>
+    </div>
+  </form>
+</div>

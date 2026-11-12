@@ -1,0 +1,27 @@
+# Rendered by the nginx image at startup (envsubst on ${BACKEND_URL}).
+server {
+  listen 80;
+  root /usr/share/nginx/html;
+  index index.html;
+
+  # API on the same origin as the app, so the refresh-token cookie stays first-party.
+  location /api/ {
+    proxy_pass ${BACKEND_URL};
+    proxy_set_header Host $host;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    proxy_set_header X-Forwarded-Proto $scheme;
+    client_max_body_size 100m;
+  }
+
+  # Hashed assets can be cached aggressively
+  location ~* \.(?:js|css|woff2?|png|jpg|svg|ico)$ {
+    expires 1y;
+    add_header Cache-Control "public, immutable";
+    try_files $uri =404;
+  }
+
+  # SPA fallback
+  location / {
+    try_files $uri $uri/ /index.html;
+  }
+}
