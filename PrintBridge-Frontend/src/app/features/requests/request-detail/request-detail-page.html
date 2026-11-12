@@ -1,0 +1,134 @@
+<div class="page">
+  <a class="small" routerLink="/" data-cy="request-back">&larr; My requests</a>
+
+  @if (loading()) {
+    <div class="text-body-secondary mt-3" data-cy="request-loading">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading…
+    </div>
+  } @else if (notFound()) {
+    <div class="alert alert-warning mt-3" data-cy="request-not-found">
+      This request doesn't exist or you don't have access to it.
+    </div>
+  }
+
+  @if (error()) {
+    <div
+      class="alert alert-danger alert-dismissible py-2 mt-3"
+      role="alert"
+      data-cy="request-error"
+    >
+      {{ error() }}
+      <button type="button" class="btn-close" aria-label="Close" (click)="error.set(null)"></button>
+    </div>
+  }
+
+  @if (request(); as request) {
+    <div class="d-flex flex-wrap align-items-center gap-2 mt-2 mb-3">
+      <h1 class="h3 mb-0 me-auto text-break" data-cy="request-name">{{ request.name }}</h1>
+      <span
+        class="badge fs-6"
+        [class]="statusBadgeClass(request.status)"
+        data-cy="request-status"
+        >{{ statusLabel(request.status) }}</span
+      >
+    </div>
+
+    <div class="card card-body mb-3">
+      <dl class="row mb-0">
+        @if (auth.isAdmin()) {
+          <dt class="col-sm-3">Requested by</dt>
+          <dd class="col-sm-9" data-cy="request-owner">{{ request.ownerUsername }}</dd>
+        }
+        <dt class="col-sm-3">Price</dt>
+        <dd class="col-sm-9" data-cy="request-price">
+          @if (request.finalPrice !== null) {
+            {{ request.finalPrice | currency: 'EUR' }}
+          } @else {
+            <span class="text-body-secondary">Price pending</span>
+          }
+        </dd>
+        @if (request.declineReason) {
+          <dt class="col-sm-3">Decline reason</dt>
+          <dd class="col-sm-9 text-pre-wrap" data-cy="request-decline-reason">
+            {{ request.declineReason }}
+          </dd>
+        }
+        <dt class="col-sm-3">Description</dt>
+        <dd class="col-sm-9 text-pre-wrap" data-cy="request-description">
+          @if (request.description) {
+            {{ request.description }}
+          } @else {
+            <span class="text-body-secondary">–</span>
+          }
+        </dd>
+        <dt class="col-sm-3">Created</dt>
+        <dd class="col-sm-9">{{ request.createdAt | date: 'medium' }}</dd>
+        <dt class="col-sm-3">Last updated</dt>
+        <dd class="col-sm-9 mb-0">{{ request.updatedAt | date: 'medium' }}</dd>
+      </dl>
+    </div>
+
+    <h2 class="h5">Files</h2>
+    <ul class="list-group mb-4">
+      @for (file of request.files; track file.id) {
+        <li
+          class="list-group-item d-flex flex-wrap align-items-center gap-2"
+          data-cy="request-file"
+        >
+          <span class="me-auto text-break">
+            {{ file.originalFilename }}
+            <span class="text-body-secondary small ms-1"
+              >{{ fileTypeLabel(file) }} · {{ formatBytes(file.sizeBytes) }}</span
+            >
+          </span>
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-primary"
+            [disabled]="downloadingId() === file.id"
+            (click)="download(file)"
+            data-cy="request-file-download"
+          >
+            {{ downloadingId() === file.id ? 'Downloading…' : 'Download' }}
+          </button>
+        </li>
+      }
+    </ul>
+
+    @if (canDelete()) {
+      @if (confirmingDelete()) {
+        <div class="alert alert-danger" data-cy="request-delete-confirm">
+          <p class="mb-2">Delete this request and its file? This cannot be undone.</p>
+          <div class="d-flex gap-2">
+            <button
+              type="button"
+              class="btn btn-danger btn-sm"
+              [disabled]="deleting()"
+              (click)="confirmDelete()"
+              data-cy="request-delete-yes"
+            >
+              {{ deleting() ? 'Deleting…' : 'Delete' }}
+            </button>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              [disabled]="deleting()"
+              (click)="cancelDelete()"
+              data-cy="request-delete-no"
+            >
+              Cancel
+            </button>
+          </div>
+        </div>
+      } @else {
+        <button
+          type="button"
+          class="btn btn-outline-danger btn-sm"
+          (click)="askDelete()"
+          data-cy="request-delete"
+        >
+          Delete request
+        </button>
+      }
+    }
+  }
+</div>

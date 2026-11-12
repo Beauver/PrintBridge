@@ -1,0 +1,4 @@
+/* Keep line breaks the user typed in description and decline reason. */
+.text-pre-wrap {
+  white-space: pre-wrap;
+}

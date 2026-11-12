@@ -10,9 +10,9 @@ Issue: #3 (part of #2).
 - **Users page (admin):** *Users* in the navbar.
   - *New user*: username, email, password (twice). Duplicate username/email shows an error.
   - *Reset password*: sets a new password and logs that user out everywhere.
-  - *Delete*: asks for confirmation; the user is logged out everywhere. Their requests are deleted too once requests exist (#4). The admin can't delete their own account.
+  - *Delete*: asks for confirmation; the user is logged out everywhere. Their print requests and files are deleted too. The admin can't delete their own account.
 - **Theme:** dark by default; the round button in the bottom-right corner (on every page, also login/setup) switches to light and is remembered in the browser.
-- **Start page:** greeting; placeholder until print requests arrive (#4).
+- **Start page:** the user's print requests, see [print requests](print-requests.md).
 
 ## Not included
 

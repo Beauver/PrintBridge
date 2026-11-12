@@ -1,6 +1,13 @@
 package com.beauver.printbridge.support;
 
 import com.beauver.printbridge.auth.AuthService;
+import com.beauver.printbridge.printrequest.PrintRequest;
+import com.beauver.printbridge.printrequest.PrintRequestService;
+import com.beauver.printbridge.printrequest.RequestStatus;
+import com.beauver.printbridge.printrequest.dto.NewPrintRequest;
+import com.beauver.printbridge.printrequest.dto.PrintRequestDto;
+import com.beauver.printbridge.printrequest.dto.UploadedModel;
+import com.beauver.printbridge.storage.StorageConfig;
 import com.beauver.printbridge.user.Role;
 import com.beauver.printbridge.user.User;
 import com.beauver.printbridge.user.UserService;
@@ -9,6 +16,13 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
+
+import java.io.IOException;
+import java.io.UncheckedIOException;
+import java.nio.file.Files;
+import java.nio.file.Path;
+import java.util.Comparator;
+import java.util.stream.Stream;
 
 /** Database helpers for @QuarkusTest tests. */
 @ApplicationScoped
@@ -25,9 +39,52 @@ public class TestData {
     @Inject
     AuthService authService;
 
+    @Inject
+    PrintRequestService printRequestService;
+
+    @Inject
+    StorageConfig storageConfig;
+
     @Transactional
     public void reset() {
-        em.createNativeQuery("TRUNCATE users, refresh_tokens RESTART IDENTITY CASCADE").executeUpdate();
+        em.createNativeQuery("TRUNCATE users, refresh_tokens, print_requests, request_files RESTART IDENTITY CASCADE")
+                .executeUpdate();
+        deleteRecursively(storageRoot());
+    }
+
+    public Path storageRoot() {
+        return Path.of(storageConfig.path()).toAbsolutePath().normalize();
+    }
+
+    /** Creates a request with a small binary STL through the service, then forces its status. */
+    public PrintRequestDto printRequest(User owner, RequestStatus status) {
+        try {
+            Path upload = Files.createTempFile("upload", ".stl");
+            Files.write(upload, ModelFiles.binaryStl(1));
+            PrintRequestDto created = printRequestService.create(owner.id,
+                    new NewPrintRequest("Benchy", null, new UploadedModel("benchy.stl", upload, Files.size(upload))));
+            Files.delete(upload);
+            setStatus(created.id(), status);
+            return created;
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
+    }
+
+    @Transactional
+    public void setStatus(long requestId, RequestStatus status) {
+        em.find(PrintRequest.class, requestId).status = status;
+    }
+
+    private static void deleteRecursively(Path dir) {
+        if (!Files.exists(dir)) {
+            return;
+        }
+        try (Stream<Path> paths = Files.walk(dir)) {
+            paths.sorted(Comparator.reverseOrder()).forEach(p -> p.toFile().delete());
+        } catch (IOException e) {
+            throw new UncheckedIOException(e);
+        }
     }
 
     public User admin() {

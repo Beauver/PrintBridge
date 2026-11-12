@@ -3,7 +3,7 @@ import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
-import { User } from '../../core/models';
+import { User } from '../../core/models/account.model';
 import { ADMIN, ALICE } from '../../core/testing';
 import { UsersPage } from './users-page';
 import { UsersService } from './users.service';

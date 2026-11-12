@@ -20,6 +20,11 @@ public class ExceptionMappers {
     }
 
     @ServerExceptionMapper
+    public Response invalidInput(InvalidInputException e) {
+        return error(Response.Status.BAD_REQUEST, e.getMessage());
+    }
+
+    @ServerExceptionMapper
     public Response invalidCredentials(InvalidCredentialsException e) {
         return error(Response.Status.UNAUTHORIZED, e.getMessage());
     }

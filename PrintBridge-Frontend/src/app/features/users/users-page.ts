@@ -3,7 +3,7 @@ import { Component, inject, OnInit, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/http/api-error';
-import { User } from '../../core/models';
+import { User } from '../../core/models/account.model';
 import { fieldError, newAccountForm, PASSWORD_VALIDATORS } from '../../shared/account-form';
 import { UsersService } from './users.service';
 
