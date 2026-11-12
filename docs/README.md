@@ -5,3 +5,4 @@
 - [API](api.md): every REST endpoint.
 - Features:
   - [First-run setup, login and user management](features/setup-auth-users.md)
+  - [Print requests and STL/3MF uploads](features/print-requests.md)

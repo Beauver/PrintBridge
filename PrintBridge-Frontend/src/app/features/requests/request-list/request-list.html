@@ -1,0 +1,70 @@
+<table class="table table-hover align-middle d-none d-md-table" data-cy="request-table">
+  <thead>
+    <tr>
+      <th scope="col">Name</th>
+      @if (showOwner()) {
+        <th scope="col">Owner</th>
+      }
+      <th scope="col">Status</th>
+      <th scope="col">Price</th>
+      <th scope="col">Created</th>
+    </tr>
+  </thead>
+  <tbody>
+    @for (request of requests(); track request.id) {
+      <tr data-cy="request-row">
+        <td>
+          <a [routerLink]="['/requests', request.id]" data-cy="request-link">{{ request.name }}</a>
+        </td>
+        @if (showOwner()) {
+          <td>{{ request.ownerUsername }}</td>
+        }
+        <td>
+          <span class="badge" [class]="statusBadgeClass(request.status)" data-cy="request-status">
+            {{ statusLabel(request.status) }}
+          </span>
+        </td>
+        <td data-cy="request-price">
+          @if (request.finalPrice !== null) {
+            {{ request.finalPrice | currency: 'EUR' }}
+          } @else {
+            <span class="text-body-secondary">Price pending</span>
+          }
+        </td>
+        <td>{{ request.createdAt | date: 'mediumDate' }}</td>
+      </tr>
+    }
+  </tbody>
+</table>
+
+<div class="d-md-none vstack gap-2" data-cy="request-cards">
+  @for (request of requests(); track request.id) {
+    <a
+      class="card card-body text-decoration-none"
+      [routerLink]="['/requests', request.id]"
+      data-cy="request-card"
+    >
+      <div class="d-flex justify-content-between align-items-start gap-2">
+        <span class="fw-semibold text-body">{{ request.name }}</span>
+        <span class="badge" [class]="statusBadgeClass(request.status)">
+          {{ statusLabel(request.status) }}
+        </span>
+      </div>
+      <div class="d-flex justify-content-between small text-body-secondary mt-1">
+        <span>
+          @if (request.finalPrice !== null) {
+            {{ request.finalPrice | currency: 'EUR' }}
+          } @else {
+            Price pending
+          }
+        </span>
+        <span>
+          @if (showOwner()) {
+            {{ request.ownerUsername }} ·
+          }
+          {{ request.createdAt | date: 'mediumDate' }}
+        </span>
+      </div>
+    </a>
+  }
+</div>

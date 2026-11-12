@@ -3,6 +3,7 @@ package com.beauver.printbridge.user;
 import com.beauver.printbridge.auth.RefreshTokenService;
 import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
+import com.beauver.printbridge.printrequest.PrintRequestService;
 import com.beauver.printbridge.user.dto.NewAccountRequest;
 import com.beauver.printbridge.user.dto.UserDto;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -26,6 +27,9 @@ public class UserService {
 
     @Inject
     RefreshTokenService refreshTokens;
+
+    @Inject
+    PrintRequestService printRequests;
 
     public List<UserDto> getAll() {
         return users.listAllByUsername().stream().map(mapper::toDto).toList();
@@ -69,13 +73,18 @@ public class UserService {
         refreshTokens.revokeAll(id);
     }
 
-    /** Deletes a user. Their refresh tokens go with them (ON DELETE CASCADE). */
+    /**
+     * Deletes a user. Their refresh tokens and print requests go with them (ON DELETE CASCADE);
+     * the request files are removed from disk once the transaction commits.
+     */
     @Transactional
     public void delete(long id, long actingUserId) {
         if (id == actingUserId) {
             throw new ConflictException("You cannot delete your own account");
         }
-        users.delete(find(id));
+        User user = find(id);
+        printRequests.deleteFilesOfOwner(id);
+        users.delete(user);
     }
 
     private User find(long id) {

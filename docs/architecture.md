@@ -17,13 +17,17 @@ Packages under `com.beauver.printbridge`, one per domain:
 |---|---|
 | `auth` | Setup, login/refresh/logout, JWT and refresh tokens, `CurrentUser`, stale-token filter |
 | `user` | `User` entity, user management, password hashing |
+| `printrequest` | Print requests and their model files: entities, upload validation, access rules |
+| `storage` | `FileStorage`: files on disk under `STORAGE_PATH` |
 | `common.error` | Domain exceptions and their HTTP mapping |
+| `common.tx` | `AfterTransaction`: run disk side effects only after commit/rollback |
 
 Layering:
 - **Resource** (`*Resource`): HTTP only. Paths, status codes, `@RolesAllowed`/`@PermitAll`, Bean Validation on DTOs. No business logic.
-- **Service** (`*Service`): business rules, ownership checks, transactions. Throws domain exceptions (`ConflictException` → 409, `ResourceNotFoundException` → 404, `InvalidCredentialsException` → 401), mapped in `ExceptionMappers`.
+- **Service** (`*Service`): business rules, ownership checks, transactions. Throws domain exceptions (`InvalidInputException` → 400, `ConflictException` → 409, `ResourceNotFoundException` → 404, `InvalidCredentialsException` → 401), mapped in `ExceptionMappers`.
 - **Repository** (`*Repository`, Panache repository pattern): queries.
 - Entities never leave the backend: resources return DTO records built by mappers.
+- Services that check ownership take a `Caller` (`id`, `admin`) from `CurrentUser.caller()` instead of reading the JWT themselves.
 
 Conventions:
 - All endpoints live under `/api` (`quarkus.rest.path`).
@@ -35,10 +39,10 @@ Conventions:
 
 | Folder | Contents |
 |---|---|
-| `core/` | App-wide services: auth (service, interceptor, guards), setup status, theme, models, HTTP error helper |
+| `core/` | App-wide services: auth (service, interceptor, guards), setup status, theme, file saving, models, HTTP error helper |
 | `features/<name>/` | One folder per page/feature: page component (`.ts` + `.html`) and its API service |
 | `layout/` | Navbar |
-| `shared/` | Reusable form helpers |
+| `shared/` | Reusable form and display helpers (status labels/badges, file sizes) |
 
 Layering: template → component → service → backend API. Components never use `HttpClient` directly.
 

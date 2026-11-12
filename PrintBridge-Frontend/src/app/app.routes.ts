@@ -26,8 +26,23 @@ export const routes: Routes = [
     children: [
       {
         path: '',
-        title: 'PrintBridge',
-        loadComponent: () => import('./features/home/home-page').then((m) => m.HomePage),
+        title: 'My requests · PrintBridge',
+        loadComponent: () =>
+          import('./features/requests/my-requests/my-requests-page').then((m) => m.MyRequestsPage),
+      },
+      {
+        path: 'requests/new',
+        title: 'New request · PrintBridge',
+        loadComponent: () =>
+          import('./features/requests/new-request/new-request-page').then((m) => m.NewRequestPage),
+      },
+      {
+        path: 'requests/:id',
+        title: 'Request · PrintBridge',
+        loadComponent: () =>
+          import('./features/requests/request-detail/request-detail-page').then(
+            (m) => m.RequestDetailPage,
+          ),
       },
       {
         path: 'admin/users',

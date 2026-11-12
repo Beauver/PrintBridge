@@ -25,7 +25,17 @@
             [routerLinkActiveOptions]="{ exact: true }"
             (click)="closeMenu()"
             data-cy="nav-home"
-            >Home</a
+            >My requests</a
+          >
+        </li>
+        <li class="nav-item">
+          <a
+            class="nav-link"
+            routerLink="/requests/new"
+            routerLinkActive="active"
+            (click)="closeMenu()"
+            data-cy="nav-new-request"
+            >New request</a
           >
         </li>
         @if (auth.isAdmin()) {
