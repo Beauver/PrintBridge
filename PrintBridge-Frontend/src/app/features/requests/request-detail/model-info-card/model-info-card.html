@@ -1,0 +1,122 @@
+<div class="card mb-3" data-cy="model-info">
+  <div class="card-header d-flex flex-wrap align-items-center gap-2">
+    <h2 class="h6 mb-0 me-auto">Model</h2>
+    @if (doesNotFit()) {
+      <span class="badge text-bg-danger" data-cy="model-info-no-fit"
+        >Doesn't fit the build plate</span
+      >
+    }
+  </div>
+  <div class="card-body">
+    @switch (info().status) {
+      @case ('PENDING') {
+        <p class="text-body-secondary mb-0" data-cy="model-info-pending">
+          Model details aren't available yet.
+        </p>
+      }
+      @case ('FAILED') {
+        <p class="text-body-secondary mb-0" data-cy="model-info-failed">
+          Couldn't read model details from this file.
+        </p>
+      }
+      @default {
+        <dl class="row mb-0" data-cy="model-info-summary">
+          @if (!showPlates() && dimensions()) {
+            <dt class="col-sm-3">Dimensions</dt>
+            <dd class="col-sm-9" data-cy="model-info-dimensions">{{ dimensions() }}</dd>
+          }
+          @if (showPlates()) {
+            <dt class="col-sm-3">Plates</dt>
+            <dd class="col-sm-9" data-cy="model-info-plates">{{ plateCount() }}</dd>
+          }
+          <dt class="col-sm-3">Volume</dt>
+          <dd class="col-sm-9" data-cy="model-info-volume">{{ volume() }}</dd>
+          @if (weight(); as weight) {
+            <dt class="col-sm-3">Filament</dt>
+            <dd class="col-sm-9" data-cy="model-info-weight">
+              {{ weight.text }}
+              @if (weight.estimate) {
+                <span class="text-body-secondary small">(estimate)</span>
+              }
+            </dd>
+          }
+          @if (printTime()) {
+            <dt class="col-sm-3">Print time</dt>
+            <dd class="col-sm-9" data-cy="model-info-time">{{ printTime() }}</dd>
+          }
+          @if (!showPlates() && filaments().length > 0) {
+            <dt class="col-sm-3">Filaments</dt>
+            <dd class="col-sm-9">
+              <span class="filaments">
+                @for (filament of filaments(); track $index) {
+                  <span
+                    class="swatch"
+                    [style.background-color]="filament.color"
+                    [title]="filamentLabel(filament)"
+                  ></span>
+                  <span class="small me-2">{{ filamentLabel(filament) }}</span>
+                }
+              </span>
+            </dd>
+          }
+        </dl>
+
+        @if (showPlates()) {
+          <div class="table-responsive mt-3">
+            <table class="table table-sm align-middle mb-0" data-cy="model-info-plate-table">
+              <thead>
+                <tr>
+                  <th scope="col">Plate</th>
+                  <th scope="col">Size</th>
+                  <th scope="col">Filament</th>
+                  <th scope="col">Time</th>
+                  <th scope="col">Colours</th>
+                </tr>
+              </thead>
+              <tbody>
+                @for (plate of info().plates; track plate.index) {
+                  <tr data-cy="model-info-plate">
+                    <td class="text-break">{{ plateLabel(plate) }}</td>
+                    <td class="text-nowrap">
+                      @if (plateDimensions(plate); as size) {
+                        {{ size }}
+                        @if (plate.fits === false) {
+                          <span class="badge text-bg-danger ms-1">Too big</span>
+                        }
+                      } @else {
+                        <span class="text-body-secondary">Empty</span>
+                      }
+                    </td>
+                    <td class="text-nowrap">
+                      {{ plateGrams(plate) ?? '–' }}
+                    </td>
+                    <td class="text-nowrap">{{ plateTime(plate) ?? '–' }}</td>
+                    <td>
+                      <span class="filaments">
+                        @for (filament of plate.filaments; track $index) {
+                          <span
+                            class="swatch"
+                            [style.background-color]="filament.color"
+                            [title]="filamentLabel(filament)"
+                            data-cy="model-info-swatch"
+                          ></span>
+                        }
+                      </span>
+                    </td>
+                  </tr>
+                }
+              </tbody>
+            </table>
+          </div>
+        }
+
+        @if (showPlateSizeHint()) {
+          <p class="small text-body-secondary mt-2 mb-0" data-cy="model-info-plate-hint">
+            <a routerLink="/admin/settings">Set the build plate size</a> to check whether the model
+            fits.
+          </p>
+        }
+      }
+    }
+  </div>
+</div>

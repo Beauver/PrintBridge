@@ -1,0 +1,16 @@
+/* Filament colour dot; the colour itself comes from the file. */
+.swatch {
+  display: inline-block;
+  width: 0.9rem;
+  height: 0.9rem;
+  border-radius: 50%;
+  border: 1px solid var(--bs-border-color);
+  vertical-align: -0.1rem;
+  background-color: var(--bs-secondary-bg);
+}
+
+.filaments {
+  display: inline-flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+}

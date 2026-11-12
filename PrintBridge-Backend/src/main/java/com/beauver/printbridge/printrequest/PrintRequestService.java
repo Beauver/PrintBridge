@@ -5,6 +5,7 @@ import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
+import com.beauver.printbridge.modelinfo.ModelInfoService;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.storage.FileStorage;
 import com.beauver.printbridge.user.UserRepository;
@@ -54,6 +55,9 @@ public class PrintRequestService {
     @Inject
     UploadConfig uploadConfig;
 
+    @Inject
+    ModelInfoService modelInfo;
+
     public UploadConfigDto uploadConfig() {
         return new UploadConfigDto(maxSizeBytes(), allowedTypes().stream().map(ModelFileType::extension).toList());
     }
@@ -74,7 +78,8 @@ public class PrintRequestService {
 
     /**
      * Validates the upload, stores the file and creates the request in status SUBMITTED. If the
-     * transaction rolls back, the stored file is removed again.
+     * transaction rolls back, the stored file is removed again. The file is analysed right away;
+     * an analysis that fails is recorded but doesn't stop the upload.
      */
     @Transactional
     public PrintRequestDto create(long ownerId, NewPrintRequest input) {
@@ -108,6 +113,7 @@ public class PrintRequestService {
         afterTransaction.onRollback(() -> storage.deleteDirectory(directory));
         request.addFile(file);
         requests.flush();
+        modelInfo.analyze(file);
         return mapper.toDto(request);
     }
 

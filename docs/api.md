@@ -62,7 +62,16 @@ Allowed moves: SUBMITTED → IN_REVIEW / ACCEPTED / DECLINED; IN_REVIEW → ACCE
 The admin can open, download and delete any request (delete in any status). Other users' requests are always `404`, never `403`, so their existence doesn't leak.
 
 Summary: `{id, name, status, finalPrice, paidAt, ownerUsername, createdAt}`.
-Request: `{id, name, description, status, finalPrice, declineReason, paidAt, ownerId, ownerUsername, createdAt, updatedAt, files: [{id, originalFilename, type, sizeBytes, createdAt}], nextStatuses}` (`nextStatuses`: where the admin may move it; empty once final).
+Request: `{id, name, description, status, finalPrice, declineReason, paidAt, ownerId, ownerUsername, createdAt, updatedAt, files: [{id, originalFilename, type, sizeBytes, createdAt, modelInfo}], nextStatuses}` (`nextStatuses`: where the admin may move it; empty once final).
 `status` is `SUBMITTED | IN_REVIEW | ACCEPTED | DECLINED | COMPLETED`; `type` is `STL | THREE_MF`; `finalPrice` is EUR or `null` (pending); `paidAt` is when it was marked paid, or `null`.
 
+`modelInfo` is what the analyser read from the file, see [model info](features/model-info.md): `{status, source, volumeCm3, estimatedGrams, slicedGrams, printSeconds, fits, plates: [{index, name, width, depth, height, grams, printSeconds, fits, filaments: [{type, color, grams}]}]}`. `status` is `PENDING` (not analysed yet), `ANALYZED` or `FAILED`; unless ANALYZED, the other fields are `null` and `plates` is empty. `source` is `MESH | BAMBU | PRUSA`.
+
 Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file is empty`, `The file is larger than N MB`, `The file is not a valid STL file` / `3MF file`. Missing name or file gives a validation error (`violations`).
+
+## Settings (admin only)
+
+| Method | Path | Body | Result |
+|---|---|---|---|
+| GET | `/settings` | – | `200 {buildPlateX, buildPlateY, buildPlateZ}` (mm; `null` until set) |
+| PUT | `/settings` | `{buildPlateX, buildPlateY, buildPlateZ}`, each a whole number 1–2000, all required | `200` settings; `400` invalid |

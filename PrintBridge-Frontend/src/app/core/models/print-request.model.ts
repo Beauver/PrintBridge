@@ -1,3 +1,5 @@
+import { ModelInfo } from './model-info.model';
+
 export type RequestStatus = 'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'DECLINED' | 'COMPLETED';
 
 /** Admin overview filter: open requests, all, or one status. */
@@ -23,6 +25,7 @@ export interface RequestFile {
   type: ModelFileType;
   sizeBytes: number;
   createdAt: string;
+  modelInfo: ModelInfo;
 }
 
 export interface PrintRequest {

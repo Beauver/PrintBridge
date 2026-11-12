@@ -24,6 +24,27 @@ public final class ModelFiles {
         return buffer.array();
     }
 
+    /** Binary STL of a closed cube from (0,0,0) to (size,size,size). */
+    public static byte[] cubeStl(float size) {
+        float[][] corners = {
+                {0, 0, 0}, {size, 0, 0}, {size, size, 0}, {0, size, 0},
+                {0, 0, size}, {size, 0, size}, {size, size, size}, {0, size, size}};
+        int[][] triangles = {
+                {0, 2, 1}, {0, 3, 2}, {4, 5, 6}, {4, 6, 7}, {0, 1, 5}, {0, 5, 4},
+                {3, 7, 6}, {3, 6, 2}, {0, 4, 7}, {0, 7, 3}, {1, 2, 6}, {1, 6, 5}};
+        ByteBuffer buffer = ByteBuffer.allocate(84 + 50 * triangles.length).order(ByteOrder.LITTLE_ENDIAN);
+        buffer.put(new byte[80]);
+        buffer.putInt(triangles.length);
+        for (int[] triangle : triangles) {
+            buffer.putFloat(0).putFloat(0).putFloat(0);
+            for (int corner : triangle) {
+                buffer.putFloat(corners[corner][0]).putFloat(corners[corner][1]).putFloat(corners[corner][2]);
+            }
+            buffer.putShort((short) 0);
+        }
+        return buffer.array();
+    }
+
     public static byte[] asciiStl() {
         return """
                 solid cube
