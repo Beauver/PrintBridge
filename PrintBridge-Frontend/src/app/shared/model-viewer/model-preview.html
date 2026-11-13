@@ -1,0 +1,28 @@
+@if (mesh(); as mesh) {
+  <app-model-viewer [mesh]="mesh" />
+} @else {
+  @if (placeholder(); as image) {
+    <img
+      [src]="image"
+      alt="Plate image from the file"
+      class="d-block mb-2 border rounded preview-placeholder"
+      data-cy="preview-placeholder"
+    />
+  }
+  <button
+    type="button"
+    class="btn btn-sm btn-outline-primary"
+    [disabled]="loading()"
+    (click)="show()"
+    data-cy="preview-show"
+  >
+    @if (loading()) {
+      <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Loading preview…
+    } @else {
+      Show 3D preview
+    }
+  </button>
+  @if (error()) {
+    <p class="small text-body-secondary mt-2 mb-0" data-cy="preview-error">{{ error() }}</p>
+  }
+}

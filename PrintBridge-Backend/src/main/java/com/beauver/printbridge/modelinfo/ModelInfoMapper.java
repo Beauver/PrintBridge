@@ -9,6 +9,7 @@ import com.beauver.printbridge.modelinfo.dto.SlicingInfoDto;
 import com.beauver.printbridge.modelinfo.dto.WeightKind;
 import com.beauver.printbridge.settings.BuildPlate;
 import com.beauver.printbridge.settings.PrinterSettings;
+import com.beauver.printbridge.settings.SlicingSettings;
 import com.beauver.printbridge.slicing.SliceResult;
 import com.beauver.printbridge.slicing.SliceStatus;
 import com.beauver.printbridge.slicing.SlicedPlate;
@@ -34,8 +35,7 @@ import java.util.stream.Collectors;
 public class ModelInfoMapper {
 
     /** What the mapper needs to know besides the stored rows. */
-    public record Context(List<PrinterSettings> printers, PrinterSettings defaultPrinter, boolean slicingEnabled,
-                          boolean admin) {
+    public record Context(SlicingSettings settings, boolean admin) {
     }
 
     public ModelInfoDto toDto(ModelInfo info, SliceResult slice, Context context) {
@@ -77,26 +77,22 @@ public class ModelInfoMapper {
 
     /** The printer it was sliced for while it is still owned, else the default printer. */
     private static Optional<PrinterSettings> fitPrinter(SliceResult slice, Context context) {
+        String slicedFor = null;
         if (slice != null && slice.status == SliceStatus.DONE) {
-            Optional<PrinterSettings> sliced = context.printers().stream()
-                    .filter(printer -> printer.isModel(slice.printer))
-                    .findFirst();
-            if (sliced.isPresent()) {
-                return sliced;
-            }
+            slicedFor = slice.printer;
         }
-        return Optional.ofNullable(context.defaultPrinter());
+        return context.settings().fitPrinter(slicedFor);
     }
 
     private static SlicingInfoDto slicingInfo(SliceResult slice, Context context) {
         if (slice == null) {
-            return new SlicingInfoDto(context.slicingEnabled(), null, null, null, null, null, null);
+            return new SlicingInfoDto(context.settings().enabled(), null, null, null, null, null, null);
         }
         String error = null;
         if (context.admin()) {
             error = slice.error;
         }
-        return new SlicingInfoDto(context.slicingEnabled(), slice.status, slice.printer, slice.nozzle,
+        return new SlicingInfoDto(context.settings().enabled(), slice.status, slice.printer, slice.nozzle,
                 slice.madeForPrinter, slice.madeForNozzle, error);
     }
 

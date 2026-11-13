@@ -5,13 +5,14 @@ package com.beauver.printbridge.modelinfo.analysis;
  * of the signed tetrahedra between each triangle and the origin, which is exact for a closed
  * mesh; its sign depends on the winding, so callers use the absolute value.
  */
-final class MeshAccumulator {
+final class MeshAccumulator implements TriangleSink {
 
     private final Bounds bounds = new Bounds();
     private double signedVolume;
     private long triangles;
 
-    void addTriangle(double x1, double y1, double z1,
+    @Override
+    public void addTriangle(double x1, double y1, double z1,
                      double x2, double y2, double z2,
                      double x3, double y3, double z3) throws ModelAnalysisException {
         if (!Double.isFinite(x1 + y1 + z1 + x2 + y2 + z2 + x3 + y3 + z3)) {

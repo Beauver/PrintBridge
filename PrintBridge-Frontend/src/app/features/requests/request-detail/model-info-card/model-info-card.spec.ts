@@ -1,7 +1,10 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
+import { of, throwError } from 'rxjs';
 import { ModelInfo, PlateInfo, SlicingInfo } from '../../../../core/models/model-info.model';
 import { NO_SLICING, STL_INFO } from '../../../../core/testing';
+import { TRIANGLE_MESH } from '../../../../core/testing';
+import { ModelPreviewService } from '../../model-preview.service';
 import { ModelInfoCard } from './model-info-card';
 
 describe('ModelInfoCard', () => {
@@ -47,16 +50,32 @@ describe('ModelInfoCard', () => {
     ],
   };
 
+  const previewService = { fileMesh: vi.fn(), thumbnail: vi.fn() };
+
   beforeEach(() => {
-    TestBed.configureTestingModule({ providers: [provideRouter([])] });
+    vi.clearAllMocks();
+    previewService.thumbnail.mockReturnValue(
+      throwError(() => {
+        return new Error('No image');
+      }),
+    );
+    TestBed.configureTestingModule({
+      providers: [provideRouter([]), { provide: ModelPreviewService, useValue: previewService }],
+    });
   });
 
-  function create(info: ModelInfo, isAdmin = false): ModelInfoCard {
+  function createFixture(info: ModelInfo, isAdmin = false) {
     const fixture = TestBed.createComponent(ModelInfoCard);
     fixture.componentRef.setInput('info', info);
     fixture.componentRef.setInput('isAdmin', isAdmin);
+    fixture.componentRef.setInput('requestId', 4);
+    fixture.componentRef.setInput('fileId', 7);
     fixture.detectChanges();
-    return fixture.componentInstance;
+    return fixture;
+  }
+
+  function create(info: ModelInfo, isAdmin = false): ModelInfoCard {
+    return createFixture(info, isAdmin).componentInstance;
   }
 
   it('shows size, volume and the estimate for an STL', () => {
@@ -198,6 +217,68 @@ describe('ModelInfoCard', () => {
         'Slicing timed out',
       );
       expect(create(BAMBU, true)['slicingError']()).toBeNull();
+    });
+  });
+
+  describe('3D preview', () => {
+    beforeEach(() => {
+      let count = 0;
+      vi.stubGlobal('URL', {
+        createObjectURL: vi.fn(() => {
+          count++;
+          return `blob:plate-${count}`;
+        }),
+        revokeObjectURL: vi.fn(),
+      });
+    });
+
+    afterEach(() => {
+      vi.unstubAllGlobals();
+    });
+
+    it('loads the mesh of this file', () => {
+      previewService.fileMesh.mockReturnValue(of(TRIANGLE_MESH));
+      const card = create(STL_INFO);
+
+      card['previewLoader']()().subscribe();
+
+      expect(previewService.fileMesh).toHaveBeenCalledWith(4, 7);
+    });
+
+    it('shows the plate images of a Bambu file and frees them afterwards', () => {
+      previewService.thumbnail.mockImplementation(
+        (_request: number, _file: number, plate: number) => {
+          if (plate === 2) {
+            return throwError(() => {
+              return new Error('No image');
+            });
+          }
+          return of(new Blob(['png']));
+        },
+      );
+      const fixture = createFixture(BAMBU);
+      const card = fixture.componentInstance;
+      const [lid, empty, refused] = BAMBU.plates;
+
+      expect(previewService.thumbnail).toHaveBeenCalledTimes(3);
+      expect(card['thumbnail'](lid)).toBe('blob:plate-1');
+      expect(card['thumbnail'](empty)).toBeNull();
+      expect(card['thumbnail'](refused)).toBe('blob:plate-2');
+      expect(card['placeholder']()).toBe('blob:plate-1');
+
+      fixture.destroy();
+      expect(URL.revokeObjectURL).toHaveBeenCalledTimes(2);
+    });
+
+    it('asks no images for STL files or files that could not be read', () => {
+      create(STL_INFO);
+      create({ ...BAMBU, status: 'FAILED' });
+
+      expect(previewService.thumbnail).not.toHaveBeenCalled();
+    });
+
+    it('has no placeholder without images', () => {
+      expect(create(BAMBU)['placeholder']()).toBeNull();
     });
   });
 });

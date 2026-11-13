@@ -1,0 +1,33 @@
+@if (showPlateButtons()) {
+  <div class="d-flex flex-wrap gap-1 mb-2" role="group" aria-label="Plates" data-cy="viewer-plates">
+    @for (plate of plates(); track plate.index) {
+      <button
+        type="button"
+        class="btn btn-sm"
+        [class.btn-primary]="plate.index === selectedPlate()"
+        [class.btn-outline-secondary]="plate.index !== selectedPlate()"
+        [class.text-body-tertiary]="plate.empty && plate.index !== selectedPlate()"
+        (click)="selectPlate(plate.index)"
+        [attr.data-cy]="'viewer-plate-' + plate.index"
+      >
+        {{ plate.label }}
+      </button>
+    }
+  </div>
+}
+@if (webGl()) {
+  <div #host class="viewer border rounded position-relative" data-cy="viewer-canvas">
+    @if (!ready()) {
+      <div class="position-absolute top-50 start-50 translate-middle text-body-secondary">
+        <span class="spinner-border spinner-border-sm" aria-hidden="true"></span>
+        <span class="visually-hidden">Loading the 3D view…</span>
+      </div>
+    }
+  </div>
+  <div class="form-text">Drag to rotate · scroll or pinch to zoom · right-drag to pan</div>
+} @else {
+  <div #host class="d-none"></div>
+  <p class="small text-body-secondary mb-0" data-cy="viewer-no-webgl">
+    Your browser can't show 3D (WebGL is off or not supported).
+  </p>
+}

@@ -15,8 +15,8 @@ import java.util.Map;
 /**
  * The geometry of a 3MF: objects (meshes or components pointing at other objects, possibly in
  * other model parts, as Bambu Studio does with {@code 3D/Objects/*.model}) and the build items
- * that place them. Parts are parsed lazily and cached; meshes keep only their vertices and
- * their volume, triangles are not stored.
+ * that place them. Parts are parsed lazily and cached. For model info meshes keep only their
+ * vertices and volume; for a preview ({@link #loadWithTriangles}) the triangles are kept too.
  */
 final class ThreeMfGeometry {
 
@@ -35,6 +35,20 @@ final class ThreeMfGeometry {
     record Placement(Bounds bounds, double volume) {
     }
 
+    /**
+     * A mesh as a build item places it. {@code part} is the object id of the item's component the
+     * mesh belongs to (the part in Bambu terms), or the item's own object id for a plain mesh.
+     * The arrays are shared with the parsed part: read only.
+     */
+    record PlacedMesh(int part, float[] vertices, int vertexCount, int[] triangles, int triangleCount,
+                      Transform transform) {
+    }
+
+    @FunctionalInterface
+    private interface MeshVisitor {
+        void visit(int part, Mesh mesh, Transform transform) throws ModelAnalysisException;
+    }
+
     private record Component(int objectId, String path, Transform transform) {
     }
 
@@ -42,6 +56,9 @@ final class ThreeMfGeometry {
         float[] vertices = new float[3 * 1024];
         int vertexCount;
         double signedVolume;
+        /** Vertex indices, three per triangle; only kept for a preview. */
+        int[] triangles = new int[0];
+        int triangleCount;
     }
 
     private static final class ObjectResource {
@@ -57,14 +74,25 @@ final class ThreeMfGeometry {
     private final ThreeMfPackage pkg;
     private final String rootPath;
     private final Map<String, ModelPart> parts = new HashMap<>();
+    private final boolean keepTriangles;
 
-    private ThreeMfGeometry(ThreeMfPackage pkg, String rootPath) {
+    private ThreeMfGeometry(ThreeMfPackage pkg, String rootPath, boolean keepTriangles) {
         this.pkg = pkg;
         this.rootPath = rootPath;
+        this.keepTriangles = keepTriangles;
     }
 
     static ThreeMfGeometry load(ThreeMfPackage pkg) throws IOException {
-        ThreeMfGeometry geometry = new ThreeMfGeometry(pkg, pkg.rootModelPath());
+        return load(pkg, false);
+    }
+
+    /** Also keeps the triangles, for {@link #meshes}. */
+    static ThreeMfGeometry loadWithTriangles(ThreeMfPackage pkg) throws IOException {
+        return load(pkg, true);
+    }
+
+    private static ThreeMfGeometry load(ThreeMfPackage pkg, boolean keepTriangles) throws IOException {
+        ThreeMfGeometry geometry = new ThreeMfGeometry(pkg, pkg.rootModelPath(), keepTriangles);
         geometry.part(geometry.rootPath);
         return geometry;
     }
@@ -76,13 +104,36 @@ final class ThreeMfGeometry {
     Placement place(BuildItem item, ComponentFilter filter) throws IOException {
         Bounds bounds = new Bounds();
         double[] volume = new double[1];
-        String path = item.path() == null ? rootPath : item.path();
-        accumulate(path, item.objectId(), item.transform(), 0, filter, bounds, volume);
+        walk(item, filter, (part, mesh, transform) -> {
+            float[] v = mesh.vertices;
+            for (int i = 0; i < mesh.vertexCount * 3; i += 3) {
+                bounds.add(transform.x(v[i], v[i + 1], v[i + 2]),
+                        transform.y(v[i], v[i + 1], v[i + 2]),
+                        transform.z(v[i], v[i + 1], v[i + 2]));
+            }
+            volume[0] += Math.abs(mesh.signedVolume * transform.determinant());
+        });
         return new Placement(bounds, volume[0]);
     }
 
-    private void accumulate(String path, int objectId, Transform transform, int depth, ComponentFilter filter,
-                            Bounds bounds, double[] volume) throws IOException {
+    /** The meshes a build item places, with their triangles; needs {@link #loadWithTriangles}. */
+    List<PlacedMesh> meshes(BuildItem item, ComponentFilter filter) throws IOException {
+        if (!keepTriangles) {
+            throw new IllegalStateException("Triangles were not kept");
+        }
+        List<PlacedMesh> meshes = new ArrayList<>();
+        walk(item, filter, (part, mesh, transform) -> meshes.add(new PlacedMesh(part, mesh.vertices,
+                mesh.vertexCount, mesh.triangles, mesh.triangleCount, transform)));
+        return meshes;
+    }
+
+    private void walk(BuildItem item, ComponentFilter filter, MeshVisitor visitor) throws IOException {
+        String path = item.path() == null ? rootPath : item.path();
+        walk(path, item.objectId(), item.objectId(), item.transform(), 0, filter, visitor);
+    }
+
+    private void walk(String path, int objectId, int part, Transform transform, int depth, ComponentFilter filter,
+                      MeshVisitor visitor) throws IOException {
         if (depth > MAX_DEPTH) {
             throw new ModelAnalysisException("Components are nested too deeply");
         }
@@ -91,14 +142,7 @@ final class ThreeMfGeometry {
             throw new ModelAnalysisException("The 3MF refers to a missing object " + objectId);
         }
         if (object.mesh != null) {
-            Mesh mesh = object.mesh;
-            float[] v = mesh.vertices;
-            for (int i = 0; i < mesh.vertexCount * 3; i += 3) {
-                bounds.add(transform.x(v[i], v[i + 1], v[i + 2]),
-                        transform.y(v[i], v[i + 1], v[i + 2]),
-                        transform.z(v[i], v[i + 1], v[i + 2]));
-            }
-            volume[0] += Math.abs(mesh.signedVolume * transform.determinant());
+            visitor.visit(part, object.mesh, transform);
         }
         for (Component component : object.components) {
             if (depth == 0 && !filter.includes(objectId, component.objectId())) {
@@ -108,8 +152,12 @@ final class ThreeMfGeometry {
             if (component.path() != null) {
                 componentPath = component.path();
             }
-            accumulate(componentPath, component.objectId(), component.transform().then(transform), depth + 1,
-                    filter, bounds, volume);
+            int componentPart = part;
+            if (depth == 0) {
+                componentPart = component.objectId();
+            }
+            walk(componentPath, component.objectId(), componentPart, component.transform().then(transform),
+                    depth + 1, filter, visitor);
         }
     }
 
@@ -171,7 +219,7 @@ final class ThreeMfGeometry {
                 }
                 case "triangle" -> {
                     if (object != null && object.mesh != null) {
-                        addTriangle(object.mesh, reader);
+                        addTriangle(object.mesh, reader, keepTriangles);
                     }
                 }
                 case "component" -> {
@@ -202,10 +250,21 @@ final class ThreeMfGeometry {
         mesh.vertexCount++;
     }
 
-    private static void addTriangle(Mesh mesh, XMLStreamReader reader) throws ModelAnalysisException {
+    private void addTriangle(Mesh mesh, XMLStreamReader reader, boolean keep) throws ModelAnalysisException {
         int a = vertexIndex(mesh, Xml.intAttribute(reader, "v1"));
         int b = vertexIndex(mesh, Xml.intAttribute(reader, "v2"));
         int c = vertexIndex(mesh, Xml.intAttribute(reader, "v3"));
+        if (keep) {
+            pkg.budget().addTriangle();
+            if (mesh.triangleCount * 3 + 3 > mesh.triangles.length) {
+                mesh.triangles = Arrays.copyOf(mesh.triangles, Math.max(3 * 1024, mesh.triangles.length * 2));
+            }
+            int i = mesh.triangleCount * 3;
+            mesh.triangles[i] = a / 3;
+            mesh.triangles[i + 1] = b / 3;
+            mesh.triangles[i + 2] = c / 3;
+            mesh.triangleCount++;
+        }
         float[] v = mesh.vertices;
         mesh.signedVolume += MeshAccumulator.signedTetrahedronVolume(v[a], v[a + 1], v[a + 2],
                 v[b], v[b + 1], v[b + 2], v[c], v[c + 1], v[c + 2]);

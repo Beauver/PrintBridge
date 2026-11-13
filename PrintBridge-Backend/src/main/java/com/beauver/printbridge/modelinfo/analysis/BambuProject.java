@@ -43,6 +43,9 @@ final class BambuProject {
     private final List<Plate> plates = new ArrayList<>();
     /** Extruders used per object: the object's own plus those of its normal parts. */
     private final Map<Integer, Set<Integer>> extruders = new HashMap<>();
+    /** The extruder (filament slot) set on an object itself, and per object on its parts. */
+    private final Map<Integer, Integer> objectExtruders = new HashMap<>();
+    private final Map<Integer, Map<Integer, Integer>> partExtruders = new HashMap<>();
     /** Part types per object and part id; parts that aren't listed count as normal. */
     private final Map<Integer, Map<Integer, String>> partTypes = new HashMap<>();
     private final Map<Integer, SlicedPlate> sliced = new HashMap<>();
@@ -112,6 +115,21 @@ final class BambuProject {
             }
         }
         return List.copyOf(used);
+    }
+
+    /**
+     * The "#RRGGBB" colour of the filament a part is printed with: the part's own slot, else the
+     * object's, else slot 1. {@code null} when the project doesn't say.
+     */
+    String colorOf(int objectId, int partId) {
+        Integer slot = partExtruders.getOrDefault(objectId, Map.of()).get(partId);
+        if (slot == null) {
+            slot = objectExtruders.getOrDefault(objectId, 1);
+        }
+        if (slot < 1 || slot > filaments.size()) {
+            return null;
+        }
+        return filaments.get(slot - 1).color();
     }
 
     private void readModelSettings(InputStream in) throws ModelAnalysisException {
@@ -192,7 +210,13 @@ final class BambuProject {
                         }
                     } else if (objectId != null && key.equals("extruder")
                             && (partId == null || isPrintedPart(objectId, partId))) {
-                        extruders.get(objectId).add(SlicerText.extruder(value));
+                        int extruder = SlicerText.extruder(value);
+                        extruders.get(objectId).add(extruder);
+                        if (partId == null) {
+                            objectExtruders.put(objectId, extruder);
+                        } else {
+                            partExtruders.computeIfAbsent(objectId, id -> new HashMap<>()).put(partId, extruder);
+                        }
                     }
                 }
                 default -> {

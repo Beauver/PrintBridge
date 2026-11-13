@@ -59,6 +59,11 @@
           · max {{ formatBytes(config().maxSizeBytes) }}
         }
       </div>
+      @if (previewLoader(); as loader) {
+        <div class="mt-2" data-cy="new-request-preview">
+          <app-model-preview [loader]="loader" />
+        </div>
+      }
     </div>
 
     @if (uploading()) {

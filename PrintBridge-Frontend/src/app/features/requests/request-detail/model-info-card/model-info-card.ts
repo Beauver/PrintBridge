@@ -1,6 +1,17 @@
-import { Component, computed, input, output } from '@angular/core';
+import {
+  Component,
+  computed,
+  DestroyRef,
+  inject,
+  input,
+  OnInit,
+  output,
+  signal,
+} from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FilamentInfo, ModelInfo, PlateInfo } from '../../../../core/models/model-info.model';
+import { ModelPreview } from '../../../../shared/model-viewer/model-preview';
+import { ModelPreviewService } from '../../model-preview.service';
 import {
   formatDimensions,
   formatDuration,
@@ -15,17 +26,77 @@ import {
  */
 @Component({
   selector: 'app-model-info-card',
-  imports: [RouterLink],
+  imports: [RouterLink, ModelPreview],
   templateUrl: './model-info-card.html',
   styleUrl: './model-info-card.css',
 })
-export class ModelInfoCard {
+export class ModelInfoCard implements OnInit {
+  private readonly previewService = inject(ModelPreviewService);
+
   readonly info = input.required<ModelInfo>();
+  /** The request and file this is about, for the 3D preview and plate images. */
+  readonly requestId = input.required<number>();
+  readonly fileId = input.required<number>();
   /** The admin sees slicing errors, the plate size hint and the Re-slice button. */
   readonly isAdmin = input(false);
   /** True while a re-slice request is on its way. */
   readonly reslicing = input(false);
   readonly reslice = output<void>();
+
+  /** Object URLs of the plate images Bambu files carry, by plate number. */
+  protected readonly thumbnails = signal<ReadonlyMap<number, string>>(new Map());
+
+  protected readonly previewLoader = computed(() => {
+    const requestId = this.requestId();
+    const fileId = this.fileId();
+    return () => {
+      return this.previewService.fileMesh(requestId, fileId);
+    };
+  });
+
+  /** The image of the first plate with objects, shown until the 3D preview is loaded. */
+  protected readonly placeholder = computed(() => {
+    const thumbnails = this.thumbnails();
+    const plate = this.info().plates.find((candidate) => {
+      return candidate.width !== null && thumbnails.has(candidate.index);
+    });
+    if (!plate) {
+      return null;
+    }
+    return thumbnails.get(plate.index) ?? null;
+  });
+
+  constructor() {
+    inject(DestroyRef).onDestroy(() => {
+      for (const url of this.thumbnails().values()) {
+        URL.revokeObjectURL(url);
+      }
+    });
+  }
+
+  /** Only Bambu projects have plate images; a plate without one just shows none. */
+  ngOnInit(): void {
+    const info = this.info();
+    if (info.status !== 'ANALYZED' || info.source !== 'BAMBU') {
+      return;
+    }
+    for (const plate of info.plates) {
+      this.previewService.thumbnail(this.requestId(), this.fileId(), plate.index).subscribe({
+        next: (image) => {
+          const thumbnails = new Map(this.thumbnails());
+          thumbnails.set(plate.index, URL.createObjectURL(image));
+          this.thumbnails.set(thumbnails);
+        },
+        error: () => {
+          // No image for this plate.
+        },
+      });
+    }
+  }
+
+  protected thumbnail(plate: PlateInfo): string | null {
+    return this.thumbnails().get(plate.index) ?? null;
+  }
 
   protected readonly analyzed = computed(() => {
     return this.info().status === 'ANALYZED';

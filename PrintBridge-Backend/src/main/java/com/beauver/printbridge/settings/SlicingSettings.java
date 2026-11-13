@@ -16,6 +16,16 @@ public record SlicingSettings(
         List<PrinterSettings> printers,
         PrinterSettings defaultPrinter) {
 
+    /**
+     * The printer the fit check and the preview bed use: the one a file was sliced for while it
+     * is still owned, else the default printer; empty without printers.
+     *
+     * @param slicedFor printer of a finished server slicing result; {@code null} when not sliced
+     */
+    public Optional<PrinterSettings> fitPrinter(String slicedFor) {
+        return printer(slicedFor).or(() -> Optional.ofNullable(defaultPrinter));
+    }
+
     /** The owned printer of this model (case-insensitive), if any. */
     public Optional<PrinterSettings> printer(String model) {
         return printers.stream().filter(printer -> printer.isModel(model)).findFirst();

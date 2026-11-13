@@ -55,4 +55,4 @@ Issue: #12, extended by #15 ([server slicing](server-slicing.md)). The 3D previe
 
 ## Not included
 
-3D preview and plate thumbnails (#13), mesh repair/watertight check, object/triangle counts, multiple printers, price calculation and Spoolman (#11), model stats in the request lists.
+[3D preview and plate images](model-preview.md) are #13; mesh repair/watertight check, object/triangle counts, price calculation and Spoolman (#11), model stats in the request lists.

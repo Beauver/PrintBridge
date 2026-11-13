@@ -1,0 +1,12 @@
+/* The canvas fills this box; Three.js sizes it from here. */
+.viewer {
+  height: 400px;
+  overflow: hidden;
+  touch-action: none;
+}
+
+@media (max-width: 575.98px) {
+  .viewer {
+    height: 300px;
+  }
+}

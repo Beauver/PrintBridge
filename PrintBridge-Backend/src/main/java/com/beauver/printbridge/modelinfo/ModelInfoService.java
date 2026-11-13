@@ -5,7 +5,6 @@ import com.beauver.printbridge.modelinfo.analysis.ModelAnalyzer;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.printrequest.RequestFile;
 import com.beauver.printbridge.settings.SettingsService;
-import com.beauver.printbridge.settings.SlicingSettings;
 import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.storage.FileStorage;
 import io.quarkus.logging.Log;
@@ -90,9 +89,7 @@ public class ModelInfoService {
      * against the current printers. Slicing errors are only included for the admin.
      */
     public ModelInfoDto describe(RequestFile file, boolean admin) {
-        SlicingSettings slicingSettings = settings.slicing();
-        ModelInfoMapper.Context context = new ModelInfoMapper.Context(slicingSettings.printers(),
-                slicingSettings.defaultPrinter(), slicingSettings.enabled(), admin);
+        ModelInfoMapper.Context context = new ModelInfoMapper.Context(settings.slicing(), admin);
         return mapper.toDto(repository.findById(file.id), slicing.find(file.id).orElse(null), context);
     }
 }

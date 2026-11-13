@@ -26,6 +26,26 @@ final class Bounds {
         }
     }
 
+    double minX() {
+        return minX;
+    }
+
+    double minY() {
+        return minY;
+    }
+
+    double minZ() {
+        return minZ;
+    }
+
+    double maxX() {
+        return maxX;
+    }
+
+    double maxY() {
+        return maxY;
+    }
+
     boolean isEmpty() {
         return minX > maxX;
     }

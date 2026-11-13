@@ -46,6 +46,8 @@ Deleting a user also deletes their print requests and files.
 | POST | `/requests` | `multipart/form-data`: `name` (1–100), `description` (optional, max 2000), `file` (`.stl`/`.3mf`) | `201` request + `Location`; `400` invalid input or file; `413` body larger than the limit |
 | GET | `/requests/{id}` | – | `200` request; `404` unknown or not yours |
 | GET | `/requests/{id}/files/{fileId}` | – | `200` file bytes (`model/stl` or `model/3mf`, `Content-Disposition: attachment` with the original name); `404` |
+| GET | `/requests/{id}/files/{fileId}/preview` | – | `200` preview mesh (`application/vnd.printbridge.mesh`, gzipped, see [3D preview](features/model-preview.md)); `404`; `422 {message}` "This model is too detailed for a preview" / "No preview available for this file" |
+| GET | `/requests/{id}/files/{fileId}/plates/{plate}/thumbnail` | – | `200` the plate's PNG from a Bambu Studio / OrcaSlicer project; `404` none (STL, plain 3MF, no image) or not yours |
 | DELETE | `/requests/{id}` | – | `204`; `404` unknown or not yours; `409` owner deleting a request that is no longer SUBMITTED |
 
 Admin only (users get `403`):
@@ -70,6 +72,14 @@ Request: `{id, name, description, status, finalPrice, declineReason, paidAt, own
 - `status` is `PENDING` (not analysed yet), `ANALYZED` or `FAILED`; unless ANALYZED, only `status` and `slicing` are set and `plates` is empty. `source` is `MESH | BAMBU`.
 - `weight` is `EXACT`, `PARTLY_ESTIMATED` or `ESTIMATED`; a plate's `estimated` says whether its `grams` come from its volume.
 - `slicing.status` is `null` (never queued), `QUEUED`, `RUNNING`, `DONE` or `FAILED`. `slicing.error` and the plates' `sliceError` are only filled in for the admin.
+
+## Previews (logged in)
+
+| Method | Path | Body | Response |
+|---|---|---|---|
+| POST | `/previews` | `multipart/form-data`: `file` | `200` preview mesh of a file that isn't uploaded yet, on the default printer's bed; nothing is stored. `400` the same upload errors as below; `422` as for an uploaded file |
+
+Errors are always JSON (`{message}`), also on the endpoints that otherwise return a file or a mesh.
 
 Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file is empty`, `The file is larger than N MB`, `The file is not a valid STL file` / `3MF file`. Missing name or file gives a validation error (`violations`).
 
