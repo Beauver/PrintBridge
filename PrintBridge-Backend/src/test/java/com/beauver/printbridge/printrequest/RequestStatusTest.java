@@ -13,7 +13,8 @@ class RequestStatusTest {
     void transitionsFollowTheFlow() {
         assertEquals(List.of(IN_REVIEW, ACCEPTED, DECLINED), SUBMITTED.nextStatuses());
         assertEquals(List.of(ACCEPTED, DECLINED), IN_REVIEW.nextStatuses());
-        assertEquals(List.of(COMPLETED), ACCEPTED.nextStatuses());
+        assertEquals(List.of(PRINTING, COMPLETED), ACCEPTED.nextStatuses());
+        assertEquals(List.of(COMPLETED, ACCEPTED, DECLINED), PRINTING.nextStatuses());
         assertTrue(DECLINED.nextStatuses().isEmpty());
         assertTrue(COMPLETED.nextStatuses().isEmpty());
     }
@@ -24,12 +25,15 @@ class RequestStatusTest {
         assertFalse(SUBMITTED.canMoveTo(COMPLETED));
         assertFalse(IN_REVIEW.canMoveTo(SUBMITTED));
         assertFalse(ACCEPTED.canMoveTo(DECLINED));
+        assertTrue(PRINTING.canMoveTo(ACCEPTED));
+        assertFalse(SUBMITTED.canMoveTo(PRINTING));
         assertFalse(ACCEPTED.canMoveTo(ACCEPTED));
     }
 
     @Test
-    void onlyAcceptedAndCompletedAllowPayment() {
+    void paymentIsAllowedFromAcceptedOn() {
         assertTrue(ACCEPTED.allowsPayment());
+        assertTrue(PRINTING.allowsPayment());
         assertTrue(COMPLETED.allowsPayment());
         assertFalse(SUBMITTED.allowsPayment());
         assertFalse(IN_REVIEW.allowsPayment());
@@ -41,6 +45,7 @@ class RequestStatusTest {
         assertTrue(DECLINED.isFinal());
         assertTrue(COMPLETED.isFinal());
         assertFalse(ACCEPTED.isFinal());
-        assertEquals(java.util.Set.of(SUBMITTED, IN_REVIEW, ACCEPTED), OPEN);
+        assertFalse(PRINTING.isFinal());
+        assertEquals(java.util.Set.of(SUBMITTED, IN_REVIEW, ACCEPTED, PRINTING), OPEN);
     }
 }

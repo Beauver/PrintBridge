@@ -1,6 +1,7 @@
 import { ModelInfo } from './model-info.model';
 
-export type RequestStatus = 'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'DECLINED' | 'COMPLETED';
+export type RequestStatus =
+  'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'PRINTING' | 'DECLINED' | 'COMPLETED';
 
 /** Admin overview filter: open requests, all, or one status. */
 export type StatusFilter = 'OPEN' | 'ALL' | RequestStatus;

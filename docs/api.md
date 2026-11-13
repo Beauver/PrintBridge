@@ -60,19 +60,19 @@ Admin only (users get `403`):
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/requests/all?status=&q=` | – | `200` everyone's request summaries, newest first. `status`: `OPEN` (default: SUBMITTED, IN_REVIEW, ACCEPTED), `ALL` or one status, case-insensitive; `q`: matches name or username, ignoring case. `400` unknown status |
+| GET | `/requests/all?status=&q=` | – | `200` everyone's request summaries, newest first. `status`: `OPEN` (default: SUBMITTED, IN_REVIEW, ACCEPTED, PRINTING), `ALL` or one status, case-insensitive; `q`: matches name or username, ignoring case. `400` unknown status |
 | PUT | `/requests/{id}/status` | `{status, declineReason}` (reason optional, max 2000, only kept when declining) | `200` request; `409` move not allowed, request final, or completing without a price; `404`; `400` invalid |
 | PUT | `/requests/{id}/price` | `{finalPrice}` (EUR, 0–99999999.99, max 2 decimals; `null` clears) | `200` request; `409` request final or paid; `404`; `400` invalid |
-| PUT | `/requests/{id}/paid` | `{paid}` (`true`/`false`) | `200` request; `409` not ACCEPTED/COMPLETED, or marking paid without a price; `404`; `400` missing `paid` |
+| PUT | `/requests/{id}/paid` | `{paid}` (`true`/`false`) | `200` request; `409` not ACCEPTED/PRINTING/COMPLETED, or marking paid without a price; `404`; `400` missing `paid` |
 | POST | `/requests/{id}/reslice` | – | `200` request (files queued for server slicing); `409` slicing is off or a file is still queued/running; `404` |
 
-Allowed moves: SUBMITTED → IN_REVIEW / ACCEPTED / DECLINED; IN_REVIEW → ACCEPTED / DECLINED; ACCEPTED → COMPLETED. DECLINED and COMPLETED are final.
+Allowed moves: SUBMITTED → IN_REVIEW / ACCEPTED / DECLINED; IN_REVIEW → ACCEPTED / DECLINED; ACCEPTED → PRINTING / COMPLETED; PRINTING → COMPLETED / ACCEPTED / DECLINED. DECLINED and COMPLETED are final.
 
 The admin can open, download and delete any request (delete in any status). Other users' requests are always `404`, never `403`, so their existence doesn't leak.
 
 Summary: `{id, name, status, finalPrice, paidAt, ownerUsername, createdAt}`.
 Request: `{id, name, description, status, finalPrice, declineReason, paidAt, ownerId, ownerUsername, createdAt, updatedAt, files: [{id, originalFilename, type, sizeBytes, createdAt, modelInfo}], nextStatuses}` (`nextStatuses`: where the admin may move it; empty once final).
-`status` is `SUBMITTED | IN_REVIEW | ACCEPTED | DECLINED | COMPLETED`; `type` is `STL | THREE_MF`; `finalPrice` is EUR or `null` (pending); `paidAt` is when it was marked paid, or `null`.
+`status` is `SUBMITTED | IN_REVIEW | ACCEPTED | PRINTING | DECLINED | COMPLETED`; `type` is `STL | THREE_MF`; `finalPrice` is EUR or `null` (pending); `paidAt` is when it was marked paid, or `null`.
 
 `modelInfo` is what is known about the file, see [model info](features/model-info.md) and [server slicing](features/server-slicing.md): `{status, source, volumeCm3, totalGrams, weight, printSeconds, fits, fitPrinter, plates: [{index, name, width, depth, height, grams, estimated, printSeconds, fits, filaments: [{type, color, grams}], sliceError}], slicing: {enabled, status, printer, nozzle, madeForPrinter, madeForNozzle, error}}`. `fitPrinter` is the printer the fit check is for.
 - `status` is `PENDING` (not analysed yet), `ANALYZED` or `FAILED`; unless ANALYZED, only `status` and `slicing` are set and `plates` is empty. `source` is `MESH | BAMBU`.

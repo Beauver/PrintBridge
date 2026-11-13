@@ -17,7 +17,11 @@ describe('ReviewPanel', () => {
     status: 'IN_REVIEW',
     nextStatuses: ['ACCEPTED', 'DECLINED'],
   };
-  const ACCEPTED: PrintRequest = { ...REQUEST, status: 'ACCEPTED', nextStatuses: ['COMPLETED'] };
+  const ACCEPTED: PrintRequest = {
+    ...REQUEST,
+    status: 'ACCEPTED',
+    nextStatuses: ['PRINTING', 'COMPLETED'],
+  };
 
   function httpError(status: number, message: string) {
     return throwError(() => {
@@ -58,6 +62,24 @@ describe('ReviewPanel', () => {
       expect(emitted).toEqual([IN_REVIEW]);
       expect(panel['notice']()).toBe('Status changed to In review.');
       expect(panel['status'].enabled).toBe(true);
+    });
+
+    it('starts printing right away and asks to confirm a decline while printing', () => {
+      const PRINTING: PrintRequest = {
+        ...ACCEPTED,
+        status: 'PRINTING',
+        nextStatuses: ['COMPLETED', 'ACCEPTED', 'DECLINED'],
+      };
+      show(ACCEPTED);
+      requestsService.changeStatus.mockReturnValue(of(PRINTING));
+      panel['status'].setValue('PRINTING');
+      expect(requestsService.changeStatus).toHaveBeenCalledWith(4, 'PRINTING', null);
+      expect(panel['notice']()).toBe('Status changed to Printing.');
+
+      show(PRINTING);
+      expect(panel['statusOptions']()).toEqual(['PRINTING', 'COMPLETED', 'ACCEPTED', 'DECLINED']);
+      panel['status'].setValue('DECLINED');
+      expect(panel['pendingStatus']()).toBe('DECLINED');
     });
 
     it('does nothing when the current status is picked again', () => {
@@ -207,10 +229,13 @@ describe('ReviewPanel', () => {
     const PRICED: PrintRequest = { ...ACCEPTED, finalPrice: 20 };
     const PAID: PrintRequest = { ...PRICED, paidAt: '2026-03-01T00:00:00Z' };
 
-    it('is only offered on accepted and completed requests', () => {
+    it('is only offered from accepted on', () => {
       expect(panel['canPay']()).toBe(false);
       show(PRICED);
       expect(panel['canPay']()).toBe(true);
+      show({ ...PRICED, status: 'PRINTING', nextStatuses: ['COMPLETED', 'ACCEPTED', 'DECLINED'] });
+      expect(panel['canPay']()).toBe(true);
+      expect(panel['editable']()).toBe(true);
       show({ ...PRICED, status: 'COMPLETED', nextStatuses: [] });
       expect(panel['canPay']()).toBe(true);
       expect(panel['editable']()).toBe(false);
