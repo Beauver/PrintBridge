@@ -1,18 +1,18 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { AboutService } from './about.service';
+import { LicenseService } from './license.service';
 
-describe('AboutService', () => {
-  it('loads the public about info', () => {
+describe('LicenseService', () => {
+  it('loads the public licence information', () => {
     TestBed.configureTestingModule({
       providers: [provideHttpClient(), provideHttpClientTesting()],
     });
     const http = TestBed.inject(HttpTestingController);
 
-    TestBed.inject(AboutService).get().subscribe();
+    TestBed.inject(LicenseService).get().subscribe();
 
-    http.expectOne({ method: 'GET', url: '/api/about' }).flush({});
+    http.expectOne({ method: 'GET', url: '/api/license' }).flush({});
     http.verify();
   });
 });

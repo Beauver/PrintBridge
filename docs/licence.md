@@ -11,7 +11,7 @@ PrintBridge is licensed under the **GNU Affero General Public License, version 3
 - **What it asks:** whoever hands out a changed version, or runs one for others over a network, must make its source available under the same licence.
 - **Source offer in the app (AGPL §13):** every page has a footer "PrintBridge · AGPL-3.0 · Source · Third-party licences".
   - *AGPL-3.0* links to the licence on gnu.org.
-  - *Source* links to `SOURCE_URL` (default `https://github.com/Beauver/PrintBridge`), served by the public `GET /api/about`. Someone hosting a changed version points it at their code.
+  - *Source* links to `SOURCE_URL` (default `https://github.com/Beauver/PrintBridge`), served by the public `GET /api/license`. Someone hosting a changed version points it at their code.
   - *Third-party licences* opens `/3rdpartylicenses.txt`, which the Angular production build writes (Angular, RxJS, Bootstrap, Three.js, …); the frontend image serves it. The development server (`npm start`) doesn't have the file.
 - The backend and frontend images carry `org.opencontainers.image.licenses="AGPL-3.0-or-later"` and `org.opencontainers.image.source`.
 

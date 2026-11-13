@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { App } from './app';
 import { of } from 'rxjs';
-import { AboutService } from './core/about/about.service';
+import { LicenseService } from './core/license/license.service';
 import { AuthService } from './core/auth/auth.service';
 
 describe('App', () => {
@@ -12,10 +12,10 @@ describe('App', () => {
       providers: [
         provideRouter([]),
         {
-          provide: AboutService,
+          provide: LicenseService,
           useValue: {
             get: () => {
-              return of({ sourceUrl: 'x', licence: 'y' });
+              return of({ license: 'y', sourceUrl: 'x' });
             },
           },
         },

@@ -9,6 +9,7 @@ import { ThemeToggle } from './layout/theme-toggle/theme-toggle';
   selector: 'app-root',
   imports: [RouterOutlet, Navbar, ThemeToggle, Footer],
   templateUrl: './app.html',
+  styleUrl: './app.css',
 })
 export class App {
   protected readonly auth = inject(AuthService);

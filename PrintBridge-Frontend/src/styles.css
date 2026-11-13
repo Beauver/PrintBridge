@@ -60,7 +60,7 @@ body {
   padding: 3rem 1rem;
 }
 
-/* Leave room for the floating theme toggle so it never covers the last buttons on a page. */
+/* The footer below main leaves room for the floating theme toggle at the end of a page. */
 main {
-  padding-bottom: 4rem;
+  padding-bottom: 1rem;
 }

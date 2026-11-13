@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, signal } from '@angular/core';
-import { AboutService } from '../../core/about/about.service';
+import { LicenseService } from '../../core/license/license.service';
 
 /** The licence text on gnu.org. */
 export const LICENCE_URL = 'https://www.gnu.org/licenses/agpl-3.0.html';
@@ -16,7 +16,7 @@ export const THIRD_PARTY_LICENCES_URL = '/3rdpartylicenses.txt';
   styleUrl: './footer.css',
 })
 export class Footer implements OnInit {
-  private readonly aboutService = inject(AboutService);
+  private readonly licenseService = inject(LicenseService);
 
   /** Null until loaded; the Source link waits for it. */
   protected readonly sourceUrl = signal<string | null>(null);
@@ -24,9 +24,9 @@ export class Footer implements OnInit {
   protected readonly thirdPartyLicencesUrl = THIRD_PARTY_LICENCES_URL;
 
   ngOnInit(): void {
-    this.aboutService.get().subscribe({
-      next: (about) => {
-        this.sourceUrl.set(about.sourceUrl);
+    this.licenseService.get().subscribe({
+      next: (license) => {
+        this.sourceUrl.set(license.sourceUrl);
       },
       error: () => {
         // The backend is unreachable; the rest of the page says so already.
