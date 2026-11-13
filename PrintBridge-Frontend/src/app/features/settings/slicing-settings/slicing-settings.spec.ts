@@ -45,6 +45,23 @@ describe('SlicingSettingsCard', () => {
     ).toEqual({ ok: false, text: 'The slicer is not reachable' });
   });
 
+  it('credits OrcaSlicer with a link to the source of the version in use', () => {
+    expect(create()['orcaSlicer']()).toBeNull();
+    expect(
+      create(OFF, { configured: true, reachable: false, orcaVersion: null, message: 'Down' })[
+        'orcaSlicer'
+      ](),
+    ).toBeNull();
+    expect(
+      create(OFF, { configured: true, reachable: true, orcaVersion: '2.5.0', message: null })[
+        'orcaSlicer'
+      ](),
+    ).toEqual({
+      version: '2.5.0',
+      sourceUrl: 'https://github.com/OrcaSlicer/OrcaSlicer/tree/v2.5.0',
+    });
+  });
+
   it('saves on/off and the timeout', () => {
     const card = create({ enabled: true, timeoutMinutes: 20 });
     const saved = vi.fn();

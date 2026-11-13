@@ -1,0 +1,5 @@
+/* Leaves room on the right for the fixed theme toggle. */
+footer {
+  padding: 1.5rem 4.5rem 1.25rem 1rem;
+  text-align: center;
+}

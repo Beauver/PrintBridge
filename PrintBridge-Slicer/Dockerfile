@@ -1,6 +1,7 @@
 # syntax=docker/dockerfile:1
 # PrintBridge slicer: OrcaSlicer's command line behind a small HTTP API (slicer_service.py).
-# OrcaSlicer is AGPL-3.0: https://github.com/OrcaSlicer/OrcaSlicer (source and licence).
+# This wrapper is PrintBridge (AGPL-3.0-or-later). OrcaSlicer is AGPL-3.0: its licence and a
+# notice of what this image changes end up in /opt/orca (LICENSE.txt, NOTICE); see the README.
 
 ARG ORCA_VERSION=2.5.0
 
@@ -12,7 +13,8 @@ RUN apt-get update && apt-get install -y --no-install-recommends git ca-certific
     && rm -rf /var/lib/apt/lists/*
 RUN git clone --quiet --depth 1 --branch "v${ORCA_VERSION}" --filter=blob:none --no-checkout \
         https://github.com/OrcaSlicer/OrcaSlicer.git /src \
-    && cd /src && git sparse-checkout set --no-cone 'resources/profiles/**/*.json' && git checkout --quiet
+    && cd /src && git sparse-checkout set --no-cone 'resources/profiles/**/*.json' LICENSE.txt \
+    && git checkout --quiet
 
 # The AppImage, verified and unpacked (no FUSE inside containers).
 FROM debian:trixie-slim AS orca
@@ -33,6 +35,10 @@ RUN curl -fsSL -o /tmp/orca.AppImage \
 
 FROM debian:trixie-slim
 ARG ORCA_VERSION
+LABEL org.opencontainers.image.title="PrintBridge slicer" \
+      org.opencontainers.image.description="OrcaSlicer ${ORCA_VERSION} behind a small HTTP API for PrintBridge" \
+      org.opencontainers.image.licenses="AGPL-3.0-or-later AND AGPL-3.0-only" \
+      org.opencontainers.image.source="https://github.com/Beauver/PrintBridge"
 # OrcaSlicer links against GTK, WebKit and FFmpeg even when only the command line is used.
 RUN apt-get update && apt-get install -y --no-install-recommends \
         python3 libgl1 libegl1 libglu1-mesa libgtk-3-0t64 libwebkit2gtk-4.1-0 \
@@ -44,9 +50,12 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /usr/lib/x86_64-linux-gnu/dri
 COPY --from=orca /opt/orca /opt/orca
 COPY --from=profiles /src/resources/profiles /opt/profiles
+COPY --from=profiles /src/LICENSE.txt /opt/orca/LICENSE.txt
+COPY NOTICE /opt/orca/NOTICE
 COPY slicer_service.py /app/slicer_service.py
 # Merged ("full") profiles where OrcaSlicer looks for a project's presets when the printer changes.
-RUN PROFILES_DIR=/opt/profiles python3 /app/slicer_service.py --write-full-profiles /opt/orca/resources/profiles
+RUN PROFILES_DIR=/opt/profiles python3 /app/slicer_service.py --write-full-profiles /opt/orca/resources/profiles \
+    && sed -i "s/@ORCA_VERSION@/${ORCA_VERSION}/g" /opt/orca/NOTICE
 RUN useradd --system --create-home slicer
 USER slicer
 WORKDIR /home/slicer

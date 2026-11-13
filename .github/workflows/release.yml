@@ -21,11 +21,11 @@ jobs:
           - image: printbridge-backend
             context: PrintBridge-Backend
             file: PrintBridge-Backend/src/main/docker/Dockerfile.jvm
-            platforms: ${{ matrix.platforms }}
+            platforms: linux/amd64,linux/arm64
           - image: printbridge-frontend
             context: PrintBridge-Frontend
             file: PrintBridge-Frontend/Dockerfile
-            platforms: ${{ matrix.platforms }}
+            platforms: linux/amd64,linux/arm64
           # OrcaSlicer's AppImage is x86_64 only in this image (see PrintBridge-Slicer/Dockerfile).
           - image: printbridge-slicer
             context: PrintBridge-Slicer
@@ -80,3 +80,26 @@ jobs:
           tags: ${{ steps.tags.outputs.tags }}
           cache-from: type=gha,scope=${{ matrix.image }}
           cache-to: type=gha,mode=max,scope=${{ matrix.image }}
+
+  # The slicer image contains OrcaSlicer (AGPL-3.0): offer its source next to the image (#16).
+  orcaslicer-source:
+    name: Attach OrcaSlicer source
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+      - name: Upload the source of the OrcaSlicer version in the slicer image
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG: ${{ github.event.release.tag_name }}
+        run: |
+          version=$(sed -n 's/^ARG ORCA_VERSION=//p' PrintBridge-Slicer/Dockerfile)
+          if [ -z "$version" ]; then
+            echo "ORCA_VERSION not found in PrintBridge-Slicer/Dockerfile" >&2
+            exit 1
+          fi
+          file="OrcaSlicer-$version-source.tar.gz"
+          curl -fsSL -o "$file" "https://github.com/OrcaSlicer/OrcaSlicer/archive/refs/tags/v$version.tar.gz"
+          gh release upload "$TAG" "$file" --clobber

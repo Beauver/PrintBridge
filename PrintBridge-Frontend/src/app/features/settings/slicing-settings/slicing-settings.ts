@@ -54,6 +54,18 @@ export class SlicingSettingsCard implements OnInit {
     return { ok: false, text: status.message ?? 'The slicer is not reachable' };
   });
 
+  /** OrcaSlicer's source at the version the slicer runs (AGPL-3.0, #16); null until it answered. */
+  protected readonly orcaSlicer = computed(() => {
+    const status = this.status();
+    if (!status?.reachable || !status.orcaVersion) {
+      return null;
+    }
+    return {
+      version: status.orcaVersion,
+      sourceUrl: `https://github.com/OrcaSlicer/OrcaSlicer/tree/v${status.orcaVersion}`,
+    };
+  });
+
   ngOnInit(): void {
     const settings = this.settings();
     this.form.setValue({

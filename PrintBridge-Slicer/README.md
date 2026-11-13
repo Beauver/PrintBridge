@@ -34,4 +34,14 @@ The tests use fake profiles and a fake OrcaSlicer run, so they don't need the im
 
 ## Licence
 
-OrcaSlicer is licensed under the GNU AGPL-3.0; its source and licence are at https://github.com/OrcaSlicer/OrcaSlicer. This service runs it as a separate program. Images that contain OrcaSlicer pass on its licence and source link.
+- `slicer_service.py` is part of PrintBridge: GNU AGPL-3.0-or-later, see the [repository licence](../LICENSE).
+- OrcaSlicer is licensed under the GNU AGPL-3.0 (version 3, as its README states). This service runs it as a separate program.
+- The image passes OrcaSlicer's licence on and says what it changes:
+  - `/opt/orca/LICENSE.txt`: OrcaSlicer's licence, from the same release tag.
+  - `/opt/orca/NOTICE` (from [NOTICE](NOTICE)): the version, where its source is, and what the image changes (GUI-only files removed, merged `*_full` profiles generated).
+  - Labels: `org.opencontainers.image.licenses="AGPL-3.0-or-later AND AGPL-3.0-only"` and `org.opencontainers.image.source`.
+- Every PrintBridge release has OrcaSlicer's source archive for the pinned version attached, so the source is offered next to the image.
+
+```sh
+docker run --rm --entrypoint cat printbridge-slicer /opt/orca/NOTICE
+```
