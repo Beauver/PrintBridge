@@ -425,7 +425,7 @@ class PrintRequestServiceTest {
         PrintRequest r = reviewed(RequestStatus.IN_REVIEW);
         r.finalPrice = BigDecimal.TEN;
         var e = assertThrows(ConflictException.class, () -> service.changePaid(4, true));
-        assertEquals("Only accepted or completed requests can be marked as paid", e.getMessage());
+        assertEquals("Only accepted, printing or completed requests can be marked as paid", e.getMessage());
         r.status = RequestStatus.DECLINED;
         assertThrows(ConflictException.class, () -> service.changePaid(4, false));
     }

@@ -12,16 +12,20 @@ describe('print request display helpers', () => {
     expect(statusBadgeClass('SUBMITTED')).toBe('text-bg-secondary');
     expect(statusBadgeClass('DECLINED')).toBe('text-bg-danger');
     expect(statusBadgeClass('COMPLETED')).toBe('text-bg-success');
+    expect(statusLabel('PRINTING')).toBe('Printing');
+    expect(statusBadgeClass('PRINTING')).toBe('text-bg-warning');
   });
 
   it('knows the final statuses', () => {
     expect(isFinalStatus('DECLINED')).toBe(true);
     expect(isFinalStatus('COMPLETED')).toBe(true);
     expect(isFinalStatus('ACCEPTED')).toBe(false);
+    expect(isFinalStatus('PRINTING')).toBe(false);
   });
 
-  it('allows payment on accepted and completed only', () => {
+  it('allows payment from accepted on', () => {
     expect(allowsPayment('ACCEPTED')).toBe(true);
+    expect(allowsPayment('PRINTING')).toBe(true);
     expect(allowsPayment('COMPLETED')).toBe(true);
     expect(allowsPayment('IN_REVIEW')).toBe(false);
     expect(allowsPayment('DECLINED')).toBe(false);

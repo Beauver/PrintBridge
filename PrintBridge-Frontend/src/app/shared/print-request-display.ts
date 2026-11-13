@@ -4,6 +4,7 @@ const STATUS_LABELS: Record<RequestStatus, string> = {
   SUBMITTED: 'Submitted',
   IN_REVIEW: 'In review',
   ACCEPTED: 'Accepted',
+  PRINTING: 'Printing',
   DECLINED: 'Declined',
   COMPLETED: 'Completed',
 };
@@ -12,6 +13,7 @@ const STATUS_BADGES: Record<RequestStatus, string> = {
   SUBMITTED: 'text-bg-secondary',
   IN_REVIEW: 'text-bg-info',
   ACCEPTED: 'text-bg-primary',
+  PRINTING: 'text-bg-warning',
   DECLINED: 'text-bg-danger',
   COMPLETED: 'text-bg-success',
 };
@@ -25,7 +27,7 @@ export function isFinalStatus(status: RequestStatus): boolean {
 
 /** Whether the admin may mark a request (un)paid in this status; mirrors the backend. */
 export function allowsPayment(status: RequestStatus): boolean {
-  return status === 'ACCEPTED' || status === 'COMPLETED';
+  return status === 'ACCEPTED' || status === 'PRINTING' || status === 'COMPLETED';
 }
 
 export function statusLabel(status: RequestStatus): string {

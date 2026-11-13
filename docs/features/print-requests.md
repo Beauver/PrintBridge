@@ -49,7 +49,7 @@ This is a sanity check, not a full parse: a file that passes may still not be pr
 
 ## Data
 
-- `print_requests`: owner, name, description, `final_price` (`NUMERIC(10,2)`, EUR, null = pending), status (`SUBMITTED`, `IN_REVIEW`, `ACCEPTED`, `DECLINED`, `COMPLETED`; see [admin review](admin-review.md) for the flow), decline reason, timestamps. `ON DELETE CASCADE` from users. `paid_at` (V3) marks when it was paid; only possible with a price.
+- `print_requests`: owner, name, description, `final_price` (`NUMERIC(10,2)`, EUR, null = pending), status (`SUBMITTED`, `IN_REVIEW`, `ACCEPTED`, `PRINTING` (V7), `DECLINED`, `COMPLETED`; see [admin review](admin-review.md) for the flow), decline reason, timestamps. `ON DELETE CASCADE` from users. `paid_at` (V3) marks when it was paid; only possible with a price.
 - `request_files`: one row per file (exactly one for now): original filename, storage path, type (`STL`/`THREE_MF`), size. `ON DELETE CASCADE` from requests.
 
 ## Not included

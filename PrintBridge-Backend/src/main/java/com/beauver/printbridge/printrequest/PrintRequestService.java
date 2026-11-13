@@ -152,7 +152,7 @@ public class PrintRequestService {
     }
 
     /**
-     * Marks an ACCEPTED or COMPLETED request with a price as paid, or undoes that (admin only).
+     * Marks an ACCEPTED, PRINTING or COMPLETED request with a price as paid, or undoes that (admin only).
      * Marking an already paid request again keeps the original moment.
      */
     @Transactional
@@ -160,7 +160,7 @@ public class PrintRequestService {
         PrintRequest request = requests.findWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
         if (!request.status.allowsPayment()) {
-            throw new ConflictException("Only accepted or completed requests can be marked as paid");
+            throw new ConflictException("Only accepted, printing or completed requests can be marked as paid");
         }
         if (!paid) {
             request.paidAt = null;
