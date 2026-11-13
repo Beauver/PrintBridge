@@ -5,6 +5,7 @@ import com.beauver.printbridge.support.ModelFiles;
 import com.beauver.printbridge.support.TestData;
 import com.beauver.printbridge.user.User;
 import io.quarkus.test.junit.QuarkusTest;
+import io.restassured.http.ContentType;
 import io.restassured.response.ValidatableResponse;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
@@ -154,7 +155,8 @@ class PrintRequestResourceTest {
         given().auth().oauth2(adminToken).get(url).then().statusCode(200);
         given().auth().oauth2(eveToken).get(url).then().statusCode(404);
         given().get(url).then().statusCode(401);
-        given().auth().oauth2(bobToken).get("/api/requests/" + r.id() + "/files/999").then().statusCode(404);
+        given().auth().oauth2(bobToken).get("/api/requests/" + r.id() + "/files/999").then().statusCode(404)
+                .contentType(ContentType.JSON).body("message", is("File not found"));
     }
 
     @Test

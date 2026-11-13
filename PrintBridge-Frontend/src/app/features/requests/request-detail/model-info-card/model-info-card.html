@@ -84,6 +84,10 @@
             </dd>
           }
         </dl>
+        <div class="mt-3" data-cy="model-info-preview">
+          <app-model-preview [loader]="previewLoader()" [placeholder]="placeholder()" />
+        </div>
+
         @if (!showPlates() && singlePlate()?.sliceError; as reason) {
           <p class="small text-warning-emphasis mt-2 mb-0" data-cy="model-info-plate-error">
             OrcaSlicer refused this model: {{ reason }}
@@ -106,6 +110,14 @@
                 @for (plate of info().plates; track plate.index) {
                   <tr data-cy="model-info-plate">
                     <td class="text-break">
+                      @if (thumbnail(plate); as image) {
+                        <img
+                          [src]="image"
+                          alt=""
+                          class="plate-thumbnail me-1"
+                          data-cy="model-info-plate-thumbnail"
+                        />
+                      }
                       {{ plateLabel(plate) }}
                       @if (plate.sliceError) {
                         <div class="small text-warning-emphasis" data-cy="model-info-plate-error">

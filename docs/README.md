@@ -9,3 +9,4 @@
   - [Admin review, status flow and final price](features/admin-review.md)
   - [Model info and settings](features/model-info.md)
   - [Server slicing](features/server-slicing.md)
+  - [3D preview](features/model-preview.md)

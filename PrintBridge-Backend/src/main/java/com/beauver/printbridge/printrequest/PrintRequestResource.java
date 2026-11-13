@@ -1,6 +1,9 @@
 package com.beauver.printbridge.printrequest;
 
 import com.beauver.printbridge.auth.CurrentUser;
+import com.beauver.printbridge.preview.MeshEncoder;
+import com.beauver.printbridge.preview.PreviewResource;
+import com.beauver.printbridge.preview.PreviewService;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.user.Role;
 import jakarta.annotation.security.RolesAllowed;
@@ -28,6 +31,9 @@ public class PrintRequestResource {
 
     @Inject
     CurrentUser currentUser;
+
+    @Inject
+    PreviewService previews;
 
     @GET
     public List<PrintRequestSummaryDto> listOwn() {
@@ -76,6 +82,25 @@ public class PrintRequestResource {
         return Response.ok(file.path().toFile(), file.contentType())
                 .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition(file.filename()))
                 .header(HttpHeaders.CONTENT_LENGTH, file.size())
+                .build();
+    }
+
+    /** The file's 3D preview mesh (#13), see {@link MeshEncoder}. 422 when there is none. */
+    @GET
+    @Path("/{id}/files/{fileId}/preview")
+    @Produces({MeshEncoder.MEDIA_TYPE, MediaType.APPLICATION_JSON})
+    public Response preview(@PathParam("id") long id, @PathParam("fileId") long fileId) {
+        return PreviewResource.mesh(previews.ofFile(id, fileId, currentUser.caller()));
+    }
+
+    /** The image a Bambu Studio / OrcaSlicer project carries of a plate; 404 when there is none. */
+    @GET
+    @Path("/{id}/files/{fileId}/plates/{plate}/thumbnail")
+    @Produces({"image/png", MediaType.APPLICATION_JSON})
+    public Response thumbnail(@PathParam("id") long id, @PathParam("fileId") long fileId,
+                              @PathParam("plate") int plate) {
+        return Response.ok(previews.thumbnail(id, fileId, plate, currentUser.caller()), "image/png")
+                .header("Cache-Control", "private, max-age=3600")
                 .build();
     }
 

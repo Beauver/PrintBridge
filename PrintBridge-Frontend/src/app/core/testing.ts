@@ -1,5 +1,6 @@
 import { AuthResponse, User } from './models/account.model';
 import { ModelInfo, SlicingInfo } from './models/model-info.model';
+import { PreviewMesh } from './models/model-preview.model';
 import { PrintRequest, PrintRequestSummary } from './models/print-request.model';
 import { Printer, Settings } from './models/settings.model';
 import { SlicerPrinter } from './models/slicer.model';
@@ -127,3 +128,63 @@ export const SAVED_P1S: Printer = {
   process: '0.20mm Standard',
   filament: 'PLA Basic',
 };
+
+/** Two plates: plate 1 "Lid" with one red triangle, plate 2 empty; on a 256 × 256 × 250 bed. */
+export const TRIANGLE_MESH: PreviewMesh = {
+  bed: { x: 256, y: 256, z: 250 },
+  plates: [
+    { index: 1, name: 'Lid' },
+    { index: 2, name: null },
+  ],
+  parts: [
+    {
+      plate: 1,
+      color: '#FF0000',
+      positions: new Float32Array([0, 0, 0, 10, 0, 0, 0, 10, 5]),
+      indices: new Uint32Array([0, 1, 2]),
+    },
+  ],
+};
+
+/** Writes a mesh the way the backend's `MeshEncoder` does (without the gzip). */
+export function encodeMesh(mesh: PreviewMesh): ArrayBuffer {
+  const header = {
+    bed: mesh.bed,
+    plates: mesh.plates,
+    parts: mesh.parts.map((part) => {
+      return {
+        plate: part.plate,
+        color: part.color,
+        vertices: part.positions.length / 3,
+        triangles: part.indices.length / 3,
+      };
+    }),
+  };
+  let json = JSON.stringify(header);
+  while (new TextEncoder().encode(json).length % 4 !== 0) {
+    json += ' ';
+  }
+  const headerBytes = new TextEncoder().encode(json);
+  const bodyLength = mesh.parts.reduce((total, part) => {
+    return total + part.positions.byteLength + part.indices.byteLength;
+  }, 0);
+  const buffer = new ArrayBuffer(8 + headerBytes.length + bodyLength);
+  const bytes = new Uint8Array(buffer);
+  bytes.set(new TextEncoder().encode('PBM1'), 0);
+  new DataView(buffer).setUint32(4, headerBytes.length, true);
+  bytes.set(headerBytes, 8);
+  let offset = 8 + headerBytes.length;
+  for (const part of mesh.parts) {
+    bytes.set(
+      new Uint8Array(part.positions.buffer, part.positions.byteOffset, part.positions.byteLength),
+      offset,
+    );
+    offset += part.positions.byteLength;
+    bytes.set(
+      new Uint8Array(part.indices.buffer, part.indices.byteOffset, part.indices.byteLength),
+      offset,
+    );
+    offset += part.indices.byteLength;
+  }
+  return buffer;
+}

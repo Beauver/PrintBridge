@@ -19,7 +19,8 @@ Packages under `com.beauver.printbridge`, one per domain:
 | `auth` | Setup, login/refresh/logout, JWT and refresh tokens, `CurrentUser`, stale-token filter |
 | `user` | `User` entity, user management, password hashing |
 | `printrequest` | Print requests and their model files: entities, upload validation, access rules |
-| `modelinfo` | Model analysis of uploaded files (`analysis`: STL/3MF readers), stored results, startup backfill |
+| `modelinfo` | Model analysis of uploaded files (`analysis`: STL/3MF readers, also the 3D preview mesh), stored results, startup backfill |
+| `preview` | 3D preview: mesh encoding, preview before upload, plate images |
 | `settings` | Admin-editable application settings (owned printers with their build plate, server slicing) |
 | `slicing` | Server slicing: job queue, planner (which printer/nozzle/profiles), background worker, client for the slicer service |
 | `storage` | `FileStorage`: files on disk under `STORAGE_PATH` |
@@ -50,7 +51,7 @@ Optional. OrcaSlicer's command line behind a small Python HTTP API (standard lib
 | `core/` | App-wide services: auth (service, interceptor, guards), setup status, theme, file saving, models, HTTP error helper |
 | `features/<name>/` | One folder per page/feature: page component (`.ts` + `.html`) and its API service |
 | `layout/` | Navbar |
-| `shared/` | Reusable form and display helpers (status labels/badges, file sizes, prices, model sizes/weights/times) |
+| `shared/` | Reusable form and display helpers (status labels/badges, file sizes, prices, model sizes/weights/times); `model-viewer/`: the Three.js 3D preview, loaded on demand |
 
 Layering: template → component → service → backend API. Components never use `HttpClient` directly.
 

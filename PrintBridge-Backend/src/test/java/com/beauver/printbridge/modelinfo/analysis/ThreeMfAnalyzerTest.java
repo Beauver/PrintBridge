@@ -174,7 +174,7 @@ class ThreeMfAnalyzerTest {
      * Object 2 has two instances and a modifier part (object 5, a big box that must not count).
      * Plate 1 holds both instances of object 2, plate 2 object 4, plate 3 is empty.
      */
-    private static ThreeMfFiles bambuProject() {
+    static ThreeMfFiles bambuProject() {
         String root = model("millimeter",
                 components(2, new String[]{"1", "/3D/Objects/object_1.model", null},
                         new String[]{"5", "/3D/Objects/object_1.model", null})

@@ -14,3 +14,12 @@
   flex-wrap: wrap;
   gap: 0.25rem;
 }
+
+/* The plate image Bambu files carry, next to the plate name. */
+.plate-thumbnail {
+  width: 3rem;
+  height: 3rem;
+  object-fit: contain;
+  border-radius: var(--bs-border-radius-sm);
+  background-color: var(--bs-secondary-bg);
+}

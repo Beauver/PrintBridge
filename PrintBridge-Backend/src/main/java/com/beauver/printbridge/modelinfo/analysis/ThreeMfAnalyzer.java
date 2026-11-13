@@ -106,7 +106,7 @@ final class ThreeMfAnalyzer {
     }
 
     /** Instances are the build items of an object in document order; fall back to the first. */
-    private static Optional<BuildItem> itemFor(Map<Integer, List<BuildItem>> itemsByObject,
+    static Optional<BuildItem> itemFor(Map<Integer, List<BuildItem>> itemsByObject,
                                                BambuProject.Instance instance) {
         List<BuildItem> items = itemsByObject.getOrDefault(instance.objectId(), List.of());
         if (items.isEmpty()) {

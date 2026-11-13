@@ -10,12 +10,14 @@ import com.beauver.printbridge.modelinfo.dto.PlateDto;
 import com.beauver.printbridge.modelinfo.dto.WeightKind;
 import com.beauver.printbridge.settings.BuildPlate;
 import com.beauver.printbridge.settings.PrinterSettings;
+import com.beauver.printbridge.settings.SlicingSettings;
 import com.beauver.printbridge.slicing.SliceResult;
 import com.beauver.printbridge.slicing.SliceStatus;
 import com.beauver.printbridge.slicing.SlicedPlate;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
+import java.time.Duration;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -25,8 +27,9 @@ class ModelInfoMapperTest {
     final ModelInfoMapper mapper = new ModelInfoMapper();
     static final PrinterSettings P1S = printer(1, "Bambu Lab P1S", new BuildPlate(256, 256, 250));
     static final PrinterSettings MINI = printer(2, "Bambu Lab A1 mini", new BuildPlate(180, 180, 180));
-    static final ModelInfoMapper.Context USER = new ModelInfoMapper.Context(List.of(P1S, MINI), P1S, true, false);
-    static final ModelInfoMapper.Context ADMIN = new ModelInfoMapper.Context(List.of(P1S, MINI), P1S, true, true);
+    static final SlicingSettings SETTINGS = new SlicingSettings(true, Duration.ofMinutes(10), List.of(P1S, MINI), P1S);
+    static final ModelInfoMapper.Context USER = new ModelInfoMapper.Context(SETTINGS, false);
+    static final ModelInfoMapper.Context ADMIN = new ModelInfoMapper.Context(SETTINGS, true);
     static final Dimensions SMALL = new Dimensions(10, 10, 10);
     static final FilamentUsage WHITE = new FilamentUsage("PLA", "#FFFFFF", null);
 
@@ -208,7 +211,8 @@ class ModelInfoMapperTest {
 
     @Test
     void noFitCheckWithoutPrinters() {
-        ModelInfoMapper.Context noPlate = new ModelInfoMapper.Context(List.of(), null, false, false);
+        ModelInfoMapper.Context noPlate = new ModelInfoMapper.Context(
+                new SlicingSettings(false, Duration.ofMinutes(10), List.of(), null), false);
 
         ModelInfoDto dto = mapper.toDto(analyzed(plate(1, new Dimensions(999, 999, 999), null, null)), null, noPlate);
 

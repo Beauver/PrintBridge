@@ -24,11 +24,7 @@ final class StlAnalyzer {
 
     ModelAnalysis analyze(Path file) throws IOException {
         MeshAccumulator mesh = new MeshAccumulator();
-        if (ModelFileValidator.isBinaryStl(file)) {
-            readBinary(file, mesh);
-        } else {
-            readAscii(file, mesh);
-        }
+        readTriangles(file, mesh);
         if (mesh.triangles() == 0) {
             throw new ModelAnalysisException("The model has no triangles");
         }
@@ -37,8 +33,17 @@ final class StlAnalyzer {
         return new ModelAnalysis(ModelSource.MESH, mesh.volume(), List.of(plate));
     }
 
+    /** Feeds every triangle of a binary or ASCII STL to {@code mesh}. */
+    static void readTriangles(Path file, TriangleSink mesh) throws IOException {
+        if (ModelFileValidator.isBinaryStl(file)) {
+            readBinary(file, mesh);
+        } else {
+            readAscii(file, mesh);
+        }
+    }
+
     /** 80-byte header, triangle count, then per triangle: normal, 3 vertices (floats) and 2 spare bytes. */
-    private static void readBinary(Path file, MeshAccumulator mesh) throws IOException {
+    private static void readBinary(Path file, TriangleSink mesh) throws IOException {
         try (InputStream in = new BufferedInputStream(Files.newInputStream(file))) {
             in.skipNBytes(HEADER_SIZE);
             byte[] chunk = new byte[TRIANGLE_SIZE * TRIANGLES_PER_CHUNK];
@@ -57,7 +62,7 @@ final class StlAnalyzer {
     }
 
     /** Collects the {@code vertex x y z} lines three at a time; everything else is ignored. */
-    private static void readAscii(Path file, MeshAccumulator mesh) throws IOException {
+    private static void readAscii(Path file, TriangleSink mesh) throws IOException {
         double[] corners = new double[9];
         int corner = 0;
         try (BufferedReader reader = Files.newBufferedReader(file, StandardCharsets.US_ASCII)) {

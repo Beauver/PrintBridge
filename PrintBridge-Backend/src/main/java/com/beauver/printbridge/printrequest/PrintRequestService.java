@@ -90,16 +90,7 @@ public class PrintRequestService {
     public PrintRequestDto create(long ownerId, NewPrintRequest input) {
         UploadedModel upload = input.file();
         String filename = sanitizeFilename(upload.filename());
-        ModelFileType type = typeOf(filename);
-        if (upload.size() <= 0) {
-            throw new InvalidInputException("The file is empty");
-        }
-        if (upload.size() > maxSizeBytes()) {
-            throw new InvalidInputException("The file is larger than " + uploadConfig.maxSizeMb() + " MB");
-        }
-        if (!validator.isValid(upload.path(), type)) {
-            throw new InvalidInputException("The file is not a valid " + type.extension().toUpperCase() + " file");
-        }
+        ModelFileType type = checkUpload(upload);
 
         PrintRequest request = new PrintRequest();
         request.owner = users.findByIdOptional(ownerId)
@@ -249,6 +240,24 @@ public class PrintRequestService {
         return requests.findWithDetails(id)
                 .filter(r -> caller.admin() || r.owner.id == caller.id())
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+    }
+
+    /**
+     * The checks every model upload goes through (also the preview before uploading): an allowed
+     * extension, not empty, within the size limit, and really an STL / 3MF. Returns the type.
+     */
+    public ModelFileType checkUpload(UploadedModel upload) {
+        ModelFileType type = typeOf(sanitizeFilename(upload.filename()));
+        if (upload.size() <= 0) {
+            throw new InvalidInputException("The file is empty");
+        }
+        if (upload.size() > maxSizeBytes()) {
+            throw new InvalidInputException("The file is larger than " + uploadConfig.maxSizeMb() + " MB");
+        }
+        if (!validator.isValid(upload.path(), type)) {
+            throw new InvalidInputException("The file is not a valid " + type.extension().toUpperCase() + " file");
+        }
+        return type;
     }
 
     private ModelFileType typeOf(String filename) {
