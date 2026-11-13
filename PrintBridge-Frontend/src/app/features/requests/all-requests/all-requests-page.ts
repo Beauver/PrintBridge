@@ -12,7 +12,14 @@ import { statusLabel } from '../../../shared/print-request-display';
 import { PrintRequestsService } from '../print-requests.service';
 import { RequestList } from '../request-list/request-list';
 
-const STATUSES: RequestStatus[] = ['SUBMITTED', 'IN_REVIEW', 'ACCEPTED', 'DECLINED', 'COMPLETED'];
+const STATUSES: RequestStatus[] = [
+  'SUBMITTED',
+  'IN_REVIEW',
+  'ACCEPTED',
+  'PRINTING',
+  'DECLINED',
+  'COMPLETED',
+];
 
 /** Typing pause before the search runs, so not every keystroke hits the server. */
 const SEARCH_DEBOUNCE_MS = 300;

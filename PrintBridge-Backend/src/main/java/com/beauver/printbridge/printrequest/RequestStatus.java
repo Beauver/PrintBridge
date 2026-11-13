@@ -10,25 +10,30 @@ import java.util.Set;
  * <pre>
  * SUBMITTED → IN_REVIEW, ACCEPTED, DECLINED
  * IN_REVIEW → ACCEPTED, DECLINED
- * ACCEPTED  → COMPLETED
+ * ACCEPTED  → PRINTING, COMPLETED
+ * PRINTING  → COMPLETED, ACCEPTED, DECLINED
  * </pre>
+ * PRINTING (#22) may go back to ACCEPTED for a failed print that is queued again, or to
+ * DECLINED when it can't be printed after all.
  */
 public enum RequestStatus {
     SUBMITTED,
     IN_REVIEW,
     ACCEPTED,
+    PRINTING,
     DECLINED,
     COMPLETED;
 
     /** Statuses that still need work from the admin. */
-    public static final Set<RequestStatus> OPEN = Set.of(SUBMITTED, IN_REVIEW, ACCEPTED);
+    public static final Set<RequestStatus> OPEN = Set.of(SUBMITTED, IN_REVIEW, ACCEPTED, PRINTING);
 
     /** Statuses the admin may move a request to from this one, in display order. */
     public List<RequestStatus> nextStatuses() {
         return switch (this) {
             case SUBMITTED -> List.of(IN_REVIEW, ACCEPTED, DECLINED);
             case IN_REVIEW -> List.of(ACCEPTED, DECLINED);
-            case ACCEPTED -> List.of(COMPLETED);
+            case ACCEPTED -> List.of(PRINTING, COMPLETED);
+            case PRINTING -> List.of(COMPLETED, ACCEPTED, DECLINED);
             case DECLINED, COMPLETED -> List.of();
         };
     }
@@ -42,10 +47,10 @@ public enum RequestStatus {
     }
 
     /**
-     * Whether the request may be marked (un)paid. COMPLETED is included because people often pay
-     * at pickup; it's the only change still allowed on a final request.
+     * Whether the request may be marked (un)paid: from ACCEPTED on. COMPLETED is included because
+     * people often pay at pickup; it's the only change still allowed on a final request.
      */
     public boolean allowsPayment() {
-        return this == ACCEPTED || this == COMPLETED;
+        return this == ACCEPTED || this == PRINTING || this == COMPLETED;
     }
 }

@@ -67,13 +67,15 @@ class PrintRequestReviewResourceTest {
     void listsOpenRequestsOfEveryoneByDefault() {
         data.printRequest(bob, "Benchy", RequestStatus.SUBMITTED);
         data.printRequest(carol, "Vase", RequestStatus.ACCEPTED);
+        data.printRequest(carol, "Lamp", RequestStatus.PRINTING);
         data.printRequest(carol, "Old one", RequestStatus.COMPLETED);
 
         listAll(null, null).statusCode(200)
-                .body("name", contains("Vase", "Benchy"))
-                .body("ownerUsername", contains("carol", "bob"));
-        listAll("status", "ALL").body("name", contains("Old one", "Vase", "Benchy"));
+                .body("name", contains("Lamp", "Vase", "Benchy"))
+                .body("ownerUsername", contains("carol", "carol", "bob"));
+        listAll("status", "ALL").body("name", contains("Old one", "Lamp", "Vase", "Benchy"));
         listAll("status", "completed").body("name", contains("Old one"));
+        listAll("status", "printing").body("name", contains("Lamp"));
     }
 
     @Test
@@ -103,7 +105,11 @@ class PrintRequestReviewResourceTest {
         status(adminToken, r.id(), "IN_REVIEW", null).statusCode(200)
                 .body("status", is("IN_REVIEW"))
                 .body("nextStatuses", contains("ACCEPTED", "DECLINED"));
-        status(adminToken, r.id(), "ACCEPTED", null).statusCode(200).body("nextStatuses", contains("COMPLETED"));
+        status(adminToken, r.id(), "ACCEPTED", null).statusCode(200)
+                .body("nextStatuses", contains("PRINTING", "COMPLETED"));
+        status(adminToken, r.id(), "PRINTING", null).statusCode(200)
+                .body("status", is("PRINTING"))
+                .body("nextStatuses", contains("COMPLETED", "ACCEPTED", "DECLINED"));
         status(adminToken, r.id(), "COMPLETED", null)
                 .statusCode(409).body("message", is("Set a final price before completing the request"));
         price(adminToken, r.id(), 12.5).statusCode(200);
@@ -113,6 +119,30 @@ class PrintRequestReviewResourceTest {
 
         given().auth().oauth2(bobToken).get("/api/requests/" + r.id())
                 .then().body("status", is("COMPLETED")).body("finalPrice", is(12.5f));
+    }
+
+    @Test
+    void printingCanGoBackToAcceptedOrBeDeclined() {
+        PrintRequestDto failed = data.printRequest(bob, RequestStatus.PRINTING);
+        status(adminToken, failed.id(), "ACCEPTED", null).statusCode(200).body("status", is("ACCEPTED"));
+
+        PrintRequestDto impossible = data.printRequest(bob, RequestStatus.PRINTING);
+        status(adminToken, impossible.id(), "DECLINED", "Warps on every try").statusCode(200)
+                .body("status", is("DECLINED"))
+                .body("declineReason", is("Warps on every try"));
+
+        PrintRequestDto submitted = data.printRequest(bob, RequestStatus.SUBMITTED);
+        status(adminToken, submitted.id(), "PRINTING", null)
+                .statusCode(409).body("message", is("Cannot change status from SUBMITTED to PRINTING"));
+    }
+
+    @Test
+    void priceAndPaidStillChangeWhilePrinting() {
+        PrintRequestDto r = data.printRequest(bob, RequestStatus.PRINTING);
+
+        price(adminToken, r.id(), 20).statusCode(200).body("finalPrice", is(20));
+        paid(adminToken, r.id(), true).statusCode(200).body("paidAt", notNullValue());
+        paid(adminToken, r.id(), false).statusCode(200).body("paidAt", nullValue());
     }
 
     @Test
@@ -210,7 +240,7 @@ class PrintRequestReviewResourceTest {
         PrintRequestDto r = data.printRequest(bob, RequestStatus.IN_REVIEW);
         price(adminToken, r.id(), 20).statusCode(200);
         paid(adminToken, r.id(), true)
-                .statusCode(409).body("message", is("Only accepted or completed requests can be marked as paid"));
+                .statusCode(409).body("message", is("Only accepted, printing or completed requests can be marked as paid"));
         paid(adminToken, r.id(), null).statusCode(400);
         paid(adminToken, 999, true).statusCode(404);
     }

@@ -44,6 +44,7 @@ describe('AllRequestsPage', () => {
       'SUBMITTED',
       'IN_REVIEW',
       'ACCEPTED',
+      'PRINTING',
       'DECLINED',
       'COMPLETED',
     ]);

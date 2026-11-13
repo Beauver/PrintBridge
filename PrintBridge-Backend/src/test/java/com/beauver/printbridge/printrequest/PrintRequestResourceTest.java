@@ -173,6 +173,10 @@ class PrintRequestResourceTest {
 
     @Test
     void ownerCannotDeleteAfterSubmittedButAdminCan() throws IOException {
+        PrintRequestDto printing = data.printRequest(bob, RequestStatus.PRINTING);
+        given().auth().oauth2(bobToken).delete("/api/requests/" + printing.id()).then().statusCode(409);
+        given().auth().oauth2(adminToken).delete("/api/requests/" + printing.id()).then().statusCode(204);
+
         PrintRequestDto r = data.printRequest(bob, RequestStatus.ACCEPTED);
 
         given().auth().oauth2(bobToken).delete("/api/requests/" + r.id())
