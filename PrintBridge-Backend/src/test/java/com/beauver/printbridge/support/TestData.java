@@ -52,9 +52,11 @@ public class TestData {
     public void reset() {
         em.createNativeQuery("TRUNCATE users, refresh_tokens, print_requests, request_files, model_info "
                 + "RESTART IDENTITY CASCADE").executeUpdate();
-        em.createNativeQuery("UPDATE app_settings SET build_plate_x = NULL, build_plate_y = NULL, build_plate_z = NULL, "
-                + "slicing_enabled = FALSE, slicing_timeout_minutes = 10, slicer_printer = NULL, owned_nozzles = NULL, "
-                + "default_nozzle = NULL, slicer_process = NULL, slicer_filament = NULL").executeUpdate();
+        em.createNativeQuery("UPDATE app_settings SET slicing_enabled = FALSE, slicing_timeout_minutes = 10, "
+                + "default_printer_id = NULL").executeUpdate();
+        // Not TRUNCATE: app_settings references printers, and its row must stay.
+        em.createNativeQuery("DELETE FROM printers").executeUpdate();
+        em.createNativeQuery("ALTER SEQUENCE printers_id_seq RESTART").executeUpdate();
         deleteRecursively(storageRoot());
     }
 
@@ -102,17 +104,32 @@ public class TestData {
         }
     }
 
-    /** A complete server slicing settings body (P1S, owned 0.2 + 0.4, default 0.4, 5 minutes). */
+    /** A server slicing settings body with a 5 minute timeout. */
     public static Map<String, Object> slicingSettings(boolean enabled) {
         Map<String, Object> slicing = new HashMap<>();
         slicing.put("enabled", enabled);
         slicing.put("timeoutMinutes", 5);
-        slicing.put("printer", "Bambu Lab P1S");
-        slicing.put("ownedNozzles", List.of(0.4, 0.2, 0.40));
-        slicing.put("defaultNozzle", 0.4);
-        slicing.put("process", "0.20mm Standard @BBL X1C");
-        slicing.put("filament", "Bambu PLA Basic @BBL X1C");
         return slicing;
+    }
+
+    /** A printer body ready for slicing: 256 × 256 × 250 mm, owned 0.2 + 0.4, default 0.4. */
+    public static Map<String, Object> printer(String model) {
+        Map<String, Object> printer = new HashMap<>();
+        printer.put("model", model);
+        printer.put("buildPlate", Map.of("x", 256, "y", 256, "z", 250));
+        printer.put("ownedNozzles", List.of(0.4, 0.2, 0.40));
+        printer.put("defaultNozzle", 0.4);
+        printer.put("process", "0.20mm Standard @BBL X1C");
+        printer.put("filament", "Bambu PLA Basic @BBL X1C");
+        return printer;
+    }
+
+    /** A printer body with only a name and build plate (enough while slicing is off). */
+    public static Map<String, Object> printer(String model, int x, int y, int z) {
+        Map<String, Object> printer = new HashMap<>();
+        printer.put("model", model);
+        printer.put("buildPlate", Map.of("x", x, "y", y, "z", z));
+        return printer;
     }
 
     public User admin() {

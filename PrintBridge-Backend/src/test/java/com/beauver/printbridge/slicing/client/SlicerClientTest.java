@@ -89,7 +89,7 @@ class SlicerClientTest {
                  {"index": 2, "error": "Refused"}]}
                 """;
         SlicePlan plan = new SlicePlan("3mf", List.of(1, 2), "Bambu Lab P1S", new BigDecimal("0.4"), true,
-                "0.20mm Standard", "PLA Basic", 3, Map.of("wall_loops", "4"), true, new BigDecimal("0.8"));
+                "0.20mm Standard", "PLA Basic", 3, Map.of("wall_loops", "4"), true, new BigDecimal("0.8"), null);
 
         SliceResponse response = client.slice(file, plan, Duration.ofMinutes(2));
 
@@ -110,7 +110,7 @@ class SlicerClientTest {
         body = "{\"plates\": []}";
 
         client.slice(file, new SlicePlan("stl", List.of(1), "P", new BigDecimal("0.4"), false, null, null, 1,
-                Map.of(), false, null), Duration.ofMinutes(1));
+                Map.of(), false, null, null), Duration.ofMinutes(1));
 
         assertEquals("format=stl&printer=P&nozzle=0.4&plates=1&timeout=60", lastQuery);
     }
@@ -136,7 +136,7 @@ class SlicerClientTest {
     @Test
     void reportsUnreachableOrMissingSetup() {
         Path missing = dir.resolve("missing.stl");
-        SlicePlan plan = new SlicePlan("stl", List.of(1), "P", BigDecimal.ONE, false, null, null, 1, Map.of(), false, null);
+        SlicePlan plan = new SlicePlan("stl", List.of(1), "P", BigDecimal.ONE, false, null, null, 1, Map.of(), false, null, null);
         assertEquals("The model file is missing on disk",
                 assertThrows(SlicerException.class, () -> client.slice(missing, plan, Duration.ofMinutes(1))).getMessage());
 

@@ -12,7 +12,8 @@ import java.util.List;
  * @param totalGrams   sum over the plates with objects (exact and estimated)
  * @param weight       how much of {@code totalGrams} is exact
  * @param printSeconds total print time; only when every plate with objects has one
- * @param fits         whether every plate fits the build plate; {@code null} when no plate size is set
+ * @param fits         whether every plate fits on {@code fitPrinter}; {@code null} without printers
+ * @param fitPrinter   the printer the fit check is for: the one it was sliced for, else the default printer
  */
 public record ModelInfoDto(
         ModelInfoStatus status,
@@ -22,10 +23,11 @@ public record ModelInfoDto(
         WeightKind weight,
         Long printSeconds,
         Boolean fits,
+        String fitPrinter,
         List<PlateDto> plates,
         SlicingInfoDto slicing) {
 
     public static ModelInfoDto withStatus(ModelInfoStatus status, SlicingInfoDto slicing) {
-        return new ModelInfoDto(status, null, null, null, null, null, null, List.of(), slicing);
+        return new ModelInfoDto(status, null, null, null, null, null, null, null, List.of(), slicing);
     }
 }

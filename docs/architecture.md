@@ -20,7 +20,7 @@ Packages under `com.beauver.printbridge`, one per domain:
 | `user` | `User` entity, user management, password hashing |
 | `printrequest` | Print requests and their model files: entities, upload validation, access rules |
 | `modelinfo` | Model analysis of uploaded files (`analysis`: STL/3MF readers), stored results, startup backfill |
-| `settings` | Admin-editable application settings (build plate size, server slicing) |
+| `settings` | Admin-editable application settings (owned printers with their build plate, server slicing) |
 | `slicing` | Server slicing: job queue, planner (which printer/nozzle/profiles), background worker, client for the slicer service |
 | `storage` | `FileStorage`: files on disk under `STORAGE_PATH` |
 | `common.error` | Domain exceptions and their HTTP mapping |

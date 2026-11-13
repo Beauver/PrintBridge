@@ -206,6 +206,18 @@ class SlicerTest(unittest.TestCase):
         self.assertEqual(3, len(command[command.index("--load-filaments") + 1].split(";")))
         self.assertEqual("1", command[command.index("--arrange") + 1])
 
+    def test_process_profile_replaces_values_orca_rejects(self):
+        loaded = []
+
+        def runner(command, timeout, capture_output, check, cwd):
+            settings = command[command.index("--load-settings") + 1].split(";")
+            with open(settings[1], encoding="utf-8") as file:
+                loaded.append(json.load(file))
+            return fake_runner(self.commands)(command, timeout, capture_output, check, cwd)
+
+        service.Slicer(self.index, runner).slice("/tmp/model.3mf", self.params(process="0.20mm Standard"))
+        self.assertEqual("2", loaded[0]["raft_first_layer_expansion"])
+
     def test_keeps_the_project_printer(self):
         slicer = service.Slicer(self.index, self.runner())
         slicer.slice("/tmp/model.3mf", self.params(projectPrinter="1"))

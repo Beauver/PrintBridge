@@ -1,6 +1,7 @@
 import { provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
+import { PrinterInput } from '../../core/models/settings.model';
 import { SettingsService } from './settings.service';
 
 describe('SettingsService', () => {
@@ -23,32 +24,44 @@ describe('SettingsService', () => {
     service.get().subscribe();
     http.expectOne({ method: 'GET', url: '/api/settings' }).flush({});
 
-    const buildPlate = { x: 256, y: 256, z: 250 };
-    service.updateBuildPlate(buildPlate).subscribe();
-    const plate = http.expectOne({ method: 'PUT', url: '/api/settings/build-plate' });
-    expect(plate.request.body).toEqual(buildPlate);
-    plate.flush({});
-
-    const slicing = {
-      enabled: true,
-      timeoutMinutes: 10,
-      printer: 'P1S',
-      ownedNozzles: [0.4],
-      defaultNozzle: 0.4,
-      process: 'p',
-      filament: 'f',
-    };
+    const slicing = { enabled: true, timeoutMinutes: 10 };
     service.updateSlicing(slicing).subscribe();
     const update = http.expectOne({ method: 'PUT', url: '/api/settings/slicing' });
     expect(update.request.body).toEqual(slicing);
     update.flush({});
   });
 
+  it('calls the printers API', () => {
+    const printer: PrinterInput = {
+      model: 'Bambu Lab P1S',
+      buildPlate: { x: 256, y: 256, z: 250 },
+      ownedNozzles: [0.4],
+      defaultNozzle: 0.4,
+      process: 'p',
+      filament: 'f',
+    };
+    service.addPrinter(printer).subscribe();
+    const add = http.expectOne({ method: 'POST', url: '/api/settings/printers' });
+    expect(add.request.body).toEqual(printer);
+    add.flush({});
+
+    service.updatePrinter(3, printer).subscribe();
+    const update = http.expectOne({ method: 'PUT', url: '/api/settings/printers/3' });
+    expect(update.request.body).toEqual(printer);
+    update.flush({});
+
+    service.deletePrinter(3).subscribe();
+    http.expectOne({ method: 'DELETE', url: '/api/settings/printers/3' }).flush({});
+
+    service.makeDefaultPrinter(3).subscribe();
+    http.expectOne({ method: 'PUT', url: '/api/settings/printers/3/default' }).flush({});
+  });
+
   it('calls the slicer API', () => {
     service.slicerStatus().subscribe();
     http.expectOne({ method: 'GET', url: '/api/slicer/status' }).flush({});
 
-    service.printers().subscribe();
+    service.slicerPrinters().subscribe();
     http.expectOne({ method: 'GET', url: '/api/slicer/printers' }).flush([]);
 
     service.profiles('Bambu Lab P1S', 0.4).subscribe();

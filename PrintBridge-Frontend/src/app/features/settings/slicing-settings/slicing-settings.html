@@ -1,5 +1,5 @@
 <form
-  class="card card-body"
+  class="card card-body mb-4"
   [formGroup]="form"
   (ngSubmit)="save()"
   novalidate
@@ -7,8 +7,9 @@
 >
   <h2 class="h5">Server slicing</h2>
   <p class="text-body-secondary small">
-    Slices every upload with OrcaSlicer for your printer, so requests show exact filament and print
-    time. Project files keep their own settings when they were made for a nozzle you own.
+    Slices every upload once with OrcaSlicer, so requests show exact filament and print time.
+    Projects made for one of your printers are sliced on it; everything else on your default
+    printer.
   </p>
 
   @if (statusText(); as status) {
@@ -56,93 +57,6 @@
         "
         data-cy="slicing-timeout"
       />
-    </div>
-
-    <div class="col-12">
-      <label class="form-label" for="slicing-printer">Printer</label>
-      <select
-        id="slicing-printer"
-        class="form-select"
-        formControlName="printer"
-        (change)="onPrinterChange()"
-        data-cy="slicing-printer"
-      >
-        <option value="">Choose a printer…</option>
-        @for (model of printerOptions(); track model) {
-          <option [value]="model">{{ model }}</option>
-        }
-      </select>
-    </div>
-
-    @if (nozzleOptions().length > 0) {
-      <div class="col-sm-6">
-        <span class="form-label d-block">Nozzles you own</span>
-        @for (diameter of nozzleOptions(); track diameter) {
-          <div class="form-check form-check-inline">
-            <input
-              [id]="'nozzle-' + diameter"
-              class="form-check-input"
-              type="checkbox"
-              [checked]="isOwned(diameter)"
-              (change)="toggleNozzle(diameter, $any($event.target).checked)"
-              [attr.data-cy]="'slicing-nozzle-' + diameter"
-            />
-            <label class="form-check-label" [for]="'nozzle-' + diameter">{{
-              formatNozzle(diameter)
-            }}</label>
-          </div>
-        }
-      </div>
-      <div class="col-sm-6">
-        <label class="form-label" for="slicing-default-nozzle">Default nozzle</label>
-        <select
-          id="slicing-default-nozzle"
-          class="form-select"
-          [value]="defaultNozzle() ?? ''"
-          (change)="onDefaultNozzleChange($any($event.target).value)"
-          data-cy="slicing-default-nozzle"
-        >
-          @for (diameter of ownedNozzles(); track diameter) {
-            <option [value]="diameter">{{ formatNozzle(diameter) }}</option>
-          }
-        </select>
-        <div class="form-text">For STL files and projects made for a nozzle you don't own.</div>
-      </div>
-    }
-
-    <div class="col-sm-6">
-      <label class="form-label" for="slicing-process">Process profile</label>
-      <select
-        id="slicing-process"
-        class="form-select"
-        formControlName="process"
-        data-cy="slicing-process"
-      >
-        <option value="">Choose a profile…</option>
-        @if (form.controls.process.value && !profiles()) {
-          <option [value]="form.controls.process.value">{{ form.controls.process.value }}</option>
-        }
-        @for (process of profiles()?.processes ?? []; track process) {
-          <option [value]="process">{{ process }}</option>
-        }
-      </select>
-    </div>
-    <div class="col-sm-6">
-      <label class="form-label" for="slicing-filament">Filament profile</label>
-      <input
-        id="slicing-filament"
-        class="form-control"
-        list="slicing-filaments"
-        formControlName="filament"
-        placeholder="Type to search…"
-        autocomplete="off"
-        data-cy="slicing-filament"
-      />
-      <datalist id="slicing-filaments">
-        @for (filament of profiles()?.filaments ?? []; track filament) {
-          <option [value]="filament"></option>
-        }
-      </datalist>
     </div>
   </div>
 

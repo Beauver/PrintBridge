@@ -28,7 +28,7 @@ export interface PlateInfo {
   /** True when `grams` is an estimate from the plate's volume. */
   estimated: boolean | null;
   printSeconds: number | null;
-  /** Null when no build plate size is set or the plate is empty. */
+  /** Null without printers or for an empty plate. */
   fits: boolean | null;
   filaments: FilamentInfo[];
   /** Why OrcaSlicer refused this plate; only for the admin. */
@@ -41,9 +41,13 @@ export interface SlicingInfo {
   enabled: boolean;
   /** Null when the file was never queued. */
   status: SliceStatus | null;
+  /** Printer the numbers are for. */
+  printer: string | null;
   /** Nozzle (mm) the numbers are for. */
   nozzle: number | null;
-  /** The project's nozzle when it isn't owned and the default nozzle was used. */
+  /** The project's printer when it isn't owned and the default printer was used. */
+  madeForPrinter: string | null;
+  /** The project's nozzle when another nozzle was used (not owned, or another printer). */
   madeForNozzle: number | null;
   /** Why the job failed; only for the admin. */
   error: string | null;
@@ -58,8 +62,10 @@ export interface ModelInfo {
   totalGrams: number | null;
   weight: WeightKind | null;
   printSeconds: number | null;
-  /** Whether every plate fits; null when no build plate size is set. */
+  /** Whether every plate fits on `fitPrinter`; null without printers. */
   fits: boolean | null;
+  /** The printer it was sliced for, else the default printer. */
+  fitPrinter: string | null;
   plates: PlateInfo[];
   slicing: SlicingInfo;
 }

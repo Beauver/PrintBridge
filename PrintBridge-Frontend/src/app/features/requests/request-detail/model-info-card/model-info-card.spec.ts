@@ -6,7 +6,13 @@ import { ModelInfoCard } from './model-info-card';
 
 describe('ModelInfoCard', () => {
   const plate: PlateInfo = STL_INFO.plates[0];
-  const SLICED: SlicingInfo = { ...NO_SLICING, enabled: true, status: 'DONE', nozzle: 0.4 };
+  const SLICED: SlicingInfo = {
+    ...NO_SLICING,
+    enabled: true,
+    status: 'DONE',
+    printer: 'Bambu Lab P1S',
+    nozzle: 0.4,
+  };
 
   const BAMBU: ModelInfo = {
     ...STL_INFO,
@@ -16,6 +22,7 @@ describe('ModelInfoCard', () => {
     weight: 'EXACT',
     printSeconds: 5720,
     fits: false,
+    fitPrinter: 'Bambu Lab P1S',
     slicing: SLICED,
     plates: [
       {
@@ -62,7 +69,7 @@ describe('ModelInfoCard', () => {
     expect(card['weight']()).toEqual({ text: '~4 g', note: '(estimate)' });
     expect(card['printTime']()).toBeNull();
     expect(card['filaments']()).toEqual([]);
-    expect(card['doesNotFit']()).toBe(false);
+    expect(card['noFitText']()).toBeNull();
     expect(card['slicedFor']()).toBeNull();
   });
 
@@ -73,8 +80,8 @@ describe('ModelInfoCard', () => {
     expect(card['plateCount']()).toBe('3 plates');
     expect(card['weight']()).toEqual({ text: '65,25 g', note: null });
     expect(card['printTime']()).toBe('1 h 35 min');
-    expect(card['doesNotFit']()).toBe(true);
-    expect(card['slicedFor']()).toBe('Sliced for a 0,4 mm nozzle');
+    expect(card['noFitText']()).toBe('Too big for Bambu Lab P1S');
+    expect(card['slicedFor']()).toBe('Bambu Lab P1S · 0,4 mm nozzle');
   });
 
   it('marks partly estimated totals', () => {
@@ -83,10 +90,27 @@ describe('ModelInfoCard', () => {
     expect(card['weight']()).toEqual({ text: '~38 g', note: '(partly estimated)' });
   });
 
-  it('says which nozzle a project was made for', () => {
-    const card = create({ ...BAMBU, slicing: { ...SLICED, madeForNozzle: 0.8 } });
+  it('says what a project was made for when it was sliced on something else', () => {
+    function slicedFor(slicing: Partial<SlicingInfo>): string | null {
+      return create({ ...BAMBU, slicing: { ...SLICED, ...slicing } })['slicedFor']();
+    }
 
-    expect(card['slicedFor']()).toBe('Made for a 0,8 mm nozzle · numbers for your 0,4 mm');
+    expect(slicedFor({ madeForNozzle: 0.8 })).toBe(
+      'Made for a 0,8 mm nozzle. Numbers are for your Bambu Lab P1S · 0,4 mm nozzle',
+    );
+    expect(slicedFor({ madeForPrinter: 'Bambu Lab X1 Carbon' })).toBe(
+      'Made for Bambu Lab X1 Carbon. Numbers are for your Bambu Lab P1S · 0,4 mm nozzle',
+    );
+    expect(slicedFor({ madeForPrinter: 'Bambu Lab A1', madeForNozzle: 0.2 })).toBe(
+      'Made for Bambu Lab A1 · 0,2 mm nozzle. Numbers are for your Bambu Lab P1S · 0,4 mm nozzle',
+    );
+    expect(slicedFor({ printer: null })).toBe('0,4 mm nozzle');
+  });
+
+  it('says a model is too big even without knowing the printer', () => {
+    expect(create({ ...BAMBU, fitPrinter: null })['noFitText']()).toBe(
+      "Doesn't fit the build plate",
+    );
   });
 
   it('describes each plate', () => {

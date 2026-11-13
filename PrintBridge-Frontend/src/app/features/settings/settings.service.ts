@@ -1,10 +1,10 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { BuildPlate, Settings, SlicingSettings } from '../../core/models/settings.model';
+import { PrinterInput, Settings, SlicingSettings } from '../../core/models/settings.model';
 import { SlicerPrinter, SlicerProfiles, SlicerStatus } from '../../core/models/slicer.model';
 
-/** Admin settings API, plus what the slicer service offers for them. */
+/** Admin settings API, plus what the slicer service offers for them. Changes answer with all settings. */
 @Injectable({ providedIn: 'root' })
 export class SettingsService {
   private readonly http = inject(HttpClient);
@@ -13,19 +13,31 @@ export class SettingsService {
     return this.http.get<Settings>('/api/settings');
   }
 
-  updateBuildPlate(buildPlate: BuildPlate): Observable<Settings> {
-    return this.http.put<Settings>('/api/settings/build-plate', buildPlate);
-  }
-
   updateSlicing(slicing: SlicingSettings): Observable<Settings> {
     return this.http.put<Settings>('/api/settings/slicing', slicing);
+  }
+
+  addPrinter(printer: PrinterInput): Observable<Settings> {
+    return this.http.post<Settings>('/api/settings/printers', printer);
+  }
+
+  updatePrinter(id: number, printer: PrinterInput): Observable<Settings> {
+    return this.http.put<Settings>(`/api/settings/printers/${id}`, printer);
+  }
+
+  deletePrinter(id: number): Observable<Settings> {
+    return this.http.delete<Settings>(`/api/settings/printers/${id}`);
+  }
+
+  makeDefaultPrinter(id: number): Observable<Settings> {
+    return this.http.put<Settings>(`/api/settings/printers/${id}/default`, null);
   }
 
   slicerStatus(): Observable<SlicerStatus> {
     return this.http.get<SlicerStatus>('/api/slicer/status');
   }
 
-  printers(): Observable<SlicerPrinter[]> {
+  slicerPrinters(): Observable<SlicerPrinter[]> {
     return this.http.get<SlicerPrinter[]>('/api/slicer/printers');
   }
 

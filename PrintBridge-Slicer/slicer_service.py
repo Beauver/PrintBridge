@@ -33,6 +33,11 @@ MAX_UPLOAD_BYTES = int(os.environ.get("MAX_UPLOAD_MB", "200")) * 1024 * 1024
 KINDS = ("machine", "process", "filament")
 # Settings the backend may override on a process profile (the designer's choices it keeps).
 ALLOWED_OVERRIDES = {"sparse_infill_density", "wall_loops", "enable_support"}
+# Process settings the system profiles leave to OrcaSlicer's built-in default. When we load a
+# process profile over a project, a missing key keeps the project's value, and Bambu Studio 2.x
+# writes values OrcaSlicer rejects ("raft_first_layer_expansion": "-1" means "auto" there), which
+# fails every plate with "Invalid parameter value(s)". These are OrcaSlicer's defaults.
+PROCESS_DEFAULTS = {"raft_first_layer_expansion": "2"}
 # How much of the start of a G-code file to read for its config block (filament types and colours);
 # OrcaSlicer writes it right after the header, before thumbnails and moves.
 GCODE_HEAD_BYTES = 4 * 1024 * 1024
@@ -325,6 +330,8 @@ class Slicer:
             profile = self.index.resolve("process", process)
             if profile is None:
                 raise BadRequest(f"Unknown process profile: {process}")
+            for key, value in PROCESS_DEFAULTS.items():
+                profile.setdefault(key, value)
             profile.update(overrides)
             settings.append(write_profile(work, "process", profile))
         options = []

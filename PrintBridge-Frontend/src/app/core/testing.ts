@@ -1,6 +1,8 @@
 import { AuthResponse, User } from './models/account.model';
 import { ModelInfo, SlicingInfo } from './models/model-info.model';
 import { PrintRequest, PrintRequestSummary } from './models/print-request.model';
+import { Printer, Settings } from './models/settings.model';
+import { SlicerPrinter } from './models/slicer.model';
 
 export const ADMIN: User = {
   id: 1,
@@ -64,7 +66,9 @@ export const REQUEST_SUMMARY: PrintRequestSummary = {
 export const NO_SLICING: SlicingInfo = {
   enabled: false,
   status: null,
+  printer: null,
   nozzle: null,
+  madeForPrinter: null,
   madeForNozzle: null,
   error: null,
 };
@@ -78,6 +82,7 @@ export const STL_INFO: ModelInfo = {
   weight: 'ESTIMATED',
   printSeconds: null,
   fits: null,
+  fitPrinter: null,
   plates: [
     {
       index: 1,
@@ -94,4 +99,31 @@ export const STL_INFO: ModelInfo = {
     },
   ],
   slicing: NO_SLICING,
+};
+
+/** No printers, slicing off. */
+export const NO_SETTINGS: Settings = {
+  slicing: { enabled: false, timeoutMinutes: 10 },
+  defaultPrinterId: null,
+  printers: [],
+};
+
+/** The P1S as the slicer lists it (0.2, 0.4 and 0.6 mm nozzles). */
+export const SLICER_P1S: SlicerPrinter = {
+  model: 'Bambu Lab P1S',
+  vendor: 'BBL',
+  nozzles: [0.2, 0.4, 0.6].map((diameter) => {
+    return { diameter, machine: `P1S ${diameter}`, bed: { x: 256, y: 256, z: 250 } };
+  }),
+};
+
+/** A saved P1S, ready for slicing. */
+export const SAVED_P1S: Printer = {
+  id: 1,
+  model: 'Bambu Lab P1S',
+  buildPlate: { x: 256, y: 256, z: 250 },
+  ownedNozzles: [0.2, 0.4],
+  defaultNozzle: 0.4,
+  process: '0.20mm Standard',
+  filament: 'PLA Basic',
 };

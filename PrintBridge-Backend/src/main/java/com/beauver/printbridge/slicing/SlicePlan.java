@@ -17,7 +17,8 @@ import java.util.Map;
  * @param filamentSlots   how many filament slots get {@code filament}
  * @param overrides       the designer's settings to keep on top of {@code process}
  * @param arrange         re-arrange objects on the plate (another printer, STL files)
- * @param madeForNozzle   the project's nozzle when it differs from {@code nozzle} because it isn't owned
+ * @param madeForNozzle   the project's nozzle when it differs from {@code nozzle}
+ * @param madeForPrinter  the project's printer when it isn't owned and {@code printer} is the default printer
  */
 public record SlicePlan(
         String format,
@@ -30,5 +31,6 @@ public record SlicePlan(
         int filamentSlots,
         Map<String, String> overrides,
         boolean arrange,
-        BigDecimal madeForNozzle) {
+        BigDecimal madeForNozzle,
+        String madeForPrinter) {
 }

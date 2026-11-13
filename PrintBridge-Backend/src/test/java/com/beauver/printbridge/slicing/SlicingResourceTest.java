@@ -53,6 +53,7 @@ class SlicingResourceTest {
     User bob;
     String bobToken;
     String adminToken;
+    boolean printerAdded;
 
     @BeforeEach
     void setUp() {
@@ -61,9 +62,20 @@ class SlicingResourceTest {
         bob = data.user("bob");
         bobToken = data.accessToken(bob);
         adminToken = data.accessToken(data.admin());
+        printerAdded = false;
     }
 
+    private void addPrinter(Map<String, Object> printer) {
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(printer)
+                .post("/api/settings/printers").then().statusCode(201);
+    }
+
+    /** Switching on adds a P1S (owned 0.2 + 0.4) first when there is no printer yet. */
     private void slicing(boolean enabled) {
+        if (enabled && !printerAdded) {
+            addPrinter(TestData.printer("Bambu Lab P1S"));
+            printerAdded = true;
+        }
         given().auth().oauth2(adminToken).contentType(ContentType.JSON)
                 .body(TestData.slicingSettings(enabled))
                 .put("/api/settings/slicing").then().statusCode(200);
@@ -120,6 +132,7 @@ class SlicingResourceTest {
 
         get(bobToken, id)
                 .body("files[0].modelInfo.slicing.status", is("DONE"))
+                .body("files[0].modelInfo.slicing.printer", is("Bambu Lab P1S"))
                 .body("files[0].modelInfo.slicing.nozzle", is(0.4f))
                 .body("files[0].modelInfo.totalGrams", is(21.0f))
                 .body("files[0].modelInfo.weight", is("EXACT"))
@@ -160,7 +173,28 @@ class SlicingResourceTest {
     }
 
     @Test
-    void projectForAnotherNozzleUsesTheDefaultsAndShowsWhatItWasMadeFor() {
+    void projectForAnotherOwnedPrinterIsSlicedOnIt() {
+        Map<String, Object> mini = TestData.printer("Bambu Lab A1 mini", 180, 180, 180);
+        mini.put("ownedNozzles", List.of(0.2));
+        mini.put("defaultNozzle", 0.2);
+        mini.put("process", "0.10mm Detail @A1M");
+        mini.put("filament", "PLA @A1M");
+        addPrinter(mini);
+        slicing(true);
+        int id = upload("project.3mf", project("0.2", "Bambu Lab A1 mini"));
+
+        worker.drain();
+
+        SlicePlan plan = slicer.plans.getFirst();
+        assertEquals("Bambu Lab A1 mini", plan.printer());
+        assertTrue(plan.projectPrinter());
+        get(bobToken, id)
+                .body("files[0].modelInfo.slicing.printer", is("Bambu Lab A1 mini"))
+                .body("files[0].modelInfo.fitPrinter", is("Bambu Lab A1 mini"));
+    }
+
+    @Test
+    void projectForAnotherPrinterUsesTheDefaultsAndShowsWhatItWasMadeFor() {
         slicing(true);
         int id = upload("project.3mf", project("0.8", "Bambu Lab X1 Carbon"));
 
@@ -174,6 +208,8 @@ class SlicingResourceTest {
         assertTrue(plan.arrange());
         get(bobToken, id)
                 .body("files[0].modelInfo.slicing.madeForNozzle", is(0.8f))
+                .body("files[0].modelInfo.slicing.madeForPrinter", is("Bambu Lab X1 Carbon"))
+                .body("files[0].modelInfo.slicing.printer", is("Bambu Lab P1S"))
                 .body("files[0].modelInfo.plates[0].filaments[0].color", is("#FFFFFF"))
                 .body("files[0].modelInfo.plates[0].filaments[0].grams", nullValue());
     }

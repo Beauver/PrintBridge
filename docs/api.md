@@ -66,7 +66,7 @@ Summary: `{id, name, status, finalPrice, paidAt, ownerUsername, createdAt}`.
 Request: `{id, name, description, status, finalPrice, declineReason, paidAt, ownerId, ownerUsername, createdAt, updatedAt, files: [{id, originalFilename, type, sizeBytes, createdAt, modelInfo}], nextStatuses}` (`nextStatuses`: where the admin may move it; empty once final).
 `status` is `SUBMITTED | IN_REVIEW | ACCEPTED | DECLINED | COMPLETED`; `type` is `STL | THREE_MF`; `finalPrice` is EUR or `null` (pending); `paidAt` is when it was marked paid, or `null`.
 
-`modelInfo` is what is known about the file, see [model info](features/model-info.md) and [server slicing](features/server-slicing.md): `{status, source, volumeCm3, totalGrams, weight, printSeconds, fits, plates: [{index, name, width, depth, height, grams, estimated, printSeconds, fits, filaments: [{type, color, grams}], sliceError}], slicing: {enabled, status, nozzle, madeForNozzle, error}}`.
+`modelInfo` is what is known about the file, see [model info](features/model-info.md) and [server slicing](features/server-slicing.md): `{status, source, volumeCm3, totalGrams, weight, printSeconds, fits, fitPrinter, plates: [{index, name, width, depth, height, grams, estimated, printSeconds, fits, filaments: [{type, color, grams}], sliceError}], slicing: {enabled, status, printer, nozzle, madeForPrinter, madeForNozzle, error}}`. `fitPrinter` is the printer the fit check is for.
 - `status` is `PENDING` (not analysed yet), `ANALYZED` or `FAILED`; unless ANALYZED, only `status` and `slicing` are set and `plates` is empty. `source` is `MESH | BAMBU`.
 - `weight` is `EXACT`, `PARTLY_ESTIMATED` or `ESTIMATED`; a plate's `estimated` says whether its `grams` come from its volume.
 - `slicing.status` is `null` (never queued), `QUEUED`, `RUNNING`, `DONE` or `FAILED`. `slicing.error` and the plates' `sliceError` are only filled in for the admin.
@@ -77,9 +77,12 @@ Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file 
 
 | Method | Path | Body | Result |
 |---|---|---|---|
-| GET | `/settings` | – | `200 {buildPlate: {x, y, z}, slicing: {enabled, timeoutMinutes, printer, ownedNozzles, defaultNozzle, process, filament}}` (build plate in mm, `null` until set) |
-| PUT | `/settings/build-plate` | `{x, y, z}`, each a whole number 1–2000, all required | `200` settings; `400` invalid |
-| PUT | `/settings/slicing` | `{enabled, timeoutMinutes (1–60), printer, ownedNozzles, defaultNozzle, process, filament}`; switching on needs all of them, and the default nozzle must be owned | `200` settings; `400` invalid |
+| GET | `/settings` | – | `200 {slicing: {enabled, timeoutMinutes}, defaultPrinterId, printers: [{id, model, buildPlate: {x, y, z}, ownedNozzles, defaultNozzle, process, filament}]}` |
+| PUT | `/settings/slicing` | `{enabled, timeoutMinutes (1–60)}`; switching on needs at least one printer, with nozzles and profiles for every printer | `200` settings; `400` invalid |
+| POST | `/settings/printers` | `{model, buildPlate: {x, y, z} (whole mm 1–2000), ownedNozzles, defaultNozzle, process, filament}`; the default nozzle must be owned; while slicing is on, nozzles and profiles are required. The first printer becomes the default | `201` settings; `400` invalid; `409` model already added |
+| PUT | `/settings/printers/{id}` | same as POST | `200` settings; `400`; `404`; `409` |
+| DELETE | `/settings/printers/{id}` | – | `200` settings (the oldest remaining printer becomes the default); `404`; `409` last printer while slicing is on |
+| PUT | `/settings/printers/{id}/default` | – | `200` settings; `404` |
 
 Switching slicing off drops queued jobs.
 

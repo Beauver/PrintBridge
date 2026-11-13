@@ -6,10 +6,8 @@
         <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Slicing…
       </span>
     }
-    @if (doesNotFit()) {
-      <span class="badge text-bg-danger" data-cy="model-info-no-fit"
-        >Doesn't fit the build plate</span
-      >
+    @if (noFitText(); as text) {
+      <span class="badge text-bg-danger" data-cy="model-info-no-fit">{{ text }}</span>
     }
     @if (canReslice()) {
       <button
@@ -67,8 +65,8 @@
             <dd class="col-sm-9" data-cy="model-info-time">{{ printTime() }}</dd>
           }
           @if (slicedFor()) {
-            <dt class="col-sm-3">Nozzle</dt>
-            <dd class="col-sm-9" data-cy="model-info-nozzle">{{ slicedFor() }}</dd>
+            <dt class="col-sm-3">Sliced for</dt>
+            <dd class="col-sm-9" data-cy="model-info-sliced-for">{{ slicedFor() }}</dd>
           }
           @if (!showPlates() && filaments().length > 0) {
             <dt class="col-sm-3">Filaments</dt>
@@ -148,8 +146,7 @@
 
         @if (showPlateSizeHint()) {
           <p class="small text-body-secondary mt-2 mb-0" data-cy="model-info-plate-hint">
-            <a routerLink="/admin/settings">Set the build plate size</a> to check whether the model
-            fits.
+            <a routerLink="/admin/settings">Add a printer</a> to check whether the model fits.
           </p>
         }
       }

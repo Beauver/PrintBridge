@@ -115,7 +115,7 @@ public class SlicingService {
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     public Optional<SliceJob> claimNext() {
         SlicingSettings slicing = settings.slicing();
-        if (!slicing.enabled()) {
+        if (!slicing.enabled() || slicing.defaultPrinter() == null) {
             return Optional.empty();
         }
         Optional<SliceResult> next = results.nextQueued();
@@ -164,7 +164,9 @@ public class SlicingService {
     public void complete(long fileId, SlicePlan plan, SliceResponse response) {
         results.findByIdOptional(fileId).ifPresent(result -> {
             result.status = SliceStatus.DONE;
+            result.printer = plan.printer();
             result.nozzle = plan.nozzle();
+            result.madeForPrinter = plan.madeForPrinter();
             result.madeForNozzle = plan.madeForNozzle();
             result.plates = response.plates().stream().map(SlicingService::toPlate).toList();
             result.error = null;
@@ -184,7 +186,9 @@ public class SlicingService {
             result.fileId = fileId;
         }
         result.status = SliceStatus.QUEUED;
+        result.printer = null;
         result.nozzle = null;
+        result.madeForPrinter = null;
         result.madeForNozzle = null;
         result.plates = null;
         result.error = null;

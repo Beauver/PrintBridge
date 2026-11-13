@@ -22,11 +22,19 @@ public class SliceResult extends PanacheEntityBase {
     @Column(nullable = false, length = 16)
     public SliceStatus status;
 
+    /** Printer model the numbers are for. */
+    @Column(length = 200)
+    public String printer;
+
     /** Nozzle the numbers are for. */
     @Column(precision = 4, scale = 2)
     public BigDecimal nozzle;
 
-    /** The project's nozzle when it wasn't owned and the default nozzle was used instead. */
+    /** The project's printer when it wasn't owned and the default printer was used instead. */
+    @Column(name = "made_for_printer", length = 200)
+    public String madeForPrinter;
+
+    /** The project's nozzle when another nozzle was used (not owned, or another printer). */
     @Column(name = "made_for_nozzle", precision = 4, scale = 2)
     public BigDecimal madeForNozzle;
 

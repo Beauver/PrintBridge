@@ -56,10 +56,16 @@ class ModelInfoResourceTest {
                 .post("/api/requests").then().statusCode(201);
     }
 
-    private void setBuildPlate(int x, int y, int z) {
+    private void addPrinter(int x, int y, int z) {
         given().auth().oauth2(adminToken).contentType(ContentType.JSON)
-                .body(Map.of("x", x, "y", y, "z", z))
-                .put("/api/settings/build-plate").then().statusCode(200);
+                .body(TestData.printer("My printer", x, y, z))
+                .post("/api/settings/printers").then().statusCode(201);
+    }
+
+    private void changePrinter(int x, int y, int z) {
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(TestData.printer("My printer", x, y, z))
+                .put("/api/settings/printers/1").then().statusCode(200);
     }
 
     @Test
@@ -112,15 +118,16 @@ class ModelInfoResourceTest {
     }
 
     @Test
-    void fitCheckFollowsTheCurrentBuildPlate() {
+    void fitCheckFollowsTheDefaultPrintersBuildPlate() {
         int id = upload("cube.stl", ModelFiles.cubeStl(200)).extract().path("id");
 
-        setBuildPlate(256, 256, 250);
+        addPrinter(256, 256, 250);
         given().auth().oauth2(bobToken).get("/api/requests/" + id).then()
                 .body("files[0].modelInfo.fits", is(true))
+                .body("files[0].modelInfo.fitPrinter", is("My printer"))
                 .body("files[0].modelInfo.plates[0].fits", is(true));
 
-        setBuildPlate(180, 180, 180);
+        changePrinter(180, 180, 180);
         given().auth().oauth2(bobToken).get("/api/requests/" + id).then()
                 .body("files[0].modelInfo.fits", is(false))
                 .body("files[0].modelInfo.plates[0].fits", is(false));

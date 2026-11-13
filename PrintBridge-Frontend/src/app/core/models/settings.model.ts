@@ -1,15 +1,21 @@
-/** The printer's build volume in whole mm; null until the admin sets it. */
+/** A printer's build volume in whole mm. */
 export interface BuildPlate {
-  x: number | null;
-  y: number | null;
-  z: number | null;
+  x: number;
+  y: number;
+  z: number;
 }
 
-/** Server slicing; printer, nozzles and profiles may stay empty while it is off. */
+/** Server slicing on/off and how long one file may take. */
 export interface SlicingSettings {
   enabled: boolean;
   timeoutMinutes: number;
-  printer: string | null;
+}
+
+/** A printer to add or change; nozzles and profiles may stay empty while slicing is off. */
+export interface PrinterInput {
+  /** As OrcaSlicer names it (e.g. "Bambu Lab P1S"), or the admin's own name. */
+  model: string;
+  buildPlate: BuildPlate;
   ownedNozzles: number[];
   /** Nozzle for STLs and for projects made for a nozzle that isn't owned. */
   defaultNozzle: number | null;
@@ -17,7 +23,15 @@ export interface SlicingSettings {
   filament: string | null;
 }
 
+/** A printer the admin owns. */
+export interface Printer extends PrinterInput {
+  id: number;
+}
+
 export interface Settings {
-  buildPlate: BuildPlate;
   slicing: SlicingSettings;
+  /** For STL files and projects made for a printer that isn't owned; null without printers. */
+  defaultPrinterId: number | null;
+  /** In the order they were added. */
+  printers: Printer[];
 }

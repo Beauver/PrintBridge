@@ -9,6 +9,7 @@ import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.modelinfo.dto.PlateDto;
 import com.beauver.printbridge.modelinfo.dto.WeightKind;
 import com.beauver.printbridge.settings.BuildPlate;
+import com.beauver.printbridge.settings.PrinterSettings;
 import com.beauver.printbridge.slicing.SliceResult;
 import com.beauver.printbridge.slicing.SliceStatus;
 import com.beauver.printbridge.slicing.SlicedPlate;
@@ -16,19 +17,23 @@ import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;
 import java.util.List;
-import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 class ModelInfoMapperTest {
 
     final ModelInfoMapper mapper = new ModelInfoMapper();
-    static final ModelInfoMapper.Context USER = new ModelInfoMapper.Context(
-            Optional.of(new BuildPlate(256, 256, 250)), true, false);
-    static final ModelInfoMapper.Context ADMIN = new ModelInfoMapper.Context(
-            Optional.of(new BuildPlate(256, 256, 250)), true, true);
+    static final PrinterSettings P1S = printer(1, "Bambu Lab P1S", new BuildPlate(256, 256, 250));
+    static final PrinterSettings MINI = printer(2, "Bambu Lab A1 mini", new BuildPlate(180, 180, 180));
+    static final ModelInfoMapper.Context USER = new ModelInfoMapper.Context(List.of(P1S, MINI), P1S, true, false);
+    static final ModelInfoMapper.Context ADMIN = new ModelInfoMapper.Context(List.of(P1S, MINI), P1S, true, true);
     static final Dimensions SMALL = new Dimensions(10, 10, 10);
     static final FilamentUsage WHITE = new FilamentUsage("PLA", "#FFFFFF", null);
+
+    private static PrinterSettings printer(long id, String model, BuildPlate buildPlate) {
+        return new PrinterSettings(id, model, buildPlate, List.of(new BigDecimal("0.4")), new BigDecimal("0.4"),
+                "process", "filament");
+    }
 
     private static ModelInfo analyzed(PlateAnalysis... plates) {
         ModelInfo info = new ModelInfo();
@@ -47,6 +52,7 @@ class ModelInfoMapperTest {
     private static SliceResult done(BigDecimal madeFor, SlicedPlate... plates) {
         SliceResult slice = new SliceResult();
         slice.status = SliceStatus.DONE;
+        slice.printer = "Bambu Lab P1S";
         slice.nozzle = new BigDecimal("0.4");
         slice.madeForNozzle = madeFor;
         slice.plates = List.of(plates);
@@ -84,6 +90,7 @@ class ModelInfoMapperTest {
         assertEquals(WeightKind.ESTIMATED, dto.weight());
         assertNull(dto.printSeconds());
         assertFalse(dto.fits());
+        assertEquals("Bambu Lab P1S", dto.fitPrinter());
         assertEquals(List.of(false, true), dto.plates().stream().map(PlateDto::fits).toList());
         assertEquals(new PlateDto(2, null, 10.0, 10.0, 10.0, 4.0, true, null, true,
                 List.of(new FilamentDto("PLA", "#FFFFFF", null)), null), dto.plates().get(1));
@@ -118,6 +125,7 @@ class ModelInfoMapperTest {
         assertEquals(List.of(new FilamentDto("PLA", "#FFFFFF", 35.0), new FilamentDto("PETG", "#FF0000", 5.0)),
                 plate.filaments());
         assertEquals(SliceStatus.DONE, dto.slicing().status());
+        assertEquals("Bambu Lab P1S", dto.slicing().printer());
         assertEquals(new BigDecimal("0.4"), dto.slicing().nozzle());
     }
 
@@ -149,6 +157,35 @@ class ModelInfoMapperTest {
     }
 
     @Test
+    void otherPrinterShowsTheProjectsColours() {
+        SliceResult slice = done(null,
+                new SlicedPlate(1, 20.0, 1000L, List.of(new FilamentUsage("PLA", "#F2754E", 20.0)), null));
+        slice.madeForPrinter = "Bambu Lab X1 Carbon";
+
+        ModelInfoDto dto = mapper.toDto(analyzed(plate(1, SMALL, null, null)), slice, USER);
+
+        assertEquals(List.of(new FilamentDto("PLA", "#FFFFFF", null)), dto.plates().getFirst().filaments());
+        assertEquals("Bambu Lab X1 Carbon", dto.slicing().madeForPrinter());
+    }
+
+    @Test
+    void fitCheckUsesThePrinterItWasSlicedFor() {
+        ModelInfo info = analyzed(plate(1, new Dimensions(200, 200, 200), null, null));
+        SliceResult onMini = done(null, new SlicedPlate(1, 20.0, 1000L, List.of(), null));
+        onMini.printer = "bambu lab a1 mini";
+
+        ModelInfoDto dto = mapper.toDto(info, onMini, USER);
+        assertFalse(dto.fits());
+        assertEquals("Bambu Lab A1 mini", dto.fitPrinter());
+
+        onMini.printer = "A printer that was removed";
+        assertTrue(mapper.toDto(info, onMini, USER).fits());
+        onMini.status = SliceStatus.FAILED;
+        onMini.printer = "Bambu Lab A1 mini";
+        assertEquals("Bambu Lab P1S", mapper.toDto(info, onMini, USER).fitPrinter());
+    }
+
+    @Test
     void ignoresServerPlatesUntilDone() {
         SliceResult running = done(null, new SlicedPlate(1, 99.0, 1L, List.of(), null));
         running.status = SliceStatus.RUNNING;
@@ -170,12 +207,13 @@ class ModelInfoMapperTest {
     }
 
     @Test
-    void noFitCheckWithoutBuildPlate() {
-        ModelInfoMapper.Context noPlate = new ModelInfoMapper.Context(Optional.empty(), false, false);
+    void noFitCheckWithoutPrinters() {
+        ModelInfoMapper.Context noPlate = new ModelInfoMapper.Context(List.of(), null, false, false);
 
         ModelInfoDto dto = mapper.toDto(analyzed(plate(1, new Dimensions(999, 999, 999), null, null)), null, noPlate);
 
         assertNull(dto.fits());
+        assertNull(dto.fitPrinter());
         assertNull(dto.plates().getFirst().fits());
         assertFalse(dto.slicing().enabled());
     }

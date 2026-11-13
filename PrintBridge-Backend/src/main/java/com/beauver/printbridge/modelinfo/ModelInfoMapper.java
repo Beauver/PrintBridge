@@ -8,6 +8,7 @@ import com.beauver.printbridge.modelinfo.dto.PlateDto;
 import com.beauver.printbridge.modelinfo.dto.SlicingInfoDto;
 import com.beauver.printbridge.modelinfo.dto.WeightKind;
 import com.beauver.printbridge.settings.BuildPlate;
+import com.beauver.printbridge.settings.PrinterSettings;
 import com.beauver.printbridge.slicing.SliceResult;
 import com.beauver.printbridge.slicing.SliceStatus;
 import com.beauver.printbridge.slicing.SlicedPlate;
@@ -25,14 +26,16 @@ import java.util.stream.Collectors;
 /**
  * Turns a stored analysis and server slicing result into what the detail page shows. Per plate
  * the numbers come from, in order: server slicing, the slice data saved in the file, an
- * estimate from the plate's volume. The fit check uses the current build plate, so changing
- * the plate size applies to existing requests too.
+ * estimate from the plate's volume. The fit check uses the current build plate of the printer the
+ * file was sliced for, else of the default printer, so changing a printer applies to existing
+ * requests too.
  */
 @ApplicationScoped
 public class ModelInfoMapper {
 
     /** What the mapper needs to know besides the stored rows. */
-    public record Context(Optional<BuildPlate> buildPlate, boolean slicingEnabled, boolean admin) {
+    public record Context(List<PrinterSettings> printers, PrinterSettings defaultPrinter, boolean slicingEnabled,
+                          boolean admin) {
     }
 
     public ModelInfoDto toDto(ModelInfo info, SliceResult slice, Context context) {
@@ -44,9 +47,12 @@ public class ModelInfoMapper {
             return ModelInfoDto.withStatus(info.status, slicing);
         }
         Map<Integer, SlicedPlate> sliced = serverPlates(slice);
-        boolean projectColours = slice != null && slice.madeForNozzle != null;
+        // Sliced with the admin's filament (another printer or nozzle): the project's colours tell more.
+        boolean projectColours = slice != null && (slice.madeForNozzle != null || slice.madeForPrinter != null);
+        Optional<PrinterSettings> fitPrinter = fitPrinter(slice, context);
+        Optional<BuildPlate> buildPlate = fitPrinter.map(PrinterSettings::buildPlate);
         List<PlateDto> plates = info.plates.stream()
-                .map(plate -> toDto(plate, sliced.get(plate.index()), projectColours, context))
+                .map(plate -> toDto(plate, sliced.get(plate.index()), projectColours, buildPlate, context))
                 .toList();
 
         List<PlateDto> filled = plates.stream().filter(plate -> plate.grams() != null).toList();
@@ -61,22 +67,37 @@ public class ModelInfoMapper {
             printSeconds = filled.stream().mapToLong(PlateDto::printSeconds).sum();
         }
         Boolean fits = null;
-        if (context.buildPlate().isPresent()) {
+        if (buildPlate.isPresent()) {
             fits = plates.stream().allMatch(plate -> plate.fits() == null || plate.fits());
         }
         return new ModelInfoDto(ModelInfoStatus.ANALYZED, info.source, round(info.volumeMm3 / 1000, 1),
-                totalGrams, weight, printSeconds, fits, plates, slicing);
+                totalGrams, weight, printSeconds, fits, fitPrinter.map(PrinterSettings::model).orElse(null), plates,
+                slicing);
+    }
+
+    /** The printer it was sliced for while it is still owned, else the default printer. */
+    private static Optional<PrinterSettings> fitPrinter(SliceResult slice, Context context) {
+        if (slice != null && slice.status == SliceStatus.DONE) {
+            Optional<PrinterSettings> sliced = context.printers().stream()
+                    .filter(printer -> printer.isModel(slice.printer))
+                    .findFirst();
+            if (sliced.isPresent()) {
+                return sliced;
+            }
+        }
+        return Optional.ofNullable(context.defaultPrinter());
     }
 
     private static SlicingInfoDto slicingInfo(SliceResult slice, Context context) {
         if (slice == null) {
-            return new SlicingInfoDto(context.slicingEnabled(), null, null, null, null);
+            return new SlicingInfoDto(context.slicingEnabled(), null, null, null, null, null, null);
         }
         String error = null;
         if (context.admin()) {
             error = slice.error;
         }
-        return new SlicingInfoDto(context.slicingEnabled(), slice.status, slice.nozzle, slice.madeForNozzle, error);
+        return new SlicingInfoDto(context.slicingEnabled(), slice.status, slice.printer, slice.nozzle,
+                slice.madeForPrinter, slice.madeForNozzle, error);
     }
 
     private static Map<Integer, SlicedPlate> serverPlates(SliceResult slice) {
@@ -87,7 +108,8 @@ public class ModelInfoMapper {
                 (first, second) -> first));
     }
 
-    private static PlateDto toDto(PlateAnalysis plate, SlicedPlate server, boolean projectColours, Context context) {
+    private static PlateDto toDto(PlateAnalysis plate, SlicedPlate server, boolean projectColours,
+                                  Optional<BuildPlate> buildPlate, Context context) {
         String sliceError = null;
         if (server != null && server.error() != null && context.admin()) {
             sliceError = server.error();
@@ -96,7 +118,7 @@ public class ModelInfoMapper {
             return new PlateDto(plate.index(), plate.name(), null, null, null, null, null, null, null,
                     filaments(plate.filaments()), sliceError);
         }
-        Boolean fits = context.buildPlate().map(buildPlate -> buildPlate.fits(plate.size())).orElse(null);
+        Boolean fits = buildPlate.map(plateSize -> plateSize.fits(plate.size())).orElse(null);
         Double grams;
         Long seconds;
         List<FilamentUsage> filaments;
@@ -106,7 +128,6 @@ public class ModelInfoMapper {
             seconds = server.seconds();
             filaments = mergeSame(server.filaments());
             if (projectColours) {
-                // Sliced with the admin's filament for another nozzle: the project's colours tell more.
                 filaments = withoutGrams(plate.filaments());
             }
         } else if (plate.grams() != null) {

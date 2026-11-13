@@ -89,8 +89,16 @@ export class ModelInfoCard {
     return `${count} plates`;
   });
 
-  protected readonly doesNotFit = computed(() => {
-    return this.info().fits === false;
+  /** "Too big for Bambu Lab P1S", when a plate doesn't fit. */
+  protected readonly noFitText = computed(() => {
+    const info = this.info();
+    if (info.fits !== false) {
+      return null;
+    }
+    if (info.fitPrinter) {
+      return `Too big for ${info.fitPrinter}`;
+    }
+    return "Doesn't fit the build plate";
   });
 
   protected readonly showPlateSizeHint = computed(() => {
@@ -107,16 +115,31 @@ export class ModelInfoCard {
     return status === 'QUEUED' || status === 'RUNNING';
   });
 
-  /** "Sliced for a 0,4 mm nozzle", or which nozzle the project was made for. */
+  /**
+   * "Bambu Lab P1S · 0,4 mm nozzle", or what the project was made for when it was sliced on
+   * another printer or nozzle.
+   */
   protected readonly slicedFor = computed(() => {
     const slicing = this.info().slicing;
     if (slicing.status !== 'DONE' || slicing.nozzle === null) {
       return null;
     }
-    if (slicing.madeForNozzle !== null) {
-      return `Made for a ${formatNozzle(slicing.madeForNozzle)} nozzle · numbers for your ${formatNozzle(slicing.nozzle)}`;
+    let target = `${formatNozzle(slicing.nozzle)} nozzle`;
+    if (slicing.printer) {
+      target = `${slicing.printer} · ${target}`;
     }
-    return `Sliced for a ${formatNozzle(slicing.nozzle)} nozzle`;
+    let madeFor: string | null = null;
+    if (slicing.madeForPrinter && slicing.madeForNozzle !== null) {
+      madeFor = `${slicing.madeForPrinter} · ${formatNozzle(slicing.madeForNozzle)} nozzle`;
+    } else if (slicing.madeForPrinter) {
+      madeFor = slicing.madeForPrinter;
+    } else if (slicing.madeForNozzle !== null) {
+      madeFor = `a ${formatNozzle(slicing.madeForNozzle)} nozzle`;
+    }
+    if (madeFor) {
+      return `Made for ${madeFor}. Numbers are for your ${target}`;
+    }
+    return target;
   });
 
   /** Only the admin gets the reason; for others the card just falls back. */
