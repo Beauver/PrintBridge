@@ -16,7 +16,6 @@ import jakarta.transaction.Transactional;
 import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
 import java.util.TreeSet;
@@ -155,7 +154,7 @@ public class SettingsService {
         printer.buildPlateX = buildPlate.x();
         printer.buildPlateY = buildPlate.y();
         printer.buildPlateZ = buildPlate.z();
-        printer.ownedNozzles = join(owned);
+        printer.ownedNozzles = owned;
         printer.defaultNozzle = defaultNozzle;
         printer.process = result.process();
         printer.filament = result.filament();
@@ -178,13 +177,13 @@ public class SettingsService {
     private static PrinterSettings toSettings(Printer printer) {
         return new PrinterSettings(printer.id, printer.model,
                 new BuildPlate(printer.buildPlateX, printer.buildPlateY, printer.buildPlateZ),
-                split(printer.ownedNozzles), strip(printer.defaultNozzle), printer.process, printer.filament);
+                stripAll(printer.ownedNozzles), strip(printer.defaultNozzle), printer.process, printer.filament);
     }
 
     private static PrinterDto toDto(Printer printer) {
         return new PrinterDto(printer.id, printer.model,
                 new BuildPlateDto(printer.buildPlateX, printer.buildPlateY, printer.buildPlateZ),
-                split(printer.ownedNozzles), strip(printer.defaultNozzle), printer.process, printer.filament);
+                stripAll(printer.ownedNozzles), strip(printer.defaultNozzle), printer.process, printer.filament);
     }
 
     /** Sorted, without duplicates or trailing zeros (0.40 and 0.4 are the same nozzle). */
@@ -195,18 +194,9 @@ public class SettingsService {
         return new ArrayList<>(new TreeSet<>(nozzles.stream().map(SettingsService::strip).toList()));
     }
 
-    private static String join(List<BigDecimal> nozzles) {
-        if (nozzles.isEmpty()) {
-            return null;
-        }
-        return String.join(",", nozzles.stream().map(BigDecimal::toPlainString).toList());
-    }
-
-    private static List<BigDecimal> split(String nozzles) {
-        if (nozzles == null || nozzles.isBlank()) {
-            return List.of();
-        }
-        return Arrays.stream(nozzles.split(",")).map(BigDecimal::new).map(SettingsService::strip).toList();
+    /** The database keeps two decimals (0.40); the API and the planner use 0.4. */
+    private static List<BigDecimal> stripAll(List<BigDecimal> nozzles) {
+        return nozzles.stream().map(SettingsService::strip).toList();
     }
 
     private static BigDecimal strip(BigDecimal value) {

@@ -6,8 +6,8 @@ CREATE TABLE printers (
     build_plate_x  INTEGER       NOT NULL CHECK (build_plate_x BETWEEN 1 AND 2000),
     build_plate_y  INTEGER       NOT NULL CHECK (build_plate_y BETWEEN 1 AND 2000),
     build_plate_z  INTEGER       NOT NULL CHECK (build_plate_z BETWEEN 1 AND 2000),
-    -- Nozzle sizes the admin owns for this printer, comma-separated mm ("0.2,0.4,0.6").
-    owned_nozzles  VARCHAR(100),
+    -- Nozzle sizes (mm) the admin owns for this printer, ascending.
+    owned_nozzles  NUMERIC(4, 2)[] NOT NULL DEFAULT '{}',
     default_nozzle NUMERIC(4, 2),
     -- OrcaSlicer process/filament profile names for the default nozzle.
     process        VARCHAR(200),
@@ -23,8 +23,9 @@ ALTER TABLE app_settings
 -- The single printer of V4/V5 becomes the first (default) printer, when its build plate was set.
 INSERT INTO printers (model, build_plate_x, build_plate_y, build_plate_z, owned_nozzles, default_nozzle, process,
                       filament)
-SELECT COALESCE(slicer_printer, 'My printer'), build_plate_x, build_plate_y, build_plate_z, owned_nozzles,
-       default_nozzle, slicer_process, slicer_filament
+SELECT COALESCE(slicer_printer, 'My printer'), build_plate_x, build_plate_y, build_plate_z,
+       COALESCE(string_to_array(owned_nozzles, ',')::NUMERIC(4, 2)[], '{}'), default_nozzle, slicer_process,
+       slicer_filament
 FROM app_settings
 WHERE build_plate_x IS NOT NULL AND build_plate_y IS NOT NULL AND build_plate_z IS NOT NULL;
 

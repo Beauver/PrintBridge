@@ -62,7 +62,7 @@ Measured on the four sample projects and an STL: 1–5 s per file, peak memory 0
 ## Data
 
 - `app_settings`: `slicing_enabled`, `slicing_timeout_minutes` (V5), `default_printer_id` (V6).
-- `printers` (V6): `model` (unique, case-insensitive), `build_plate_x/y/z`, `owned_nozzles` (comma-separated mm), `default_nozzle`, `process`, `filament`. V6 moved the single printer of V4/V5 (when its build plate was set) into this table as the default.
+- `printers` (V6): `model` (unique, case-insensitive), `build_plate_x/y/z`, `owned_nozzles` (`NUMERIC(4,2)[]`, mm), `default_nozzle`, `process`, `filament`. V6 moved the single printer of V4/V5 (when its build plate was set) into this table as the default.
 - `slice_results` (V5, printer columns V6): one row per file (`ON DELETE CASCADE`): `status` (`QUEUED`, `RUNNING`, `DONE`, `FAILED`), `printer`, `nozzle`, `made_for_printer`, `made_for_nozzle`, `plates` (JSONB per plate: grams, seconds, filaments or OrcaSlicer's refusal), `error`, `queued_at`, `finished_at`. Only the numbers are kept; the G-code is thrown away.
 
 ## Not included
