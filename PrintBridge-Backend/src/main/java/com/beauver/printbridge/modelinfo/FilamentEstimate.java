@@ -1,8 +1,9 @@
 package com.beauver.printbridge.modelinfo;
 
 /**
- * Rough filament weight for models without slicer data: solid volume × density × the share of
- * the volume a typical print fills (walls plus sparse infill).
+ * Rough filament weight for plates without slicer data (slicing off, queued, failed or refused):
+ * solid volume × density × the share of the volume a typical print fills (walls plus sparse
+ * infill).
  */
 final class FilamentEstimate {
 

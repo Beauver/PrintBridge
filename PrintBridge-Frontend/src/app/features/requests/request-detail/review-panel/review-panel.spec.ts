@@ -134,6 +134,18 @@ describe('ReviewPanel', () => {
       expect(panel['price'].value).toBe('');
     });
 
+    it('keeps typed input when the same request is reloaded', () => {
+      panel['price'].setValue('12,50');
+      panel['price'].markAsTouched();
+
+      show({ ...REQUEST, files: [] });
+      expect(panel['price'].value).toBe('12,50');
+      expect(panel['price'].touched).toBe(true);
+
+      show({ ...REQUEST, updatedAt: '2030-01-01T00:00:00Z' });
+      expect(panel['price'].value).toBe('');
+    });
+
     it('saves a price typed in either style', () => {
       const priced = { ...REQUEST, finalPrice: 6900.42 };
       requestsService.changePrice.mockReturnValue(of(priced));

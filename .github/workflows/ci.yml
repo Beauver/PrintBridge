@@ -56,10 +56,19 @@ jobs:
       - run: npx ng test --no-watch
       - run: npm run build -- --configuration production
 
+  slicer:
+    name: Slicer service (tests)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Unit tests (no OrcaSlicer needed)
+        working-directory: PrintBridge-Slicer
+        run: python3 -m unittest -v
+
   docker:
     name: Docker images build (no push)
     runs-on: ubuntu-latest
-    needs: [backend, frontend]
+    needs: [backend, frontend, slicer]
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-java@v4
@@ -70,17 +79,23 @@ jobs:
       - name: Build backend app (skip tests, already run)
         working-directory: PrintBridge-Backend
         run: chmod +x gradlew && ./gradlew quarkusBuild -x test --no-daemon
-      - uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - name: Backend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: PrintBridge-Backend
           file: PrintBridge-Backend/src/main/docker/Dockerfile.jvm
           push: false
           cache-from: type=gha,scope=backend
       - name: Frontend image
-        uses: docker/build-push-action@v6
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
         with:
           context: PrintBridge-Frontend
           push: false
           cache-from: type=gha,scope=frontend
+      - name: Slicer image
+        uses: docker/build-push-action@10e90e3645eae34f1e60eeb005ba3a3d33f178e8 # v6
+        with:
+          context: PrintBridge-Slicer
+          push: false
+          cache-from: type=gha,scope=printbridge-slicer

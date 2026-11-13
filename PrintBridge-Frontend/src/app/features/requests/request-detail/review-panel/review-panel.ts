@@ -86,12 +86,40 @@ export class ReviewPanel {
     return this.request().finalPrice === null;
   });
 
+  /**
+   * What the controls show. A new request object with the same review state (the detail page
+   * reloads the request while files are being sliced) keeps it, so typed input isn't wiped.
+   */
+  private readonly reviewState = computed(
+    () => {
+      const request = this.request();
+      return {
+        id: request.id,
+        status: request.status,
+        finalPrice: request.finalPrice,
+        paidAt: request.paidAt,
+        updatedAt: request.updatedAt,
+      };
+    },
+    {
+      equal: (previous, next) => {
+        return (
+          previous.id === next.id &&
+          previous.status === next.status &&
+          previous.finalPrice === next.finalPrice &&
+          previous.paidAt === next.paidAt &&
+          previous.updatedAt === next.updatedAt
+        );
+      },
+    },
+  );
+
   protected readonly statusLabel = statusLabel;
 
   constructor() {
     // Keep the controls in sync with the request shown (initially and after every change).
     effect(() => {
-      const request = this.request();
+      const request = this.reviewState();
       this.status.setValue(request.status, { emitEvent: false });
       this.price.setValue(this.priceText(request.finalPrice), { emitEvent: false });
       this.price.markAsUntouched();

@@ -18,14 +18,15 @@ public class PrintRequestMapper {
                 r.createdAt);
     }
 
-    public PrintRequestDto toDto(PrintRequest r) {
+    /** @param admin whether the caller is the admin (sees slicing errors) */
+    public PrintRequestDto toDto(PrintRequest r, boolean admin) {
         return new PrintRequestDto(r.id, r.name, r.description, r.status, r.finalPrice, r.declineReason, r.paidAt,
                 r.owner.id, r.owner.username, r.createdAt, r.updatedAt,
-                r.files.stream().map(this::toDto).toList(), r.status.nextStatuses());
+                r.files.stream().map(file -> toDto(file, admin)).toList(), r.status.nextStatuses());
     }
 
-    public RequestFileDto toDto(RequestFile f) {
+    public RequestFileDto toDto(RequestFile f, boolean admin) {
         return new RequestFileDto(f.id, f.originalFilename, f.fileType, f.sizeBytes, f.createdAt,
-                modelInfo.describe(f));
+                modelInfo.describe(f, admin));
     }
 }

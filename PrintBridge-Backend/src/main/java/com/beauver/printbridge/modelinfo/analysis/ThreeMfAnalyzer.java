@@ -15,8 +15,8 @@ import java.util.Optional;
 import java.util.Set;
 
 /**
- * Reads a 3MF: Bambu Studio / OrcaSlicer projects plate by plate, PrusaSlicer projects and plain
- * 3MF files as a single plate.
+ * Reads a 3MF: Bambu Studio / OrcaSlicer projects plate by plate, anything else (plain 3MF,
+ * other slicers' projects) as a single plate.
  */
 final class ThreeMfAnalyzer {
 
@@ -25,9 +25,6 @@ final class ThreeMfAnalyzer {
             ThreeMfGeometry geometry = ThreeMfGeometry.load(pkg);
             if (BambuProject.isPresent(pkg)) {
                 return bambu(geometry, BambuProject.read(pkg));
-            }
-            if (PrusaProject.isPresent(pkg)) {
-                return singlePlate(geometry, ModelSource.PRUSA, PrusaProject.read(pkg).filaments());
             }
             return singlePlate(geometry, ModelSource.MESH, List.of());
         }
@@ -46,7 +43,7 @@ final class ThreeMfAnalyzer {
         if (bounds.isEmpty()) {
             throw new ModelAnalysisException("The 3MF contains no geometry");
         }
-        PlateAnalysis plate = new PlateAnalysis(1, null, bounds.dimensions(), null, null, filaments);
+        PlateAnalysis plate = new PlateAnalysis(1, null, bounds.dimensions(), volume, null, null, filaments);
         return new ModelAnalysis(source, volume, List.of(plate));
     }
 
@@ -70,6 +67,7 @@ final class ThreeMfAnalyzer {
         double volume = 0;
         for (BambuProject.Plate plate : project.plates()) {
             Bounds bounds = new Bounds();
+            double plateVolume = 0;
             Set<Integer> objectIds = new LinkedHashSet<>();
             for (BambuProject.Instance instance : plate.instances()) {
                 Optional<BuildItem> item = itemFor(itemsByObject, instance);
@@ -78,11 +76,12 @@ final class ThreeMfAnalyzer {
                 }
                 Placement placement = geometry.place(item.get(), printedParts);
                 bounds.add(placement.bounds());
-                volume += placement.volume();
+                plateVolume += placement.volume();
                 objectIds.add(instance.objectId());
             }
             everything.add(bounds);
-            plates.add(plateAnalysis(plate, bounds, project, objectIds));
+            volume += plateVolume;
+            plates.add(plateAnalysis(plate, bounds, plateVolume, project, objectIds));
         }
         if (everything.isEmpty()) {
             throw new ModelAnalysisException("The project has no objects on its plates");
@@ -90,19 +89,20 @@ final class ThreeMfAnalyzer {
         return new ModelAnalysis(ModelSource.BAMBU, volume, plates);
     }
 
-    private static PlateAnalysis plateAnalysis(BambuProject.Plate plate, Bounds bounds, BambuProject project,
-                                               Set<Integer> objectIds) {
+    private static PlateAnalysis plateAnalysis(BambuProject.Plate plate, Bounds bounds, double volume,
+                                               BambuProject project, Set<Integer> objectIds) {
         Optional<BambuProject.SlicedPlate> sliced = project.sliced(plate.index());
         if (sliced.isPresent()) {
             BambuProject.SlicedPlate result = sliced.get();
-            return new PlateAnalysis(plate.index(), plate.name(), bounds.dimensions(), result.grams(),
+            return new PlateAnalysis(plate.index(), plate.name(), bounds.dimensions(), volume, result.grams(),
                     result.printSeconds(), result.filaments());
         }
         List<FilamentUsage> filaments = List.of();
         if (!objectIds.isEmpty()) {
             filaments = project.filamentsOf(objectIds);
         }
-        return new PlateAnalysis(plate.index(), plate.name(), bounds.dimensions(), null, null, filaments);
+        return new PlateAnalysis(plate.index(), plate.name(), bounds.dimensions(), volume, null, null,
+                filaments);
     }
 
     /** Instances are the build items of an object in document order; fall back to the first. */

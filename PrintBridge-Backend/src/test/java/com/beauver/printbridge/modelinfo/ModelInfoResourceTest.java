@@ -15,6 +15,8 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
 import java.nio.file.Files;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.Map;
 
 import static com.beauver.printbridge.support.ThreeMfFiles.*;
@@ -54,10 +56,16 @@ class ModelInfoResourceTest {
                 .post("/api/requests").then().statusCode(201);
     }
 
-    private void setBuildPlate(int x, int y, int z) {
+    private void addPrinter(int x, int y, int z) {
         given().auth().oauth2(adminToken).contentType(ContentType.JSON)
-                .body(Map.of("buildPlateX", x, "buildPlateY", y, "buildPlateZ", z))
-                .put("/api/settings").then().statusCode(200);
+                .body(TestData.printer("My printer", x, y, z))
+                .post("/api/settings/printers").then().statusCode(201);
+    }
+
+    private void changePrinter(int x, int y, int z) {
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(TestData.printer("My printer", x, y, z))
+                .put("/api/settings/printers/1").then().statusCode(200);
     }
 
     @Test
@@ -66,7 +74,9 @@ class ModelInfoResourceTest {
                 .body("files[0].modelInfo.status", is("ANALYZED"))
                 .body("files[0].modelInfo.source", is("MESH"))
                 .body("files[0].modelInfo.volumeCm3", is(1.0f))
-                .body("files[0].modelInfo.estimatedGrams", is(0.0f))
+                .body("files[0].modelInfo.totalGrams", is(0.0f))
+                .body("files[0].modelInfo.weight", is("ESTIMATED"))
+                .body("files[0].modelInfo.slicing.enabled", is(false))
                 .body("files[0].modelInfo.fits", nullValue())
                 .body("files[0].modelInfo.plates", hasSize(1))
                 .body("files[0].modelInfo.plates[0].width", is(10.0f))
@@ -91,7 +101,8 @@ class ModelInfoResourceTest {
 
         given().auth().oauth2(bobToken).get("/api/requests/" + id).then().statusCode(200)
                 .body("files[0].modelInfo.source", is("BAMBU"))
-                .body("files[0].modelInfo.slicedGrams", is(12.5f))
+                .body("files[0].modelInfo.totalGrams", is(12.5f))
+                .body("files[0].modelInfo.weight", is("EXACT"))
                 .body("files[0].modelInfo.printSeconds", is(600))
                 .body("files[0].modelInfo.plates[0].name", is("Lid"))
                 .body("files[0].modelInfo.plates[0].filaments[0].color", is("#FF0000"))
@@ -107,15 +118,16 @@ class ModelInfoResourceTest {
     }
 
     @Test
-    void fitCheckFollowsTheCurrentBuildPlate() {
+    void fitCheckFollowsTheDefaultPrintersBuildPlate() {
         int id = upload("cube.stl", ModelFiles.cubeStl(200)).extract().path("id");
 
-        setBuildPlate(256, 256, 250);
+        addPrinter(256, 256, 250);
         given().auth().oauth2(bobToken).get("/api/requests/" + id).then()
                 .body("files[0].modelInfo.fits", is(true))
+                .body("files[0].modelInfo.fitPrinter", is("My printer"))
                 .body("files[0].modelInfo.plates[0].fits", is(true));
 
-        setBuildPlate(180, 180, 180);
+        changePrinter(180, 180, 180);
         given().auth().oauth2(bobToken).get("/api/requests/" + id).then()
                 .body("files[0].modelInfo.fits", is(false))
                 .body("files[0].modelInfo.plates[0].fits", is(false));
@@ -137,6 +149,20 @@ class ModelInfoResourceTest {
         given().auth().oauth2(bobToken).get("/api/requests/" + missingId).then()
                 .body("files[0].modelInfo.status", is("FAILED"));
         assertEquals(0, backfill.run());
+    }
+
+    /** In production the backfill runs on its own thread, without a request context or transaction. */
+    @Test
+    void backfillWorksOnABackgroundThread() throws Exception {
+        long id = data.printRequest(bob, RequestStatus.SUBMITTED).id();
+        deleteAllModelInfo();
+
+        try (ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor()) {
+            assertEquals(1, executor.submit(backfill::run).get());
+        }
+
+        given().auth().oauth2(bobToken).get("/api/requests/" + id).then()
+                .body("files[0].modelInfo.status", is("ANALYZED"));
     }
 
     @Test

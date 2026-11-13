@@ -79,6 +79,14 @@ public class PrintRequestResource {
                 .build();
     }
 
+    /** Slices the request's files again on the server (admin). */
+    @POST
+    @Path("/{id}/reslice")
+    @RolesAllowed(Role.ADMIN_ROLE)
+    public PrintRequestDto reslice(@PathParam("id") long id) {
+        return service.reslice(id);
+    }
+
     @PUT
     @Path("/{id}/status")
     @Consumes(MediaType.APPLICATION_JSON)

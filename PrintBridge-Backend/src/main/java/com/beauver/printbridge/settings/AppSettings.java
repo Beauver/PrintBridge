@@ -15,14 +15,15 @@ public class AppSettings extends PanacheEntityBase {
     @Id
     public Short id;
 
-    @Column(name = "build_plate_x")
-    public Integer buildPlateX;
+    @Column(name = "slicing_enabled", nullable = false)
+    public boolean slicingEnabled;
 
-    @Column(name = "build_plate_y")
-    public Integer buildPlateY;
+    @Column(name = "slicing_timeout_minutes", nullable = false)
+    public int slicingTimeoutMinutes;
 
-    @Column(name = "build_plate_z")
-    public Integer buildPlateZ;
+    /** Used for STL files and projects made for a printer that isn't owned; {@code null} without printers. */
+    @Column(name = "default_printer_id")
+    public Long defaultPrinterId;
 
     @Column(name = "updated_at", nullable = false)
     public Instant updatedAt;

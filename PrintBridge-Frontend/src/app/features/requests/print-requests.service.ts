@@ -87,6 +87,11 @@ export class PrintRequestsService {
     return this.http.put<PrintRequest>(`/api/requests/${id}/paid`, { paid });
   }
 
+  /** Admin: slice the request's files again on the server. */
+  reslice(id: number): Observable<PrintRequest> {
+    return this.http.post<PrintRequest>(`/api/requests/${id}/reslice`, null);
+  }
+
   downloadFile(requestId: number, fileId: number): Observable<Blob> {
     return this.http.get(`/api/requests/${requestId}/files/${fileId}`, { responseType: 'blob' });
   }

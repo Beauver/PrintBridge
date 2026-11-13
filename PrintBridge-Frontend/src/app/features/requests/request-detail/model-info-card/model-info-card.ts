@@ -1,14 +1,18 @@
-import { Component, computed, input } from '@angular/core';
+import { Component, computed, input, output } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FilamentInfo, ModelInfo, PlateInfo } from '../../../../core/models/model-info.model';
 import {
   formatDimensions,
   formatDuration,
   formatGrams,
+  formatNozzle,
   formatVolume,
 } from '../../../../shared/model-info-display';
 
-/** What the backend read from the model file: size, plates, weight, time and filaments. */
+/**
+ * What the backend knows about the model file: size, plates, weight, time and filaments, from
+ * server slicing, the file's own slice data or an estimate (see docs/features/server-slicing.md).
+ */
 @Component({
   selector: 'app-model-info-card',
   imports: [RouterLink],
@@ -17,21 +21,28 @@ import {
 })
 export class ModelInfoCard {
   readonly info = input.required<ModelInfo>();
-  /** The admin gets a hint to set the build plate size when it is missing. */
+  /** The admin sees slicing errors, the plate size hint and the Re-slice button. */
   readonly isAdmin = input(false);
+  /** True while a re-slice request is on its way. */
+  readonly reslicing = input(false);
+  readonly reslice = output<void>();
 
   protected readonly analyzed = computed(() => {
     return this.info().status === 'ANALYZED';
   });
 
-  /** Project files get a table per plate; an STL or plain 3MF is one block. */
+  /** Projects get a table per plate; an STL or plain 3MF is one block. */
   protected readonly showPlates = computed(() => {
-    return this.info().source === 'BAMBU' || this.info().source === 'PRUSA';
+    return this.info().source === 'BAMBU';
   });
 
-  /** Size of the only plate, for files without a plate table. */
+  /** The only plate, for files without a plate table. */
+  protected readonly singlePlate = computed(() => {
+    return this.info().plates[0] ?? null;
+  });
+
   protected readonly dimensions = computed(() => {
-    const plate = this.info().plates[0];
+    const plate = this.singlePlate();
     if (!plate) {
       return null;
     }
@@ -46,16 +57,20 @@ export class ModelInfoCard {
     return formatVolume(volume);
   });
 
-  /** Exact grams when every plate is sliced, otherwise the estimate. */
+  /** "65,25 g", or "~78 g" with a note when (partly) estimated. */
   protected readonly weight = computed(() => {
     const info = this.info();
-    if (info.slicedGrams !== null) {
-      return { text: formatGrams(info.slicedGrams), estimate: false };
+    if (info.totalGrams === null) {
+      return null;
     }
-    if (info.estimatedGrams !== null) {
-      return { text: `~${formatGrams(info.estimatedGrams)}`, estimate: true };
+    if (info.weight === 'EXACT') {
+      return { text: formatGrams(info.totalGrams), note: null };
     }
-    return null;
+    let note = '(estimate)';
+    if (info.weight === 'PARTLY_ESTIMATED') {
+      note = '(partly estimated)';
+    }
+    return { text: `~${formatGrams(Math.round(info.totalGrams))}`, note };
   });
 
   protected readonly printTime = computed(() => {
@@ -74,21 +89,70 @@ export class ModelInfoCard {
     return `${count} plates`;
   });
 
-  protected readonly doesNotFit = computed(() => {
-    return this.info().fits === false;
+  /** "Too big for Bambu Lab P1S", when a plate doesn't fit. */
+  protected readonly noFitText = computed(() => {
+    const info = this.info();
+    if (info.fits !== false) {
+      return null;
+    }
+    if (info.fitPrinter) {
+      return `Too big for ${info.fitPrinter}`;
+    }
+    return "Doesn't fit the build plate";
   });
 
   protected readonly showPlateSizeHint = computed(() => {
     return this.isAdmin() && this.analyzed() && this.info().fits === null;
   });
 
-  /** Filaments of the single-plate view (PrusaSlicer files have them; STLs don't). */
   protected readonly filaments = computed(() => {
-    const plate = this.info().plates[0];
-    if (!plate) {
-      return [];
+    return this.singlePlate()?.filaments ?? [];
+  });
+
+  /** Queued or running on the slicer. */
+  protected readonly slicingPending = computed(() => {
+    const status = this.info().slicing.status;
+    return status === 'QUEUED' || status === 'RUNNING';
+  });
+
+  /**
+   * "Bambu Lab P1S · 0,4 mm nozzle", or what the project was made for when it was sliced on
+   * another printer or nozzle.
+   */
+  protected readonly slicedFor = computed(() => {
+    const slicing = this.info().slicing;
+    if (slicing.status !== 'DONE' || slicing.nozzle === null) {
+      return null;
     }
-    return plate.filaments;
+    let target = `${formatNozzle(slicing.nozzle)} nozzle`;
+    if (slicing.printer) {
+      target = `${slicing.printer} · ${target}`;
+    }
+    let madeFor: string | null = null;
+    if (slicing.madeForPrinter && slicing.madeForNozzle !== null) {
+      madeFor = `${slicing.madeForPrinter} · ${formatNozzle(slicing.madeForNozzle)} nozzle`;
+    } else if (slicing.madeForPrinter) {
+      madeFor = slicing.madeForPrinter;
+    } else if (slicing.madeForNozzle !== null) {
+      madeFor = `a ${formatNozzle(slicing.madeForNozzle)} nozzle`;
+    }
+    if (madeFor) {
+      return `Made for ${madeFor}. Numbers are for your ${target}`;
+    }
+    return target;
+  });
+
+  /** Only the admin gets the reason; for others the card just falls back. */
+  protected readonly slicingError = computed(() => {
+    const slicing = this.info().slicing;
+    if (slicing.status !== 'FAILED') {
+      return null;
+    }
+    return slicing.error;
+  });
+
+  protected readonly canReslice = computed(() => {
+    return this.isAdmin() && this.info().slicing.enabled && !this.slicingPending();
   });
 
   protected plateLabel(plate: PlateInfo): string {
@@ -105,9 +169,13 @@ export class ModelInfoCard {
     return formatDimensions(plate.width, plate.depth, plate.height);
   }
 
+  /** "33,69 g", or "~4 g" for an estimate. */
   protected plateGrams(plate: PlateInfo): string | null {
     if (plate.grams === null) {
       return null;
+    }
+    if (plate.estimated) {
+      return `~${formatGrams(Math.round(plate.grams))}`;
     }
     return formatGrams(plate.grams);
   }
@@ -134,5 +202,9 @@ export class ModelInfoCard {
       return 'Unknown filament';
     }
     return parts.join(' · ');
+  }
+
+  protected requestReslice(): void {
+    this.reslice.emit();
   }
 }

@@ -5,7 +5,5 @@ public enum ModelSource {
     /** Only geometry: an STL or a plain 3MF, treated as a single plate. */
     MESH,
     /** A Bambu Studio or OrcaSlicer project with plates and, if sliced, exact grams and time. */
-    BAMBU,
-    /** A PrusaSlicer project: geometry plus the filaments from its settings, one plate. */
-    PRUSA
+    BAMBU
 }

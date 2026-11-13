@@ -47,3 +47,6 @@ uploads/
 
 # Claude Code personal settings
 .claude/settings.local.json
+
+# Python
+__pycache__/

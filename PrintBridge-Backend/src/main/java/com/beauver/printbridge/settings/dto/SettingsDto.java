@@ -1,12 +1,12 @@
 package com.beauver.printbridge.settings.dto;
 
-import jakarta.validation.constraints.Max;
-import jakarta.validation.constraints.Min;
-import jakarta.validation.constraints.NotNull;
+import java.util.List;
 
-/** Application settings; the build plate size (mm) is {@code null} until the admin sets it. */
-public record SettingsDto(
-        @NotNull @Min(1) @Max(2000) Integer buildPlateX,
-        @NotNull @Min(1) @Max(2000) Integer buildPlateY,
-        @NotNull @Min(1) @Max(2000) Integer buildPlateZ) {
+/**
+ * All application settings.
+ *
+ * @param defaultPrinterId the printer for STL files and projects made for a printer that isn't owned
+ * @param printers         the owned printers, in the order they were added
+ */
+public record SettingsDto(SlicingSettingsDto slicing, Long defaultPrinterId, List<PrinterDto> printers) {
 }

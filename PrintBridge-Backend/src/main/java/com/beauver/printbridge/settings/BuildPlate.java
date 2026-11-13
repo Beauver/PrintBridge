@@ -2,7 +2,7 @@ package com.beauver.printbridge.settings;
 
 import com.beauver.printbridge.modelinfo.analysis.Dimensions;
 
-/** The printer's build volume in mm. */
+/** A printer's build volume in mm. */
 public record BuildPlate(int x, int y, int z) {
 
     /** Slack for rounding: a model of exactly the plate size still fits. */

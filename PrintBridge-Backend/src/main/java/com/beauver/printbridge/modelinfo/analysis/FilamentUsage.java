@@ -8,4 +8,9 @@ package com.beauver.printbridge.modelinfo.analysis;
  * @param grams exact usage from a sliced project; {@code null} when not sliced
  */
 public record FilamentUsage(String type, String color, Double grams) {
+
+    /** A filament from outside data (e.g. the slicer service), with text and colour cleaned. */
+    public static FilamentUsage cleaned(String type, String color, Double grams) {
+        return new FilamentUsage(SlicerText.clean(type), SlicerText.color(color), grams);
+    }
 }

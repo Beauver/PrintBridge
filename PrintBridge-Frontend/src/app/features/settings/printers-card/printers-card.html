@@ -1,0 +1,122 @@
+<div class="card card-body mb-4" data-cy="printers-card">
+  <div class="d-flex align-items-center mb-2">
+    <h2 class="h5 mb-0 me-auto">Printers</h2>
+    @if (editing() === null) {
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary"
+        (click)="startAdding()"
+        data-cy="printers-add"
+      >
+        Add printer
+      </button>
+    }
+  </div>
+  <p class="text-body-secondary small">
+    Models are checked against the build plate of the printer they were sliced for, or of your
+    default printer. The default printer also slices STL files and projects made for a printer you
+    don't own.
+  </p>
+
+  @if (notice()) {
+    <div class="alert alert-success py-2" role="status" data-cy="printers-notice">
+      {{ notice() }}
+    </div>
+  }
+  @if (error()) {
+    <div class="alert alert-danger py-2" role="alert" data-cy="printers-error">{{ error() }}</div>
+  }
+
+  @if (editing() === 'new') {
+    <app-printer-form
+      [slicerPrinters]="slicerPrinters()"
+      [slicingEnabled]="slicingEnabled()"
+      (saved)="onSaved($event)"
+      (cancelled)="stopEditing()"
+    />
+  }
+
+  @if (printers().length === 0 && editing() === null) {
+    <p class="text-body-secondary mb-0" data-cy="printers-empty">
+      No printers yet. Add one to check whether models fit and to use server slicing.
+    </p>
+  }
+
+  <ul class="list-group">
+    @for (printer of printers(); track printer.id) {
+      <li class="list-group-item" data-cy="printers-item">
+        @if (editingPrinter()?.id === printer.id) {
+          <app-printer-form
+            [printer]="printer"
+            [slicerPrinters]="slicerPrinters()"
+            [slicingEnabled]="slicingEnabled()"
+            (saved)="onSaved($event)"
+            (cancelled)="stopEditing()"
+          />
+        } @else {
+          <div class="d-flex flex-wrap align-items-center gap-2">
+            <div class="me-auto">
+              <span class="fw-semibold">{{ printer.model }}</span>
+              @if (isDefault(printer)) {
+                <span class="badge text-bg-primary ms-1" data-cy="printers-default">Default</span>
+              }
+              <div class="small text-body-secondary">
+                {{ plateText(printer) }} · {{ nozzleText(printer) }}
+                @if (printer.process) {
+                  · {{ printer.process }}
+                }
+              </div>
+            </div>
+            @if (confirmingDeleteId() === printer.id) {
+              <span class="small">Remove {{ printer.model }}?</span>
+              <button
+                type="button"
+                class="btn btn-sm btn-danger"
+                [disabled]="busy()"
+                (click)="deletePrinter(printer)"
+                data-cy="printers-confirm-delete"
+              >
+                Remove
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                (click)="cancelDelete()"
+              >
+                Keep
+              </button>
+            } @else if (editing() === null) {
+              @if (!isDefault(printer)) {
+                <button
+                  type="button"
+                  class="btn btn-sm btn-outline-secondary"
+                  [disabled]="busy()"
+                  (click)="makeDefault(printer)"
+                  data-cy="printers-make-default"
+                >
+                  Make default
+                </button>
+              }
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-secondary"
+                (click)="startEditing(printer)"
+                data-cy="printers-edit"
+              >
+                Edit
+              </button>
+              <button
+                type="button"
+                class="btn btn-sm btn-outline-danger"
+                (click)="askDelete(printer)"
+                data-cy="printers-delete"
+              >
+                Remove
+              </button>
+            }
+          </div>
+        }
+      </li>
+    }
+  </ul>
+</div>

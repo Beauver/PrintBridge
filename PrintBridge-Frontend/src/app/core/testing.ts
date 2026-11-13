@@ -1,6 +1,8 @@
 import { AuthResponse, User } from './models/account.model';
-import { ModelInfo } from './models/model-info.model';
+import { ModelInfo, SlicingInfo } from './models/model-info.model';
 import { PrintRequest, PrintRequestSummary } from './models/print-request.model';
+import { Printer, Settings } from './models/settings.model';
+import { SlicerPrinter } from './models/slicer.model';
 
 export const ADMIN: User = {
   id: 1,
@@ -40,7 +42,11 @@ export const REQUEST: PrintRequest = {
       type: 'STL',
       sizeBytes: 2048,
       createdAt: '2026-02-01T10:00:00Z',
-      modelInfo: { status: 'PENDING' } as ModelInfo,
+      modelInfo: {
+        status: 'PENDING',
+        plates: [],
+        slicing: { status: null },
+      } as unknown as ModelInfo,
     },
   ],
   nextStatuses: ['IN_REVIEW', 'ACCEPTED', 'DECLINED'],
@@ -56,15 +62,27 @@ export const REQUEST_SUMMARY: PrintRequestSummary = {
   createdAt: '2026-02-01T10:00:00Z',
 };
 
-/** An analysed STL: one plate of 20 × 10 × 5 mm. */
+/** Server slicing switched off, file never queued. */
+export const NO_SLICING: SlicingInfo = {
+  enabled: false,
+  status: null,
+  printer: null,
+  nozzle: null,
+  madeForPrinter: null,
+  madeForNozzle: null,
+  error: null,
+};
+
+/** An analysed STL: one plate of 20 × 10 × 5 mm with an estimated weight. */
 export const STL_INFO: ModelInfo = {
   status: 'ANALYZED',
   source: 'MESH',
   volumeCm3: 1,
-  estimatedGrams: 0,
-  slicedGrams: null,
+  totalGrams: 4,
+  weight: 'ESTIMATED',
   printSeconds: null,
   fits: null,
+  fitPrinter: null,
   plates: [
     {
       index: 1,
@@ -72,10 +90,40 @@ export const STL_INFO: ModelInfo = {
       width: 20,
       depth: 10,
       height: 5,
-      grams: null,
+      grams: 4,
+      estimated: true,
       printSeconds: null,
       fits: null,
       filaments: [],
+      sliceError: null,
     },
   ],
+  slicing: NO_SLICING,
+};
+
+/** No printers, slicing off. */
+export const NO_SETTINGS: Settings = {
+  slicing: { enabled: false, timeoutMinutes: 10 },
+  defaultPrinterId: null,
+  printers: [],
+};
+
+/** The P1S as the slicer lists it (0.2, 0.4 and 0.6 mm nozzles). */
+export const SLICER_P1S: SlicerPrinter = {
+  model: 'Bambu Lab P1S',
+  vendor: 'BBL',
+  nozzles: [0.2, 0.4, 0.6].map((diameter) => {
+    return { diameter, machine: `P1S ${diameter}`, bed: { x: 256, y: 256, z: 250 } };
+  }),
+};
+
+/** A saved P1S, ready for slicing. */
+export const SAVED_P1S: Printer = {
+  id: 1,
+  model: 'Bambu Lab P1S',
+  buildPlate: { x: 256, y: 256, z: 250 },
+  ownedNozzles: [0.2, 0.4],
+  defaultNozzle: 0.4,
+  process: '0.20mm Standard',
+  filament: 'PLA Basic',
 };

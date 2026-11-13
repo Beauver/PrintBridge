@@ -29,6 +29,11 @@ public class ExceptionMappers {
         return error(Response.Status.UNAUTHORIZED, e.getMessage());
     }
 
+    @ServerExceptionMapper
+    public Response serviceUnavailable(ServiceUnavailableException e) {
+        return error(Response.Status.SERVICE_UNAVAILABLE, e.getMessage());
+    }
+
     private static Response error(Response.Status status, String message) {
         return Response.status(status).entity(new ApiError(message)).build();
     }

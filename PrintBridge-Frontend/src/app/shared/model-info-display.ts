@@ -24,6 +24,11 @@ export function formatGrams(grams: number): string {
   return `${formatNumber(grams, LOCALE, '1.0-2')} g`;
 }
 
+/** "0,4 mm" */
+export function formatNozzle(mm: number): string {
+  return `${formatNumber(mm, LOCALE, '1.1-2')} mm`;
+}
+
 /** "49 min", "2 h 5 min", "3 h"; under a minute counts as 1 min. */
 export function formatDuration(seconds: number): string {
   const totalMinutes = Math.max(1, Math.round(seconds / 60));
