@@ -16,6 +16,7 @@ Packages under `com.beauver.printbridge`, one per domain:
 
 | Package | Contents |
 |---|---|
+| `license` | Public `/license`: licence and source link for the footer |
 | `auth` | Setup, login/refresh/logout, JWT and refresh tokens, `CurrentUser`, stale-token filter |
 | `user` | `User` entity, user management, password hashing |
 | `printrequest` | Print requests and their model files: entities, upload validation, access rules |
@@ -48,9 +49,9 @@ Optional. OrcaSlicer's command line behind a small Python HTTP API (standard lib
 
 | Folder | Contents |
 |---|---|
-| `core/` | App-wide services: auth (service, interceptor, guards), setup status, theme, file saving, models, HTTP error helper |
+| `core/` | App-wide services: auth (service, interceptor, guards), setup status, licence and source link, theme, file saving, models, HTTP error helper |
 | `features/<name>/` | One folder per page/feature: page component (`.ts` + `.html`) and its API service |
-| `layout/` | Navbar |
+| `layout/` | Navbar, footer (licence and source links), theme toggle |
 | `shared/` | Reusable form and display helpers (status labels/badges, file sizes, prices, model sizes/weights/times); `model-viewer/`: the Three.js 3D preview, loaded on demand |
 
 Layering: template → component → service → backend API. Components never use `HttpClient` directly.

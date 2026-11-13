@@ -3,6 +3,7 @@
 - [Architecture](architecture.md): how the backend and frontend are layered and where things live.
 - [Authentication](auth.md): setup, login, tokens, roles.
 - [API](api.md): every REST endpoint.
+- [Licence](licence.md): AGPL-3.0-or-later, contributor terms, OrcaSlicer in the slicer image.
 - Features:
   - [First-run setup, login and user management](features/setup-auth-users.md)
   - [Print requests and STL/3MF uploads](features/print-requests.md)

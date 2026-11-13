@@ -9,6 +9,12 @@ All endpoints are under `/api`. Errors handled by the app return `{"message": ".
 | GET | `/setup` | public | – | `200 {setupRequired}` |
 | POST | `/setup` | public, only while no admin exists | `{username, email, password}` | `201` auth response + refresh cookie; `409` if already done; `400` invalid input |
 
+## Licence
+
+| Method | Path | Access | Body | Response |
+|---|---|---|---|---|
+| GET | `/license` | public | – | `200 {license, sourceUrl}`: `"AGPL-3.0-or-later"` and where the source of this installation is (`SOURCE_URL`), see [licence](licence.md) |
+
 ## Auth
 
 | Method | Path | Access | Body | Response |

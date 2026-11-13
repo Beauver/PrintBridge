@@ -6,6 +6,12 @@
   data-cy="slicing-form"
 >
   <h2 class="h5">Server slicing</h2>
+  @if (orcaSlicer(); as orca) {
+    <p class="small text-body-secondary mb-2" data-cy="slicing-orca">
+      Slicing by OrcaSlicer {{ orca.version }} (AGPL-3.0) ·
+      <a [href]="orca.sourceUrl" target="_blank" rel="noopener">source</a>
+    </p>
+  }
   <p class="text-body-secondary small">
     Slices every upload once with OrcaSlicer, so requests show exact filament and print time.
     Projects made for one of your printers are sliced on it; everything else on your default

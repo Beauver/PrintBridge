@@ -51,4 +51,21 @@ All external connections (database, Spoolman, file storage) are configured throu
 
 ## Out of scope (v1)
 
-Payments, writing back to Spoolman (including filament deduction), automatic slicing or print queues, configurable pricing rules, and multi-owner support.
+Payments, writing back to Spoolman (including filament deduction), print queues, configurable pricing rules, and multi-owner support.
+
+## Contributing
+
+Contributions are welcome. Please read [CONTRIBUTING.md](CONTRIBUTING.md) first: commits need a `Signed-off-by` line, and contributors allow the project to relicense their changes.
+
+## Licence
+
+Copyright (C) 2026 Beauver
+
+PrintBridge is free software: you can redistribute it and/or modify it under the terms of the GNU Affero General Public License as published by the Free Software Foundation, either version 3 of the License, or (at your option) any later version (SPDX: `AGPL-3.0-or-later`). It is distributed in the hope that it will be useful, but WITHOUT ANY WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See [LICENSE](LICENSE) for the full text.
+
+In short:
+- **You may** use PrintBridge for anything, including commercially (e.g. running it for paying customers), and change it.
+- **If you hand out a changed version** (code or images), you must give its source under the same licence.
+- **If you run a changed version for other people over a network**, you must offer them its source too: point `SOURCE_URL` at your code, so the *Source* link in the app's footer leads there.
+
+The optional slicer image contains [OrcaSlicer](https://github.com/OrcaSlicer/OrcaSlicer) (AGPL-3.0); see [PrintBridge-Slicer/README.md](PrintBridge-Slicer/README.md#licence). More details: [docs/licence.md](docs/licence.md).
