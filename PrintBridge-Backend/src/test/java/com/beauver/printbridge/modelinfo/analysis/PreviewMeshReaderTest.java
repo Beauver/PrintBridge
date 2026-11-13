@@ -32,10 +32,11 @@ class PreviewMeshReaderTest {
                 -Double.MAX_VALUE};
         for (PreviewPart part : parts) {
             float[] p = part.positions();
-            for (int i = 0; i < p.length; i += 3) {
+            for (int i = 0; i + 2 < p.length; i += 3) {
+                double[] point = {p[i], p[i + 1], p[i + 2]};
                 for (int axis = 0; axis < 3; axis++) {
-                    b[axis] = Math.min(b[axis], p[i + axis]);
-                    b[axis + 3] = Math.max(b[axis + 3], p[i + axis]);
+                    b[axis] = Math.min(b[axis], point[axis]);
+                    b[axis + 3] = Math.max(b[axis + 3], point[axis]);
                 }
             }
         }
@@ -83,7 +84,7 @@ class PreviewMeshReaderTest {
 
     @Test
     void bambuPlatesGoBackOntoTheirBedWithFilamentColours() throws Exception {
-        PreviewMesh mesh = read("project.3mf", ThreeMfAnalyzerTest.bambuProject().build(), null);
+        PreviewMesh mesh = read("project.3mf", ThreeMfFiles.bambuProject().build(), null);
 
         assertEquals(List.of(new PreviewPlate(1, "First"), new PreviewPlate(2, null), new PreviewPlate(3, null)),
                 mesh.plates());
@@ -101,7 +102,7 @@ class PreviewMeshReaderTest {
 
     @Test
     void projectBedIsCentredOnTheTargetBed() throws Exception {
-        PreviewMesh mesh = read("project.3mf", ThreeMfAnalyzerTest.bambuProject().build(),
+        PreviewMesh mesh = read("project.3mf", ThreeMfFiles.bambuProject().build(),
                 new PreviewBed(180, 180, 180));
 
         // (180 - 256) / 2 = -38 on both axes.
@@ -152,7 +153,7 @@ class PreviewMeshReaderTest {
     @Test
     void refusesTooDetailedModels() {
         assertThrows(ModelTooDetailedException.class,
-                () -> reader.read(ModelFiles.write(dir, "p.3mf", ThreeMfAnalyzerTest.bambuProject().build()),
+                () -> reader.read(ModelFiles.write(dir, "p.3mf", ThreeMfFiles.bambuProject().build()),
                         ModelFileType.THREE_MF, null, 30));
         assertThrows(ModelTooDetailedException.class,
                 () -> reader.read(ModelFiles.write(dir, "c.stl", ModelFiles.cubeStl(1)), ModelFileType.STL, null,
@@ -180,7 +181,7 @@ class PreviewMeshReaderTest {
 
     @Test
     void readsPlateImages() throws Exception {
-        Path project = ModelFiles.write(dir, "project.3mf", ThreeMfAnalyzerTest.bambuProject()
+        Path project = ModelFiles.write(dir, "project.3mf", ThreeMfFiles.bambuProject()
                 .entry("Metadata/plate_1.png", "png bytes").build());
 
         assertEquals("png bytes", new String(reader.thumbnail(project, ModelFileType.THREE_MF, 1).orElseThrow()));

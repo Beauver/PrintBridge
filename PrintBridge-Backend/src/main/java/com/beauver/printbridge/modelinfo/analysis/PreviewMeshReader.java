@@ -173,7 +173,7 @@ public class PreviewMeshReader {
             counter.add(mesh.triangleCount());
             float[] source = mesh.vertices();
             float[] positions = new float[mesh.vertexCount() * 3];
-            for (int i = 0; i < positions.length; i += 3) {
+            for (int i = 0; i + 2 < positions.length; i += 3) {
                 double x = source[i];
                 double y = source[i + 1];
                 double z = source[i + 2];
@@ -198,7 +198,7 @@ public class PreviewMeshReader {
         Bounds bounds = new Bounds();
         for (PreviewPart part : parts) {
             float[] p = part.positions();
-            for (int i = 0; i < p.length; i += 3) {
+            for (int i = 0; i + 2 < p.length; i += 3) {
                 bounds.add(p[i], p[i + 1], p[i + 2]);
             }
         }
@@ -215,7 +215,7 @@ public class PreviewMeshReader {
     private static void move(List<PreviewPart> parts, double x, double y, double z) {
         for (PreviewPart part : parts) {
             float[] p = part.positions();
-            for (int i = 0; i < p.length; i += 3) {
+            for (int i = 0; i + 2 < p.length; i += 3) {
                 p[i] += (float) x;
                 p[i + 1] += (float) y;
                 p[i + 2] += (float) z;

@@ -1,11 +1,11 @@
 package com.beauver.printbridge.preview;
 
-import com.beauver.printbridge.modelinfo.analysis.ThreeMfAnalyzerTestAccess;
 import com.beauver.printbridge.slicing.SliceResult;
 import com.beauver.printbridge.slicing.SliceStatus;
 import com.beauver.printbridge.support.MeshFiles;
 import com.beauver.printbridge.support.ModelFiles;
 import com.beauver.printbridge.support.TestData;
+import com.beauver.printbridge.support.ThreeMfFiles;
 import com.fasterxml.jackson.databind.JsonNode;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -123,7 +123,7 @@ class PreviewResourceTest {
 
     @Test
     void servesThePlateImagesOfBambuFiles() {
-        Upload project = upload("project.3mf", ThreeMfAnalyzerTestAccess.bambuProject()
+        Upload project = upload("project.3mf", ThreeMfFiles.bambuProject()
                 .entry("Metadata/plate_1.png", "png bytes").build());
         Upload cube = upload("cube.stl", ModelFiles.cubeStl(10));
 
