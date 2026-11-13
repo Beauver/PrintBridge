@@ -1,0 +1,153 @@
+<form
+  class="border rounded p-3 mb-3"
+  [formGroup]="form"
+  (ngSubmit)="save()"
+  novalidate
+  data-cy="printer-form"
+>
+  <h3 class="h6">{{ isNew() ? 'Add a printer' : 'Change ' + printer()?.model }}</h3>
+
+  @if (error()) {
+    <div class="alert alert-danger py-2" role="alert" data-cy="printer-error">{{ error() }}</div>
+  }
+
+  <div class="row g-3">
+    <div class="col-12">
+      <label class="form-label" for="printer-model">Printer</label>
+      @if (chooseModel()) {
+        <select
+          id="printer-model"
+          class="form-select"
+          formControlName="model"
+          (change)="onModelChange()"
+          data-cy="printer-model"
+        >
+          <option value="">Choose a printer…</option>
+          @for (model of modelOptions(); track model) {
+            <option [value]="model">{{ model }}</option>
+          }
+        </select>
+      } @else {
+        <input
+          id="printer-model"
+          class="form-control"
+          formControlName="model"
+          (change)="onModelChange()"
+          placeholder="e.g. Bambu Lab P1S"
+          data-cy="printer-model"
+        />
+        <div class="form-text">
+          The slicer isn't reachable, so the printer can't be picked from its list. Server slicing
+          needs the exact OrcaSlicer name.
+        </div>
+      }
+    </div>
+
+    @if (plateFilled()) {
+      <div class="col-12">
+        <div class="alert alert-info py-2 small mb-0" data-cy="printer-plate-filled">
+          Build plate filled in from {{ model() }}.
+        </div>
+      </div>
+    }
+    @for (axis of axes; track axis.key) {
+      <div class="col-sm-4">
+        <label class="form-label" [for]="'plate-' + axis.key">{{ axis.label }}</label>
+        <input
+          [id]="'plate-' + axis.key"
+          class="form-control"
+          inputmode="numeric"
+          [formControlName]="axis.key"
+          [class.is-invalid]="sizeError(form.controls[axis.key])"
+          [attr.data-cy]="'printer-plate-' + axis.key"
+        />
+        <div class="invalid-feedback">{{ sizeError(form.controls[axis.key]) }}</div>
+      </div>
+    }
+
+    @if (nozzleOptions().length > 0) {
+      <div class="col-sm-6">
+        <span class="form-label d-block">Nozzles you own</span>
+        @for (diameter of nozzleOptions(); track diameter) {
+          <div class="form-check form-check-inline">
+            <input
+              [id]="'nozzle-' + diameter"
+              class="form-check-input"
+              type="checkbox"
+              [checked]="isOwned(diameter)"
+              (change)="toggleNozzle(diameter, $any($event.target).checked)"
+              [attr.data-cy]="'printer-nozzle-' + diameter"
+            />
+            <label class="form-check-label" [for]="'nozzle-' + diameter">{{
+              formatNozzle(diameter)
+            }}</label>
+          </div>
+        }
+      </div>
+      <div class="col-sm-6">
+        <label class="form-label" for="printer-default-nozzle">Default nozzle</label>
+        <select
+          id="printer-default-nozzle"
+          class="form-select"
+          [value]="defaultNozzle() ?? ''"
+          (change)="onDefaultNozzleChange($any($event.target).value)"
+          data-cy="printer-default-nozzle"
+        >
+          @for (diameter of ownedNozzles(); track diameter) {
+            <option [value]="diameter">{{ formatNozzle(diameter) }}</option>
+          }
+        </select>
+        <div class="form-text">For STL files and projects made for a nozzle you don't own.</div>
+      </div>
+    }
+
+    <div class="col-sm-6">
+      <label class="form-label" for="printer-process">Process profile</label>
+      <select
+        id="printer-process"
+        class="form-select"
+        formControlName="process"
+        data-cy="printer-process"
+      >
+        <option value="">Choose a profile…</option>
+        @if (form.controls.process.value && !profiles()) {
+          <option [value]="form.controls.process.value">{{ form.controls.process.value }}</option>
+        }
+        @for (process of profiles()?.processes ?? []; track process) {
+          <option [value]="process">{{ process }}</option>
+        }
+      </select>
+    </div>
+    <div class="col-sm-6">
+      <label class="form-label" for="printer-filament">Filament profile</label>
+      <input
+        id="printer-filament"
+        class="form-control"
+        list="printer-filaments"
+        formControlName="filament"
+        placeholder="Type to search…"
+        autocomplete="off"
+        data-cy="printer-filament"
+      />
+      <datalist id="printer-filaments">
+        @for (filament of profiles()?.filaments ?? []; track filament) {
+          <option [value]="filament"></option>
+        }
+      </datalist>
+    </div>
+  </div>
+
+  <div class="mt-3 d-flex gap-2">
+    <button type="submit" class="btn btn-primary" [disabled]="saving()" data-cy="printer-save">
+      {{ saving() ? 'Saving…' : 'Save printer' }}
+    </button>
+    <button
+      type="button"
+      class="btn btn-outline-secondary"
+      (click)="cancel()"
+      data-cy="printer-cancel"
+    >
+      Cancel
+    </button>
+  </div>
+</form>

@@ -5,6 +5,8 @@ import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
+import com.beauver.printbridge.modelinfo.ModelInfoService;
+import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.storage.FileStorage;
 import com.beauver.printbridge.user.Role;
@@ -43,6 +45,10 @@ class PrintRequestServiceTest {
     FileStorage storage;
     @Mock
     AfterTransaction afterTransaction;
+    @Mock
+    ModelInfoService modelInfo;
+    @Mock
+    SlicingService slicing;
 
     @TempDir
     Path dir;
@@ -60,6 +66,9 @@ class PrintRequestServiceTest {
         service.requests = requests;
         service.users = users;
         service.mapper = new PrintRequestMapper();
+        service.mapper.modelInfo = modelInfo;
+        service.modelInfo = modelInfo;
+        service.slicing = slicing;
         service.validator = validator;
         service.storage = storage;
         service.afterTransaction = afterTransaction;

@@ -2,7 +2,8 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
-import { REQUEST } from '../../../core/testing';
+import { REQUEST, TRIANGLE_MESH } from '../../../core/testing';
+import { ModelPreviewService } from '../model-preview.service';
 import { PrintRequestsService, UploadEvent } from '../print-requests.service';
 import { NewRequestPage } from './new-request-page';
 
@@ -10,6 +11,7 @@ describe('NewRequestPage', () => {
   let page: NewRequestPage;
   let router: Router;
   const requestsService = { uploadConfig: vi.fn(), create: vi.fn() };
+  const previewService = { uploadMesh: vi.fn() };
   const MB = 1024 * 1024;
 
   function stl(size = 10, name = 'cube.stl'): File {
@@ -30,12 +32,31 @@ describe('NewRequestPage', () => {
       of({ maxSizeBytes: MB, allowedExtensions: ['stl', '3mf'] }),
     );
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: PrintRequestsService, useValue: requestsService }],
+      providers: [
+        provideRouter([]),
+        { provide: PrintRequestsService, useValue: requestsService },
+        { provide: ModelPreviewService, useValue: previewService },
+      ],
     });
     router = TestBed.inject(Router);
     vi.spyOn(router, 'navigate').mockResolvedValue(true);
     page = TestBed.createComponent(NewRequestPage).componentInstance;
     page.ngOnInit();
+  });
+
+  describe('preview before uploading', () => {
+    it('offers a preview of a usable file only', () => {
+      expect(page['previewLoader']()).toBeNull();
+
+      select(stl(10, 'model.obj'));
+      expect(page['previewLoader']()).toBeNull();
+
+      const file = stl();
+      select(file);
+      previewService.uploadMesh.mockReturnValue(of(TRIANGLE_MESH));
+      page['previewLoader']()!().subscribe();
+      expect(previewService.uploadMesh).toHaveBeenCalledWith(file);
+    });
   });
 
   describe('upload config', () => {

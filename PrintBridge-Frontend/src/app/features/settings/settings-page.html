@@ -1,0 +1,27 @@
+<div class="page">
+  <h1 class="h3 mb-3">Settings</h1>
+
+  @if (error()) {
+    <div class="alert alert-danger alert-dismissible py-2" role="alert" data-cy="settings-error">
+      {{ error() }}
+      <button type="button" class="btn-close" aria-label="Close" (click)="error.set(null)"></button>
+    </div>
+  }
+
+  @if (loading()) {
+    <div class="text-body-secondary" data-cy="settings-loading">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading…
+    </div>
+  } @else if (settings(); as settings) {
+    <app-printers-card
+      [settings]="settings"
+      [slicerPrinters]="slicerPrinters()"
+      (changed)="onChanged($event)"
+    />
+    <app-slicing-settings
+      [settings]="settings.slicing"
+      [status]="slicerStatus()"
+      (saved)="onChanged($event)"
+    />
+  }
+</div>

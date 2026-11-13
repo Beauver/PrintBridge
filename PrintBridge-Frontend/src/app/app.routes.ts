@@ -54,6 +54,13 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'admin/settings',
+        canActivate: [adminGuard],
+        title: 'Settings · PrintBridge',
+        loadComponent: () =>
+          import('./features/settings/settings-page').then((m) => m.SettingsPage),
+      },
+      {
         path: 'admin/users',
         canActivate: [adminGuard],
         title: 'Users · PrintBridge',

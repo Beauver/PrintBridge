@@ -1,0 +1,74 @@
+<form
+  class="card card-body mb-4"
+  [formGroup]="form"
+  (ngSubmit)="save()"
+  novalidate
+  data-cy="slicing-form"
+>
+  <h2 class="h5">Server slicing</h2>
+  @if (orcaSlicer(); as orca) {
+    <p class="small text-body-secondary mb-2" data-cy="slicing-orca">
+      Slicing by OrcaSlicer {{ orca.version }} (AGPL-3.0) ·
+      <a [href]="orca.sourceUrl" target="_blank" rel="noopener">source</a>
+    </p>
+  }
+  <p class="text-body-secondary small">
+    Slices every upload once with OrcaSlicer, so requests show exact filament and print time.
+    Projects made for one of your printers are sliced on it; everything else on your default
+    printer.
+  </p>
+
+  @if (statusText(); as status) {
+    <p
+      class="small"
+      [class.text-success]="status.ok"
+      [class.text-danger]="!status.ok"
+      data-cy="slicing-status"
+    >
+      {{ status.text }}
+    </p>
+  }
+  @if (notice()) {
+    <div class="alert alert-success py-2" role="status" data-cy="slicing-notice">
+      {{ notice() }}
+    </div>
+  }
+  @if (error()) {
+    <div class="alert alert-danger py-2" role="alert" data-cy="slicing-error">{{ error() }}</div>
+  }
+
+  <div class="row g-3">
+    <div class="col-sm-6">
+      <div class="form-check form-switch mt-sm-4">
+        <input
+          id="slicing-enabled"
+          class="form-check-input"
+          type="checkbox"
+          role="switch"
+          formControlName="enabled"
+          data-cy="slicing-enabled"
+        />
+        <label class="form-check-label" for="slicing-enabled">Slice uploads on the server</label>
+      </div>
+    </div>
+    <div class="col-sm-6">
+      <label class="form-label" for="slicing-timeout">Timeout per file (minutes)</label>
+      <input
+        id="slicing-timeout"
+        class="form-control"
+        inputmode="numeric"
+        formControlName="timeoutMinutes"
+        [class.is-invalid]="
+          form.controls.timeoutMinutes.invalid && form.controls.timeoutMinutes.touched
+        "
+        data-cy="slicing-timeout"
+      />
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <button type="submit" class="btn btn-primary" [disabled]="saving()" data-cy="slicing-save">
+      {{ saving() ? 'Saving…' : 'Save' }}
+    </button>
+  </div>
+</form>

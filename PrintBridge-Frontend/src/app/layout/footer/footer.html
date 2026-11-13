@@ -1,0 +1,14 @@
+<footer class="small text-body-secondary" data-cy="footer">
+  PrintBridge ·
+  <a [href]="licenceUrl" target="_blank" rel="noopener" class="link-secondary">AGPL-3.0</a>
+  @if (sourceUrl(); as url) {
+    ·
+    <a [href]="url" target="_blank" rel="noopener" class="link-secondary" data-cy="footer-source"
+      >Source</a
+    >
+  }
+  ·
+  <a [href]="thirdPartyLicencesUrl" target="_blank" rel="noopener" class="link-secondary"
+    >Third-party licences</a
+  >
+</footer>

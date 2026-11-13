@@ -5,7 +5,9 @@ import { Router, RouterLink } from '@angular/router';
 import { errorMessage } from '../../../core/http/api-error';
 import { UploadConfig } from '../../../core/models/print-request.model';
 import { fieldError } from '../../../shared/account-form';
+import { ModelPreview } from '../../../shared/model-viewer/model-preview';
 import { formatBytes } from '../../../shared/print-request-display';
+import { ModelPreviewService } from '../model-preview.service';
 import { PrintRequestsService } from '../print-requests.service';
 
 /** Used until the upload config is loaded (or if loading it fails); the backend checks anyway. */
@@ -14,11 +16,12 @@ const FALLBACK_CONFIG: UploadConfig = { maxSizeBytes: 0, allowedExtensions: ['st
 /** Form to submit a new print request with one model file. */
 @Component({
   selector: 'app-new-request-page',
-  imports: [ReactiveFormsModule, RouterLink],
+  imports: [ReactiveFormsModule, RouterLink, ModelPreview],
   templateUrl: './new-request-page.html',
 })
 export class NewRequestPage implements OnInit {
   private readonly requestsService = inject(PrintRequestsService);
+  private readonly previewService = inject(ModelPreviewService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
 
@@ -59,6 +62,17 @@ export class NewRequestPage implements OnInit {
       return `The file is larger than ${formatBytes(maxSizeBytes)}`;
     }
     return null;
+  });
+
+  /** Previews the chosen file before it is uploaded (#13); null without a usable file. */
+  protected readonly previewLoader = computed(() => {
+    const file = this.file();
+    if (!file || this.fileError()) {
+      return null;
+    }
+    return () => {
+      return this.previewService.uploadMesh(file);
+    };
   });
 
   protected readonly fieldError = fieldError;

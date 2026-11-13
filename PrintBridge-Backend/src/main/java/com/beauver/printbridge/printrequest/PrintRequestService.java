@@ -5,6 +5,8 @@ import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
+import com.beauver.printbridge.modelinfo.ModelInfoService;
+import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.storage.FileStorage;
 import com.beauver.printbridge.user.UserRepository;
@@ -54,6 +56,12 @@ public class PrintRequestService {
     @Inject
     UploadConfig uploadConfig;
 
+    @Inject
+    ModelInfoService modelInfo;
+
+    @Inject
+    SlicingService slicing;
+
     public UploadConfigDto uploadConfig() {
         return new UploadConfigDto(maxSizeBytes(), allowedTypes().stream().map(ModelFileType::extension).toList());
     }
@@ -69,27 +77,20 @@ public class PrintRequestService {
     }
 
     public PrintRequestDto get(long id, Caller caller) {
-        return mapper.toDto(findVisible(id, caller));
+        return mapper.toDto(findVisible(id, caller), caller.admin());
     }
 
     /**
      * Validates the upload, stores the file and creates the request in status SUBMITTED. If the
-     * transaction rolls back, the stored file is removed again.
+     * transaction rolls back, the stored file is removed again. The file is analysed right away
+     * (an analysis that fails is recorded but doesn't stop the upload) and queued for server
+     * slicing when that is on.
      */
     @Transactional
     public PrintRequestDto create(long ownerId, NewPrintRequest input) {
         UploadedModel upload = input.file();
         String filename = sanitizeFilename(upload.filename());
-        ModelFileType type = typeOf(filename);
-        if (upload.size() <= 0) {
-            throw new InvalidInputException("The file is empty");
-        }
-        if (upload.size() > maxSizeBytes()) {
-            throw new InvalidInputException("The file is larger than " + uploadConfig.maxSizeMb() + " MB");
-        }
-        if (!validator.isValid(upload.path(), type)) {
-            throw new InvalidInputException("The file is not a valid " + type.extension().toUpperCase() + " file");
-        }
+        ModelFileType type = checkUpload(upload);
 
         PrintRequest request = new PrintRequest();
         request.owner = users.findByIdOptional(ownerId)
@@ -108,7 +109,10 @@ public class PrintRequestService {
         afterTransaction.onRollback(() -> storage.deleteDirectory(directory));
         request.addFile(file);
         requests.flush();
-        return mapper.toDto(request);
+        modelInfo.analyze(file);
+        slicing.enqueueIfEnabled(file);
+        // A fresh upload has no slicing errors yet, so nothing admin-only to show.
+        return mapper.toDto(request, false);
     }
 
     /**
@@ -129,7 +133,7 @@ public class PrintRequestService {
             request.declineReason = blankToNull(declineReason);
         }
         requests.flush();
-        return mapper.toDto(request);
+        return mapper.toDto(request, true);
     }
 
     /**
@@ -144,7 +148,7 @@ public class PrintRequestService {
         }
         request.finalPrice = finalPrice;
         requests.flush();
-        return mapper.toDto(request);
+        return mapper.toDto(request, true);
     }
 
     /**
@@ -166,7 +170,19 @@ public class PrintRequestService {
             request.paidAt = Instant.now();
         }
         requests.flush();
-        return mapper.toDto(request);
+        return mapper.toDto(request, true);
+    }
+
+    /**
+     * Queues the request's files for server slicing again (admin), e.g. after changing the
+     * profiles. Refused while slicing is off or a file is already queued or running.
+     */
+    @Transactional
+    public PrintRequestDto reslice(long id) {
+        PrintRequest request = requests.findWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        slicing.reslice(request.files);
+        return mapper.toDto(request, true);
     }
 
     /** The file of a request, for download by the owner or the admin. */
@@ -224,6 +240,24 @@ public class PrintRequestService {
         return requests.findWithDetails(id)
                 .filter(r -> caller.admin() || r.owner.id == caller.id())
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+    }
+
+    /**
+     * The checks every model upload goes through (also the preview before uploading): an allowed
+     * extension, not empty, within the size limit, and really an STL / 3MF. Returns the type.
+     */
+    public ModelFileType checkUpload(UploadedModel upload) {
+        ModelFileType type = typeOf(sanitizeFilename(upload.filename()));
+        if (upload.size() <= 0) {
+            throw new InvalidInputException("The file is empty");
+        }
+        if (upload.size() > maxSizeBytes()) {
+            throw new InvalidInputException("The file is larger than " + uploadConfig.maxSizeMb() + " MB");
+        }
+        if (!validator.isValid(upload.path(), type)) {
+            throw new InvalidInputException("The file is not a valid " + type.extension().toUpperCase() + " file");
+        }
+        return type;
     }
 
     private ModelFileType typeOf(String filename) {

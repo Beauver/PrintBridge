@@ -68,6 +68,17 @@
       </dl>
     </div>
 
+    @for (file of request.files; track file.id) {
+      <app-model-info-card
+        [info]="file.modelInfo"
+        [requestId]="request.id"
+        [fileId]="file.id"
+        [isAdmin]="auth.isAdmin()"
+        [reslicing]="reslicing()"
+        (reslice)="onReslice()"
+      />
+    }
+
     <h2 class="h5">Files</h2>
     <ul class="list-group mb-4">
       @for (file of request.files; track file.id) {
