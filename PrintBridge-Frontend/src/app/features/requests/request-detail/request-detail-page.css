@@ -2,3 +2,8 @@
 .text-pre-wrap {
   white-space: pre-wrap;
 }
+
+/* Room for three digits and the spinner arrows. */
+.quantity {
+  width: 5.5rem;
+}

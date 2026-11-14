@@ -21,6 +21,7 @@ describe('PrintersCard', () => {
     slicing: { enabled: true, timeoutMinutes: 10 },
     defaultPrinterId: 1,
     printers: [SAVED_P1S, MINI],
+    uploads: { maxFiles: 10, maxFileSizeMb: 100, ceilingMb: 100 },
   };
 
   function create(): PrintersCard {

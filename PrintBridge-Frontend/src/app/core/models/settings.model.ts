@@ -28,10 +28,25 @@ export interface Printer extends PrinterInput {
   id: number;
 }
 
+/** The upload limits the admin sets. */
+export interface UploadSettings {
+  /** 1–50. */
+  maxFiles: number;
+  /** 1 up to `ceilingMb`. */
+  maxFileSizeMb: number;
+}
+
+/** The upload limits that apply now. */
+export interface UploadLimits extends UploadSettings {
+  /** The server's ceiling per file (UPLOAD_MAX_SIZE_MB); only raised through the environment. */
+  ceilingMb: number;
+}
+
 export interface Settings {
   slicing: SlicingSettings;
   /** For STL files and projects made for a printer that isn't owned; null without printers. */
   defaultPrinterId: number | null;
   /** In the order they were added. */
   printers: Printer[];
+  uploads: UploadLimits;
 }

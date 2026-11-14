@@ -38,60 +38,147 @@
     }
 
     <div class="card card-body mb-3">
-      <dl class="row mb-0">
-        @if (auth.isAdmin()) {
-          <dt class="col-sm-3">Requested by</dt>
-          <dd class="col-sm-9" data-cy="request-owner">{{ request.ownerUsername }}</dd>
-        }
-        <dt class="col-sm-3">Price</dt>
-        <dd class="col-sm-9" data-cy="request-price">
-          <app-price-tag [price]="request.finalPrice" [paidAt]="request.paidAt" />
-        </dd>
-        @if (request.declineReason) {
-          <dt class="col-sm-3">Decline reason</dt>
-          <dd class="col-sm-9 text-pre-wrap" data-cy="request-decline-reason">
+      <div class="row">
+        <dl class="col-md-6 row mb-0 mx-0 px-0" data-cy="request-facts">
+          @if (auth.isAdmin()) {
+            <dt class="col-5">Requested by</dt>
+            <dd class="col-7" data-cy="request-owner">{{ request.ownerUsername }}</dd>
+          }
+          <dt class="col-5">Description</dt>
+          <dd class="col-7 text-pre-wrap" data-cy="request-description">
+            @if (request.description) {
+              {{ request.description }}
+            } @else {
+              <span class="text-body-secondary">–</span>
+            }
+          </dd>
+          <dt class="col-5">Created</dt>
+          <dd class="col-7">{{ request.createdAt | date: 'medium' }}</dd>
+          <dt class="col-5">Last updated</dt>
+          <dd class="col-7 mb-md-0">{{ request.updatedAt | date: 'medium' }}</dd>
+        </dl>
+        <dl class="col-md-6 row mb-0 mx-0 px-0" data-cy="request-numbers">
+          <dt class="col-5">Price</dt>
+          <dd class="col-7" data-cy="request-price">
+            <app-price-tag [price]="request.finalPrice" [paidAt]="request.paidAt" />
+          </dd>
+          @if (summary(); as summary) {
+            <dt class="col-5">Filament</dt>
+            <dd class="col-7" data-cy="request-total-filament">
+              @if (summary.filament; as filament) {
+                {{ filament.text }}
+                @if (filament.note) {
+                  <span class="text-body-secondary small">{{ filament.note }}</span>
+                }
+              } @else {
+                <span class="text-body-secondary">–</span>
+              }
+            </dd>
+            <dt class="col-5">Print time</dt>
+            <dd class="col-7 mb-0" data-cy="request-total-time">
+              @if (summary.printTime; as printTime) {
+                {{ printTime.text }}
+                @if (printTime.note) {
+                  <span class="text-body-secondary small">{{ printTime.note }}</span>
+                }
+              } @else {
+                <span class="text-body-secondary">–</span>
+              }
+            </dd>
+          }
+        </dl>
+      </div>
+      @if (request.declineReason) {
+        <dl class="row mb-0 mt-3 pt-3 border-top">
+          <dt class="col-md-2 col-5">Decline reason</dt>
+          <dd class="col-md-10 col-7 mb-0 text-pre-wrap" data-cy="request-decline-reason">
             {{ request.declineReason }}
           </dd>
-        }
-        <dt class="col-sm-3">Description</dt>
-        <dd class="col-sm-9 text-pre-wrap" data-cy="request-description">
-          @if (request.description) {
-            {{ request.description }}
-          } @else {
-            <span class="text-body-secondary">–</span>
-          }
-        </dd>
-        <dt class="col-sm-3">Created</dt>
-        <dd class="col-sm-9">{{ request.createdAt | date: 'medium' }}</dd>
-        <dt class="col-sm-3">Last updated</dt>
-        <dd class="col-sm-9 mb-0">{{ request.updatedAt | date: 'medium' }}</dd>
-      </dl>
+        </dl>
+      }
     </div>
 
-    @for (file of request.files; track file.id) {
+    <div class="d-flex flex-wrap align-items-center gap-2 mb-2">
+      <h2 class="h5 mb-0">Files</h2>
+      <span class="text-body-secondary small me-auto" data-cy="request-file-counts">{{
+        fileCounts()
+      }}</span>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-primary"
+        [disabled]="downloadingAll()"
+        (click)="downloadAll()"
+        data-cy="request-download-all"
+      >
+        {{ downloadingAll() ? 'Downloading…' : 'Download all (ZIP)' }}
+      </button>
+    </div>
+
+    @if (failedUploads().length > 0) {
+      <div
+        class="alert alert-warning alert-dismissible py-2"
+        role="alert"
+        data-cy="request-failed-uploads"
+      >
+        These files couldn't be added to the request. Add them again with
+        <strong>Add files</strong>:
+        <ul class="mb-0">
+          @for (failure of failedUploads(); track $index) {
+            <li>
+              <span class="text-break">{{ failure.filename }}</span>: {{ failure.reason }}
+            </li>
+          }
+        </ul>
+        <button
+          type="button"
+          class="btn-close"
+          aria-label="Close"
+          (click)="failedUploads.set([])"
+        ></button>
+      </div>
+    }
+
+    @if (canChangeFiles()) {
+      <app-add-files
+        [requestId]="request.id"
+        [fileCount]="request.files.length"
+        (added)="onFileAdded($event)"
+      />
+    }
+
+    @for (file of request.files; track file.id; let first = $first) {
       <app-model-info-card
         [info]="file.modelInfo"
         [requestId]="request.id"
         [fileId]="file.id"
+        [filename]="file.originalFilename"
+        [quantity]="file.quantity"
+        [startOpen]="first"
         [isAdmin]="auth.isAdmin()"
-        [reslicing]="reslicing()"
-        (reslice)="onReslice()"
-      />
-    }
-
-    <h2 class="h5">Files</h2>
-    <ul class="list-group mb-4">
-      @for (file of request.files; track file.id) {
-        <li
-          class="list-group-item d-flex flex-wrap align-items-center gap-2"
-          data-cy="request-file"
-        >
-          <span class="me-auto text-break">
-            {{ file.originalFilename }}
-            <span class="text-body-secondary small ms-1"
-              >{{ fileTypeLabel(file) }} · {{ formatBytes(file.sizeBytes) }}</span
+        [reslicing]="reslicingId() === file.id"
+        (reslice)="onReslice(file)"
+      >
+        <div class="d-flex flex-wrap align-items-center gap-2 mb-3" data-cy="request-file">
+          <span class="me-auto text-body-secondary small"
+            >{{ fileTypeLabel(file) }} · {{ formatBytes(file.sizeBytes) }}</span
+          >
+          @if (canChangeQuantity()) {
+            <label class="small text-body-secondary" [for]="'file-quantity-' + file.id"
+              >Quantity</label
             >
-          </span>
+            <input
+              [id]="'file-quantity-' + file.id"
+              type="number"
+              class="form-control form-control-sm quantity"
+              [min]="minQuantity"
+              [max]="maxQuantity"
+              step="1"
+              [value]="file.quantity"
+              [disabled]="savingQuantityId() === file.id"
+              (change)="changeQuantity(file, $event)"
+              data-cy="request-file-quantity"
+            />
+          }
           <button
             type="button"
             class="btn btn-sm btn-outline-primary"
@@ -101,14 +188,49 @@
           >
             {{ downloadingId() === file.id ? 'Downloading…' : 'Download' }}
           </button>
-        </li>
-      }
-    </ul>
+          @if (canRemoveFiles()) {
+            <button
+              type="button"
+              class="btn btn-sm btn-outline-danger"
+              (click)="askRemove(file)"
+              data-cy="request-file-remove"
+            >
+              Remove
+            </button>
+          }
+        </div>
+        @if (confirmingRemoveId() === file.id) {
+          <div class="alert alert-danger py-2" data-cy="request-file-remove-confirm">
+            <p class="mb-2">Remove {{ file.originalFilename }} from this request?</p>
+            <div class="d-flex gap-2">
+              <button
+                type="button"
+                class="btn btn-danger btn-sm"
+                [disabled]="removingId() === file.id"
+                (click)="confirmRemove(file)"
+                data-cy="request-file-remove-yes"
+              >
+                {{ removingId() === file.id ? 'Removing…' : 'Remove' }}
+              </button>
+              <button
+                type="button"
+                class="btn btn-outline-secondary btn-sm"
+                [disabled]="removingId() === file.id"
+                (click)="cancelRemove()"
+                data-cy="request-file-remove-no"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        }
+      </app-model-info-card>
+    }
 
     @if (canDelete()) {
       @if (confirmingDelete()) {
         <div class="alert alert-danger" data-cy="request-delete-confirm">
-          <p class="mb-2">Delete this request and its file? This cannot be undone.</p>
+          <p class="mb-2">Delete this request and its files? This cannot be undone.</p>
           <div class="d-flex gap-2">
             <button
               type="button"

@@ -92,8 +92,14 @@ class SlicingResourceTest {
         return given().auth().oauth2(token).get("/api/requests/" + id).then().statusCode(200);
     }
 
+    /** Re-slices the request's first file. */
     private ValidatableResponse reslice(String token, int id) {
-        return given().auth().oauth2(token).post("/api/requests/" + id + "/reslice").then();
+        int fileId = get(adminToken, id).extract().path("files[0].id");
+        return reslice(token, id, fileId);
+    }
+
+    private ValidatableResponse reslice(String token, int id, int fileId) {
+        return given().auth().oauth2(token).post("/api/requests/" + id + "/files/" + fileId + "/reslice").then();
     }
 
     /** A one-plate Bambu project saved for this nozzle and printer, with 2 filament slots. */
@@ -269,7 +275,24 @@ class SlicingResourceTest {
         assertEquals(2, slicer.plans.size());
 
         reslice(bobToken, id).statusCode(403);
-        reslice(adminToken, 999).statusCode(404);
+        reslice(adminToken, 999, 1).statusCode(404);
+        reslice(adminToken, id, 999).statusCode(404);
+    }
+
+    @Test
+    void resliceOnlyQueuesThatFile() {
+        slicing(true);
+        int id = upload("cube.stl", ModelFiles.cubeStl(10));
+        given().auth().oauth2(bobToken)
+                .multiPart("file", "lid.stl", ModelFiles.cubeStl(5), "application/octet-stream")
+                .post("/api/requests/" + id + "/files").then().statusCode(201);
+        assertEquals(2, worker.drain());
+        int lid = get(adminToken, id).extract().path("files[1].id");
+
+        reslice(adminToken, id, lid).statusCode(200)
+                .body("files[0].modelInfo.slicing.status", is("DONE"))
+                .body("files[1].modelInfo.slicing.status", is("QUEUED"));
+        assertEquals(1, worker.drain());
     }
 
     @Test

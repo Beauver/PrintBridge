@@ -8,6 +8,8 @@ import com.beauver.printbridge.common.transaction.AfterTransaction;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
 import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.printrequest.dto.*;
+import com.beauver.printbridge.settings.SettingsService;
+import com.beauver.printbridge.settings.UploadLimits;
 import com.beauver.printbridge.storage.FileStorage;
 import com.beauver.printbridge.user.UserRepository;
 import io.quarkus.logging.Log;
@@ -19,7 +21,10 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.Set;
 
@@ -32,7 +37,7 @@ import java.util.Set;
 public class PrintRequestService {
 
     static final String NOT_FOUND = "Print request not found";
-    static final long BYTES_PER_MB = 1024L * 1024L;
+    static final String FILE_NOT_FOUND = "File not found";
     private static final int MAX_FILENAME_LENGTH = 255;
 
     @Inject
@@ -62,8 +67,13 @@ public class PrintRequestService {
     @Inject
     SlicingService slicing;
 
+    @Inject
+    SettingsService settings;
+
     public UploadConfigDto uploadConfig() {
-        return new UploadConfigDto(maxSizeBytes(), allowedTypes().stream().map(ModelFileType::extension).toList());
+        UploadLimits limits = settings.uploads();
+        return new UploadConfigDto(limits.maxFileSizeBytes(), limits.maxFiles(),
+                allowedTypes().stream().map(ModelFileType::extension).toList());
     }
 
     /** The caller's own requests, newest first. */
@@ -81,16 +91,12 @@ public class PrintRequestService {
     }
 
     /**
-     * Validates the upload, stores the file and creates the request in status SUBMITTED. If the
-     * transaction rolls back, the stored file is removed again. The file is analysed right away
-     * (an analysis that fails is recorded but doesn't stop the upload) and queued for server
-     * slicing when that is on.
+     * Validates the upload and creates the request with it in status SUBMITTED. The other files
+     * of a multi-file request follow one by one through {@link #addFile}.
      */
     @Transactional
     public PrintRequestDto create(long ownerId, NewPrintRequest input) {
-        UploadedModel upload = input.file();
-        String filename = sanitizeFilename(upload.filename());
-        ModelFileType type = checkUpload(upload);
+        checkUpload(input.file());
 
         PrintRequest request = new PrintRequest();
         request.owner = users.findByIdOptional(ownerId)
@@ -99,20 +105,146 @@ public class PrintRequestService {
         request.description = blankToNull(input.description());
         request.status = RequestStatus.SUBMITTED;
         requests.persist(request);
+        attach(request, input.file(), input.quantity());
+        // A fresh upload has no slicing errors yet, so nothing admin-only to show.
+        return mapper.toDto(request, false);
+    }
 
-        String directory = directoryOf(request.id);
+    /**
+     * Adds a model file to a request (#23). The owner may while it is SUBMITTED, the admin
+     * always. The file counts against the file limit and goes through the same checks as the
+     * first one.
+     */
+    @Transactional
+    public PrintRequestDto addFile(long requestId, UploadedModel upload, int quantity, Caller caller) {
+        PrintRequest request = requests.findLockedWithDetails(requestId)
+                .filter(r -> isVisible(r, caller))
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        checkMayChangeFiles(request, caller);
+        int maxFiles = settings.uploads().maxFiles();
+        if (request.files.size() >= maxFiles) {
+            throw new InvalidInputException("A request can hold at most " + maxFiles + " files");
+        }
+        checkUpload(upload);
+        attach(request, upload, quantity);
+        return mapper.toDto(request, caller.admin());
+    }
+
+    /**
+     * Removes one file of a request (#23): the owner while it is SUBMITTED, the admin always. The
+     * last file can't go; that is deleting the request. The file leaves the disk after the commit;
+     * its model details and slicing result go with the row.
+     */
+    @Transactional
+    public PrintRequestDto removeFile(long requestId, long fileId, Caller caller) {
+        PrintRequest request = findVisible(requestId, caller);
+        checkMayChangeFiles(request, caller);
+        RequestFile file = fileOf(request, fileId);
+        if (request.files.size() == 1) {
+            throw new ConflictException("A request needs at least one file; delete the request instead");
+        }
+        request.files.remove(file);
+        requests.flush();
+        String storagePath = file.storagePath;
+        afterTransaction.onCommit(() -> storage.deleteFile(storagePath));
+        return mapper.toDto(request, caller.admin());
+    }
+
+    /**
+     * Changes how many copies of a file to print (#23): the owner while the request is SUBMITTED,
+     * the admin until it is final.
+     */
+    @Transactional
+    public PrintRequestDto changeQuantity(long requestId, long fileId, int quantity, Caller caller) {
+        PrintRequest request = findVisible(requestId, caller);
+        if (caller.admin()) {
+            if (request.status.isFinal()) {
+                throw new ConflictException("This request is " + request.status + " and can no longer be changed");
+            }
+        } else if (request.status != RequestStatus.SUBMITTED) {
+            throw new ConflictException("Quantities can only be changed while the request is submitted");
+        }
+        fileOf(request, fileId).quantity = quantity;
+        requests.flush();
+        return mapper.toDto(request, caller.admin());
+    }
+
+    /**
+     * Every file of a request for one ZIP download, under its original name. Duplicate names
+     * get a number ({@code part (2).stl}).
+     */
+    public FileBundle files(long requestId, Caller caller) {
+        PrintRequest request = findVisible(requestId, caller);
+        List<String> names = uniqueNames(request.files.stream().map(file -> file.originalFilename).toList());
+        List<StoredFile> files = new ArrayList<>();
+        for (int i = 0; i < request.files.size(); i++) {
+            RequestFile file = request.files.get(i);
+            files.add(new StoredFile(pathOnDisk(file), names.get(i), file.fileType.contentType(), file.sizeBytes));
+        }
+        // The name is only used for the download, but keep slashes out of it anyway.
+        return new FileBundle(request.name.replaceAll("[\\\\/\\p{Cntrl}]", "_") + ".zip", files);
+    }
+
+    /**
+     * Stores an upload that passed {@link #checkUpload} and adds it to the request. If the
+     * transaction rolls back, the stored file is removed again. The file is analysed right away
+     * (an analysis that fails is recorded but doesn't stop the upload) and queued for server
+     * slicing when that is on.
+     */
+    private void attach(PrintRequest request, UploadedModel upload, int quantity) {
+        ModelFileType type = typeOf(sanitizeFilename(upload.filename()));
         RequestFile file = new RequestFile();
-        file.originalFilename = filename;
+        file.originalFilename = sanitizeFilename(upload.filename());
         file.fileType = type;
         file.sizeBytes = upload.size();
-        file.storagePath = storage.store(upload.path(), directory, type.extension());
-        afterTransaction.onRollback(() -> storage.deleteDirectory(directory));
+        file.quantity = quantity;
+        file.storagePath = storage.store(upload.path(), directoryOf(request.id), type.extension());
+        String storagePath = file.storagePath;
+        afterTransaction.onRollback(() -> storage.deleteFile(storagePath));
         request.addFile(file);
         requests.flush();
         modelInfo.analyze(file);
         slicing.enqueueIfEnabled(file);
-        // A fresh upload has no slicing errors yet, so nothing admin-only to show.
-        return mapper.toDto(request, false);
+    }
+
+    /** Owners change files only while the request is SUBMITTED; the admin always may. */
+    private static void checkMayChangeFiles(PrintRequest request, Caller caller) {
+        if (!caller.admin() && request.status != RequestStatus.SUBMITTED) {
+            throw new ConflictException("Files can only be changed while the request is submitted");
+        }
+    }
+
+    private static RequestFile fileOf(PrintRequest request, long fileId) {
+        return request.files.stream()
+                .filter(f -> f.id == fileId)
+                .findFirst()
+                .orElseThrow(() -> new ResourceNotFoundException(FILE_NOT_FOUND));
+    }
+
+    /**
+     * Makes names unique, ignoring case (ZIP tools on Windows and macOS would overwrite one with
+     * the other): the second {@code part.stl} becomes {@code part (2).stl}.
+     */
+    static List<String> uniqueNames(List<String> names) {
+        Set<String> taken = new HashSet<>();
+        List<String> unique = new ArrayList<>();
+        for (String name : names) {
+            String candidate = name;
+            int dot = name.lastIndexOf('.');
+            String base = name;
+            String extension = "";
+            if (dot > 0) {
+                base = name.substring(0, dot);
+                extension = name.substring(dot);
+            }
+            int number = 2;
+            while (!taken.add(candidate.toLowerCase(Locale.ROOT))) {
+                candidate = base + " (" + number + ")" + extension;
+                number++;
+            }
+            unique.add(candidate);
+        }
+        return unique;
     }
 
     /**
@@ -174,29 +306,31 @@ public class PrintRequestService {
     }
 
     /**
-     * Queues the request's files for server slicing again (admin), e.g. after changing the
-     * profiles. Refused while slicing is off or a file is already queued or running.
+     * Queues one file of a request for server slicing again (admin), e.g. after changing the
+     * profiles. The other files are left alone. Refused while slicing is off or the file is
+     * already queued or running.
      */
     @Transactional
-    public PrintRequestDto reslice(long id) {
+    public PrintRequestDto reslice(long id, long fileId) {
         PrintRequest request = requests.findWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
-        slicing.reslice(request.files);
+        slicing.reslice(List.of(fileOf(request, fileId)));
         return mapper.toDto(request, true);
     }
 
     /** The file of a request, for download by the owner or the admin. */
     public StoredFile file(long requestId, long fileId, Caller caller) {
-        RequestFile file = findVisible(requestId, caller).files.stream()
-                .filter(f -> f.id == fileId)
-                .findFirst()
-                .orElseThrow(() -> new ResourceNotFoundException("File not found"));
+        RequestFile file = fileOf(findVisible(requestId, caller), fileId);
+        return new StoredFile(pathOnDisk(file), file.originalFilename, file.fileType.contentType(), file.sizeBytes);
+    }
+
+    private Path pathOnDisk(RequestFile file) {
         Path path = storage.resolve(file.storagePath);
         if (!Files.isRegularFile(path)) {
-            Log.warnf("File %s of request %d is missing on disk", file.storagePath, requestId);
-            throw new ResourceNotFoundException("File not found");
+            Log.warnf("File %s of request %d is missing on disk", file.storagePath, file.request.id);
+            throw new ResourceNotFoundException(FILE_NOT_FOUND);
         }
-        return new StoredFile(path, file.originalFilename, file.fileType.contentType(), file.sizeBytes);
+        return path;
     }
 
     /**
@@ -238,8 +372,12 @@ public class PrintRequestService {
 
     private PrintRequest findVisible(long id, Caller caller) {
         return requests.findWithDetails(id)
-                .filter(r -> caller.admin() || r.owner.id == caller.id())
+                .filter(r -> isVisible(r, caller))
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+    }
+
+    private static boolean isVisible(PrintRequest request, Caller caller) {
+        return caller.admin() || request.owner.id == caller.id();
     }
 
     /**
@@ -251,8 +389,9 @@ public class PrintRequestService {
         if (upload.size() <= 0) {
             throw new InvalidInputException("The file is empty");
         }
-        if (upload.size() > maxSizeBytes()) {
-            throw new InvalidInputException("The file is larger than " + uploadConfig.maxSizeMb() + " MB");
+        UploadLimits limits = settings.uploads();
+        if (upload.size() > limits.maxFileSizeBytes()) {
+            throw new InvalidInputException("The file is larger than " + limits.maxFileSizeMb() + " MB");
         }
         if (!validator.isValid(upload.path(), type)) {
             throw new InvalidInputException("The file is not a valid " + type.extension().toUpperCase() + " file");
@@ -277,10 +416,6 @@ public class PrintRequestService {
 
     private String allowedList() {
         return String.join(", ", allowedTypes().stream().map(t -> "." + t.extension()).toList());
-    }
-
-    private long maxSizeBytes() {
-        return uploadConfig.maxSizeMb() * BYTES_PER_MB;
     }
 
     private static String directoryOf(long requestId) {
