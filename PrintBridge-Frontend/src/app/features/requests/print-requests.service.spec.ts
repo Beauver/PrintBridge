@@ -84,8 +84,8 @@ describe('PrintRequestsService', () => {
     expect(paid.request.body).toEqual({ paid: true });
     paid.flush(REQUEST);
 
-    service.reslice(4).subscribe();
-    http.expectOne({ method: 'POST', url: '/api/requests/4/reslice' }).flush(REQUEST);
+    service.reslice(4, 7).subscribe();
+    http.expectOne({ method: 'POST', url: '/api/requests/4/files/7/reslice' }).flush(REQUEST);
   });
 
   it('downloads a file as a blob', () => {
@@ -100,7 +100,7 @@ describe('PrintRequestsService', () => {
   it('uploads as multipart and reports progress then the created request', () => {
     const file = new File(['solid'], 'cube.stl');
     const events: UploadEvent[] = [];
-    service.create({ name: 'Cube', description: 'Small', file }).subscribe((event) => {
+    service.create({ name: 'Cube', description: 'Small', file, quantity: 3 }).subscribe((event) => {
       events.push(event);
     });
 
@@ -108,6 +108,7 @@ describe('PrintRequestsService', () => {
     const body = req.request.body as FormData;
     expect(body.get('name')).toBe('Cube');
     expect(body.get('description')).toBe('Small');
+    expect(body.get('quantity')).toBe('3');
     expect((body.get('file') as File).name).toBe('cube.stl');
     expect(req.request.reportProgress).toBe(true);
 
@@ -126,7 +127,7 @@ describe('PrintRequestsService', () => {
   it('reports 0% when the total size is unknown', () => {
     const events: UploadEvent[] = [];
     service
-      .create({ name: 'Empty', description: '', file: new File([], 'a.stl') })
+      .create({ name: 'Empty', description: '', file: new File([], 'a.stl'), quantity: 1 })
       .subscribe((event) => {
         events.push(event);
       });
@@ -134,5 +135,41 @@ describe('PrintRequestsService', () => {
     req.event({ type: HttpEventType.UploadProgress, loaded: 0 });
     req.flush(REQUEST);
     expect(events[0]).toEqual({ type: 'progress', percent: 0 });
+  });
+
+  it('adds a file with its quantity and reports progress', () => {
+    const events: UploadEvent[] = [];
+    service.addFile(4, new File(['solid'], 'lid.stl'), 2).subscribe((event) => {
+      events.push(event);
+    });
+    const req = http.expectOne({ method: 'POST', url: '/api/requests/4/files' });
+    const body = req.request.body as FormData;
+    expect(body.get('quantity')).toBe('2');
+    expect((body.get('file') as File).name).toBe('lid.stl');
+    req.event({ type: HttpEventType.UploadProgress, loaded: 1, total: 2 });
+    req.flush(REQUEST);
+    expect(events).toEqual([
+      { type: 'progress', percent: 50 },
+      { type: 'done', request: REQUEST },
+    ]);
+  });
+
+  it('removes a file, changes a quantity and downloads all files', () => {
+    service.removeFile(4, 7).subscribe((request) => {
+      expect(request).toEqual(REQUEST);
+    });
+    http.expectOne({ method: 'DELETE', url: '/api/requests/4/files/7' }).flush(REQUEST);
+
+    service.changeQuantity(4, 7, 5).subscribe();
+    const quantity = http.expectOne({ method: 'PUT', url: '/api/requests/4/files/7/quantity' });
+    expect(quantity.request.body).toEqual({ quantity: 5 });
+    quantity.flush(REQUEST);
+
+    service.downloadAll(4).subscribe((blob) => {
+      expect(blob).toBeInstanceOf(Blob);
+    });
+    const zip = http.expectOne({ method: 'GET', url: '/api/requests/4/files.zip' });
+    expect(zip.request.responseType).toBe('blob');
+    zip.flush(new Blob(['zip']));
   });
 });

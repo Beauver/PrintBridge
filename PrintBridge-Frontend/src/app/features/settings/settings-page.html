@@ -23,5 +23,6 @@
       [status]="slicerStatus()"
       (saved)="onChanged($event)"
     />
+    <app-upload-settings [settings]="settings.uploads" (saved)="onChanged($event)" />
   }
 </div>

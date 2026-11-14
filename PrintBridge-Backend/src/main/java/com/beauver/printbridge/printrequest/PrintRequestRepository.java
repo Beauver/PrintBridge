@@ -2,6 +2,7 @@ package com.beauver.printbridge.printrequest;
 
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.persistence.LockModeType;
 
 import java.util.Collection;
 import java.util.List;
@@ -37,6 +38,18 @@ public class PrintRequestRepository implements PanacheRepository<PrintRequest> {
     public Optional<PrintRequest> findWithDetails(long id) {
         return find("from PrintRequest r join fetch r.owner left join fetch r.files where r.id = ?1", id)
                 .firstResultOptional();
+    }
+
+    /**
+     * Like {@link #findWithDetails}, with the request's row locked until the transaction ends, so
+     * two uploads at once can't both pass the file limit. Locked on its own: PostgreSQL can't lock
+     * through the outer join on the files.
+     */
+    public Optional<PrintRequest> findLockedWithDetails(long id) {
+        if (findByIdOptional(id, LockModeType.PESSIMISTIC_WRITE).isEmpty()) {
+            return Optional.empty();
+        }
+        return findWithDetails(id);
     }
 
     public List<Long> idsOfOwner(long ownerId) {

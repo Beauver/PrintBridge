@@ -65,6 +65,50 @@ class SettingsResourceTest {
     }
 
     @Test
+    void uploadLimitsDefaultToTenFilesAndTheCeiling() {
+        given().auth().oauth2(adminToken).get("/api/settings")
+                .then().statusCode(200)
+                .body("uploads.maxFiles", is(10))
+                .body("uploads.maxFileSizeMb", is(1))
+                .body("uploads.ceilingMb", is(1));
+    }
+
+    @Test
+    void savesUploadLimitsWithinTheirRange() {
+        put("uploads", Map.of("maxFiles", 50, "maxFileSizeMb", 1))
+                .statusCode(200)
+                .body("uploads.maxFiles", is(50))
+                .body("uploads.maxFileSizeMb", is(1));
+        put("uploads", Map.of("maxFiles", 1, "maxFileSizeMb", 1)).statusCode(200).body("uploads.maxFiles", is(1));
+        assertEquals(1, settings.uploads().maxFiles());
+
+        put("uploads", Map.of("maxFiles", 0, "maxFileSizeMb", 1)).statusCode(400);
+        put("uploads", Map.of("maxFiles", 51, "maxFileSizeMb", 1)).statusCode(400);
+        put("uploads", Map.of("maxFiles", 5, "maxFileSizeMb", 0)).statusCode(400);
+        put("uploads", Map.of("maxFiles", 5)).statusCode(400);
+        put("uploads", Map.of("maxFiles", 5, "maxFileSizeMb", 2))
+                .statusCode(400)
+                .body("message", is("Max size per file can be at most 1 MB; raise UPLOAD_MAX_SIZE_MB on the server "
+                        + "to allow more"));
+        given().auth().oauth2(adminToken).get("/api/settings").then().body("uploads.maxFiles", is(1));
+    }
+
+    @Test
+    void savedSizeAboveALowerCeilingIsCapped() {
+        data.setUploadLimits(null, 5);
+        UploadLimits limits = settings.uploads();
+        assertEquals(10, limits.maxFiles());
+        assertEquals(1, limits.maxFileSizeMb());
+        assertEquals(1024 * 1024, limits.maxFileSizeBytes());
+    }
+
+    @Test
+    void onlyTheAdminChangesUploadLimits() {
+        given().auth().oauth2(userToken).contentType(ContentType.JSON).body(Map.of("maxFiles", 5, "maxFileSizeMb", 1))
+                .put("/api/settings/uploads").then().statusCode(403);
+    }
+
+    @Test
     void firstPrinterBecomesTheDefault() {
         addPrinter(TestData.printer("Bambu Lab P1S"))
                 .statusCode(201)

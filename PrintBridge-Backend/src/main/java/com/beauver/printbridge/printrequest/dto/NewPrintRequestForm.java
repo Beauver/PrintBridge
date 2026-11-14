@@ -1,5 +1,7 @@
 package com.beauver.printbridge.printrequest.dto;
 
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -21,4 +23,10 @@ public class NewPrintRequestForm {
     @RestForm("file")
     @NotNull(message = "A model file is required")
     public FileUpload file;
+
+    /** Copies of the file; 1 when left out. */
+    @RestForm
+    @Min(value = 1, message = "Quantity must be at least 1")
+    @Max(value = 100, message = "Quantity must be at most 100")
+    public Integer quantity;
 }

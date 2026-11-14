@@ -48,12 +48,16 @@ Deleting a user also deletes their print requests and files.
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/requests` | – | `200` list of the caller's own request summaries, newest first |
-| GET | `/requests/upload-config` | – | `200 {maxSizeBytes, allowedExtensions}` |
-| POST | `/requests` | `multipart/form-data`: `name` (1–100), `description` (optional, max 2000), `file` (`.stl`/`.3mf`) | `201` request + `Location`; `400` invalid input or file; `413` body larger than the limit |
+| GET | `/requests/upload-config` | – | `200 {maxSizeBytes, maxFiles, allowedExtensions}` (the [upload settings](features/print-requests.md#upload-settings-adminsettings)) |
+| POST | `/requests` | `multipart/form-data`: `name` (1–100), `description` (optional, max 2000), `file` (`.stl`/`.3mf`), `quantity` (optional, 1–100, default 1) | `201` request + `Location`; `400` invalid input or file; `413` body larger than the limit |
 | GET | `/requests/{id}` | – | `200` request; `404` unknown or not yours |
 | GET | `/requests/{id}/files/{fileId}` | – | `200` file bytes (`model/stl` or `model/3mf`, `Content-Disposition: attachment` with the original name); `404` |
 | GET | `/requests/{id}/files/{fileId}/preview` | – | `200` preview mesh (`application/vnd.printbridge.mesh`, gzipped, see [3D preview](features/model-preview.md)); `404`; `422 {message}` "This model is too detailed for a preview" / "No preview available for this file" |
 | GET | `/requests/{id}/files/{fileId}/plates/{plate}/thumbnail` | – | `200` the plate's PNG from a Bambu Studio / OrcaSlicer project; `404` none (STL, plain 3MF, no image) or not yours |
+| POST | `/requests/{id}/files` | `multipart/form-data`: `file`, `quantity` (optional, 1–100, default 1) | `201` request; `400` invalid file or quantity, or the request already holds *max files*; `404`; `409` owner and the request is no longer SUBMITTED; `413` |
+| DELETE | `/requests/{id}/files/{fileId}` | – | `200` request; `404`; `409` the last file, or owner and the request is no longer SUBMITTED |
+| PUT | `/requests/{id}/files/{fileId}/quantity` | `{quantity}` (1–100) | `200` request; `400`; `404`; `409` owner and no longer SUBMITTED, or admin and the request is final |
+| GET | `/requests/{id}/files.zip` | – | `200` ZIP (`application/zip`, named after the request) with every file under its original name; duplicates get a number; `404` |
 | DELETE | `/requests/{id}` | – | `204`; `404` unknown or not yours; `409` owner deleting a request that is no longer SUBMITTED |
 
 Admin only (users get `403`):
@@ -64,7 +68,7 @@ Admin only (users get `403`):
 | PUT | `/requests/{id}/status` | `{status, declineReason}` (reason optional, max 2000, only kept when declining) | `200` request; `409` move not allowed, request final, or completing without a price; `404`; `400` invalid |
 | PUT | `/requests/{id}/price` | `{finalPrice}` (EUR, 0–99999999.99, max 2 decimals; `null` clears) | `200` request; `409` request final or paid; `404`; `400` invalid |
 | PUT | `/requests/{id}/paid` | `{paid}` (`true`/`false`) | `200` request; `409` not ACCEPTED/PRINTING/COMPLETED, or marking paid without a price; `404`; `400` missing `paid` |
-| POST | `/requests/{id}/reslice` | – | `200` request (files queued for server slicing); `409` slicing is off or a file is still queued/running; `404` |
+| POST | `/requests/{id}/files/{fileId}/reslice` | – | `200` request (that file queued for server slicing; the others are left alone); `409` slicing is off or the file is still queued/running; `404` |
 
 Allowed moves: SUBMITTED → IN_REVIEW / ACCEPTED / DECLINED; IN_REVIEW → ACCEPTED / DECLINED; ACCEPTED → PRINTING / COMPLETED; PRINTING → COMPLETED / ACCEPTED / DECLINED. DECLINED and COMPLETED are final.
 
@@ -87,13 +91,16 @@ Request: `{id, name, description, status, finalPrice, declineReason, paidAt, own
 
 Errors are always JSON (`{message}`), also on the endpoints that otherwise return a file or a mesh.
 
-Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file is empty`, `The file is larger than N MB`, `The file is not a valid STL file` / `3MF file`. Missing name or file gives a validation error (`violations`).
+A request has `files: [{id, originalFilename, type, sizeBytes, quantity, createdAt, modelInfo}]` and `totals: {files, copies, grams, weight, printSeconds, printTimePartial, fits}` (every file times its quantity; see [model info](features/model-info.md#totals-of-a-request)).
+
+Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file is empty`, `The file is larger than N MB`, `The file is not a valid STL file` / `3MF file`, `A request can hold at most N files`. Missing name or file gives a validation error (`violations`).
 
 ## Settings (admin only)
 
 | Method | Path | Body | Result |
 |---|---|---|---|
-| GET | `/settings` | – | `200 {slicing: {enabled, timeoutMinutes}, defaultPrinterId, printers: [{id, model, buildPlate: {x, y, z}, ownedNozzles, defaultNozzle, process, filament}]}` |
+| GET | `/settings` | – | `200 {slicing: {enabled, timeoutMinutes}, defaultPrinterId, printers: [{id, model, buildPlate: {x, y, z}, ownedNozzles, defaultNozzle, process, filament}], uploads: {maxFiles, maxFileSizeMb, ceilingMb}}` |
+| PUT | `/settings/uploads` | `{maxFiles (1–50), maxFileSizeMb (1 up to the ceiling UPLOAD_MAX_SIZE_MB)}` | `200` settings; `400` invalid |
 | PUT | `/settings/slicing` | `{enabled, timeoutMinutes (1–60)}`; switching on needs at least one printer, with nozzles and profiles for every printer | `200` settings; `400` invalid |
 | POST | `/settings/printers` | `{model, buildPlate: {x, y, z} (whole mm 1–2000), ownedNozzles, defaultNozzle, process, filament}`; the default nozzle must be owned; while slicing is on, nozzles and profiles are required. The first printer becomes the default | `201` settings; `400` invalid; `409` model already added |
 | PUT | `/settings/printers/{id}` | same as POST | `200` settings; `400`; `404`; `409` |

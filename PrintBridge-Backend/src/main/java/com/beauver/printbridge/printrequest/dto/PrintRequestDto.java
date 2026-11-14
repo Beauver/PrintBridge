@@ -10,6 +10,7 @@ import java.util.List;
  * A request with its files.
  *
  * @param paidAt       when it was marked paid; {@code null} while not paid
+ * @param totals       all files times their quantities
  * @param nextStatuses statuses the admin may move this request to; empty once it is final
  */
 public record PrintRequestDto(
@@ -25,5 +26,6 @@ public record PrintRequestDto(
         Instant createdAt,
         Instant updatedAt,
         List<RequestFileDto> files,
+        RequestTotalsDto totals,
         List<RequestStatus> nextStatuses) {
 }

@@ -23,3 +23,17 @@
   border-radius: var(--bs-border-radius-sm);
   background-color: var(--bs-secondary-bg);
 }
+
+/* The arrow before the file name turns down while the card is open. */
+.chevron {
+  display: inline-block;
+  transition: transform 0.15s ease-in-out;
+}
+
+.chevron.open {
+  transform: rotate(90deg);
+}
+
+.toggle {
+  min-width: 0;
+}

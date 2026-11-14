@@ -49,6 +49,16 @@ public class FileStorage {
         return resolved;
     }
 
+    /** Deletes one stored file. Like {@link #deleteDirectory}, a failure is logged, not thrown. */
+    public void deleteFile(String relativePath) {
+        Path file = resolve(relativePath);
+        try {
+            Files.deleteIfExists(file);
+        } catch (IOException e) {
+            Log.warnf(e, "Could not delete stored file %s", file);
+        }
+    }
+
     /**
      * Deletes a directory and everything in it. Failures are logged, not thrown: the database is
      * the source of truth and a leftover file must not break the operation that removed it.

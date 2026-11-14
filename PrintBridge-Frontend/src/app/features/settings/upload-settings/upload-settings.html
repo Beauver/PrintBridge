@@ -1,0 +1,68 @@
+<form
+  class="card card-body mb-4"
+  [formGroup]="form"
+  (ngSubmit)="save()"
+  novalidate
+  data-cy="uploads-form"
+>
+  <h2 class="h5">Uploads</h2>
+  <p class="text-body-secondary small">
+    How many model files one request may hold, and how large each file may be. Every file is
+    uploaded on its own, so the size limit is per file.
+  </p>
+
+  @if (notice()) {
+    <div class="alert alert-success py-2" role="status" data-cy="uploads-notice">
+      {{ notice() }}
+    </div>
+  }
+  @if (error()) {
+    <div class="alert alert-danger py-2" role="alert" data-cy="uploads-error">{{ error() }}</div>
+  }
+
+  <div class="row g-3">
+    <div class="col-sm-6">
+      <label class="form-label" for="uploads-max-files">Max files per request</label>
+      <input
+        id="uploads-max-files"
+        class="form-control"
+        type="number"
+        [min]="minFiles"
+        [max]="maxFiles"
+        step="1"
+        formControlName="maxFiles"
+        data-cy="uploads-max-files"
+      />
+      <div class="form-text">{{ minFiles }} to {{ maxFiles }}</div>
+    </div>
+    <div class="col-sm-6">
+      <label class="form-label" for="uploads-max-size">Max size per file (MB)</label>
+      <input
+        id="uploads-max-size"
+        class="form-control"
+        type="number"
+        [min]="minFileSizeMb"
+        [max]="settings().ceilingMb"
+        step="1"
+        formControlName="maxFileSizeMb"
+        data-cy="uploads-max-size"
+      />
+      <div class="form-text" data-cy="uploads-ceiling">
+        {{ minFileSizeMb }} to {{ settings().ceilingMb }} MB, the server's ceiling
+      </div>
+    </div>
+  </div>
+
+  <p class="small text-body-secondary mt-3 mb-0" data-cy="uploads-ceiling-note">
+    To allow files larger than {{ settings().ceilingMb }} MB, raise
+    <code>UPLOAD_MAX_SIZE_MB</code> on the backend, the frontend's nginx limit and the
+    <code>client_max_body_size</code> of any reverse proxy in front of PrintBridge. These only have
+    to fit one file. The allowed file types are set with <code>UPLOAD_ALLOWED_EXTENSIONS</code>.
+  </p>
+
+  <div class="mt-3">
+    <button type="submit" class="btn btn-primary" [disabled]="saving()" data-cy="uploads-save">
+      {{ saving() ? 'Saving…' : 'Save' }}
+    </button>
+  </div>
+</form>

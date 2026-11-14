@@ -1,11 +1,11 @@
 # Model info and settings
 
-Issue: #12, extended by #15 ([server slicing](server-slicing.md)). The 3D preview is #13; material data from Spoolman is #11.
+Issue: #12, extended by #15 ([server slicing](server-slicing.md)) and #23 (one card per file, request totals). The 3D preview is #13; material data from Spoolman is #11.
 
 ## What it does
 
 - **Analysis:** every uploaded STL/3MF is read right after the upload and the result is stored with the file. If the file can't be read (odd or damaged, but it passed the [upload validation](print-requests.md#upload-validation-backend)), the upload still succeeds and the result is marked failed.
-- **Model card** on the request detail page, for the requester and the admin:
+- **Model card** on the request detail page, for the requester and the admin, one per file. The cards are collapsible: the first is open, the others closed, and the header shows the file name, "× quantity", grams, time and the badges. Plate images load when a card is first opened.
 
   | | STL / plain 3MF (and other slicers' projects) | Bambu Studio / OrcaSlicer project |
   |---|---|---|
@@ -23,6 +23,8 @@ Issue: #12, extended by #15 ([server slicing](server-slicing.md)). The 3D previe
   2. the slice data saved in the file: a project sliced in Bambu Studio / OrcaSlicer and then saved has `Metadata/slice_info.config` with the time, weight and filaments per plate (MakerWorld downloads usually aren't sliced);
   3. an estimate from the plate's volume: `~X g` = volume (cm³) × 1.24 g/cm³ (PLA) × 0.35. Both numbers are hardcoded (`FilamentEstimate`, `TODO: #11`). Estimates have no print time.
 - **Totals:** the grams of all plates with objects added up, shown as exact, `(partly estimated)` or `(estimate)`. The total print time only shows when every plate has one.
+- <a id="totals-of-a-request"></a>**Totals of a request** (#23), in the request's details card: every file's grams and print time times its quantity, added up. The grams are exact, `(partly estimated)` or `(estimate)` like a single file; files whose details aren't known yet (not analysed, unreadable) don't count, and the page says how many were left out. The time adds up the files that have one; while some don't (not sliced), it shows as `~… (partial time)`.
+- **Badges** in a card's header, visible when collapsed too: *Slicing…*, *Slicing failed* and *Too big for …*.
 - **Fit check:** a plate (or the whole model) fits if X and Y fit as placed or turned 90°, and the height fits Z (0,01 mm slack for rounding). It is done when the request is shown, against the build plate of the printer the file was [sliced](server-slicing.md) for, else of the default printer, so changing a printer applies to existing requests. Without printers there is no check; the admin sees a hint linking to *Settings*.
 - **Settings** (`/admin/settings`, navbar *Settings*, admin only): the printers you own, each with its build plate X/Y/Z in whole mm (1–2000), and a default printer. See [server slicing](server-slicing.md#settings-adminsettings).
 - **Older uploads:** at startup the backend analyses all files that have no result yet, one per transaction, in a background thread (`ModelInfoBackfill`, switch: `printbridge.model-info.backfill-on-start`). Failed files keep their failed result and are not retried.

@@ -281,4 +281,60 @@ describe('ModelInfoCard', () => {
       expect(create(BAMBU)['placeholder']()).toBeNull();
     });
   });
+
+  describe('collapsing (#23)', () => {
+    function createClosed(info: ModelInfo) {
+      const fixture = TestBed.createComponent(ModelInfoCard);
+      fixture.componentRef.setInput('info', info);
+      fixture.componentRef.setInput('requestId', 4);
+      fixture.componentRef.setInput('fileId', 7);
+      fixture.componentRef.setInput('filename', 'lid.3mf');
+      fixture.componentRef.setInput('quantity', 3);
+      fixture.componentRef.setInput('startOpen', false);
+      fixture.detectChanges();
+      return fixture.componentInstance;
+    }
+
+    it('starts open by default', () => {
+      expect(create(STL_INFO)['open']()).toBe(true);
+    });
+
+    it('starts closed when asked and opens on click', () => {
+      const card = createClosed(STL_INFO);
+      expect(card['open']()).toBe(false);
+      card['toggle']();
+      expect(card['open']()).toBe(true);
+      card['toggle']();
+      expect(card['open']()).toBe(false);
+    });
+
+    it('loads the plate images only once it is first opened', () => {
+      previewService.thumbnail.mockReturnValue(of(new Blob(['png'])));
+      const card = createClosed(BAMBU);
+      expect(previewService.thumbnail).not.toHaveBeenCalled();
+
+      card['toggle']();
+      expect(previewService.thumbnail).toHaveBeenCalledTimes(3);
+      card['toggle']();
+      card['toggle']();
+      expect(previewService.thumbnail).toHaveBeenCalledTimes(3);
+    });
+
+    it('sums up weight and time for the header', () => {
+      expect(create(BAMBU)['headerSummary']()).toBe('65,25 g · 1 h 35 min');
+      expect(create(STL_INFO)['headerSummary']()).toBe('~4 g');
+      expect(create({ ...STL_INFO, status: 'PENDING', totalGrams: null })['headerSummary']()).toBe(
+        '',
+      );
+    });
+  });
+
+  it('flags failed slicing in the header', () => {
+    expect(create(STL_INFO)['slicingFailed']()).toBe(false);
+    const failed = {
+      ...STL_INFO,
+      slicing: { ...NO_SLICING, enabled: true, status: 'FAILED' as const },
+    };
+    expect(create(failed)['slicingFailed']()).toBe(true);
+  });
 });

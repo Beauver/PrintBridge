@@ -42,6 +42,7 @@ export const REQUEST: PrintRequest = {
       originalFilename: 'benchy.stl',
       type: 'STL',
       sizeBytes: 2048,
+      quantity: 1,
       createdAt: '2026-02-01T10:00:00Z',
       modelInfo: {
         status: 'PENDING',
@@ -50,6 +51,15 @@ export const REQUEST: PrintRequest = {
       } as unknown as ModelInfo,
     },
   ],
+  totals: {
+    files: 1,
+    copies: 1,
+    grams: null,
+    weight: null,
+    printSeconds: null,
+    printTimePartial: false,
+    fits: null,
+  },
   nextStatuses: ['IN_REVIEW', 'ACCEPTED', 'DECLINED'],
 };
 
@@ -107,6 +117,7 @@ export const NO_SETTINGS: Settings = {
   slicing: { enabled: false, timeoutMinutes: 10 },
   defaultPrinterId: null,
   printers: [],
+  uploads: { maxFiles: 10, maxFileSizeMb: 100, ceilingMb: 100 },
 };
 
 /** The P1S as the slicer lists it (0.2, 0.4 and 0.6 mm nozzles). */

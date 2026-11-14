@@ -23,6 +23,8 @@ import {
 /**
  * What the backend knows about the model file: size, plates, weight, time and filaments, from
  * server slicing, the file's own slice data or an estimate (see docs/features/server-slicing.md).
+ * Collapsible (#23): the header keeps the file name, quantity, weight, time and badges; the body
+ * starts with whatever the page projects into it (the file's actions).
  */
 @Component({
   selector: 'app-model-info-card',
@@ -42,6 +44,15 @@ export class ModelInfoCard implements OnInit {
   /** True while a re-slice request is on its way. */
   readonly reslicing = input(false);
   readonly reslice = output<void>();
+  /** Shown in the header; "Model" without one. */
+  readonly filename = input<string | null>(null);
+  /** Copies of this file, shown as "× 3". */
+  readonly quantity = input(1);
+  /** Whether the card starts open; only the first file's does on the request page. */
+  readonly startOpen = input(true);
+
+  protected readonly open = signal(false);
+  private thumbnailsLoaded = false;
 
   /** Object URLs of the plate images Bambu files carry, by plate number. */
   protected readonly thumbnails = signal<ReadonlyMap<number, string>>(new Map());
@@ -74,12 +85,30 @@ export class ModelInfoCard implements OnInit {
     });
   }
 
-  /** Only Bambu projects have plate images; a plate without one just shows none. */
   ngOnInit(): void {
+    this.open.set(this.startOpen());
+    if (this.open()) {
+      this.loadThumbnails();
+    }
+  }
+
+  protected toggle(): void {
+    this.open.set(!this.open());
+    if (this.open()) {
+      this.loadThumbnails();
+    }
+  }
+
+  /**
+   * Once, when the card is first opened. Only Bambu projects have plate images; a plate without
+   * one just shows none.
+   */
+  private loadThumbnails(): void {
     const info = this.info();
-    if (info.status !== 'ANALYZED' || info.source !== 'BAMBU') {
+    if (this.thumbnailsLoaded || info.status !== 'ANALYZED' || info.source !== 'BAMBU') {
       return;
     }
+    this.thumbnailsLoaded = true;
     for (const plate of info.plates) {
       this.previewService.thumbnail(this.requestId(), this.fileId(), plate.index).subscribe({
         next: (image) => {
@@ -142,6 +171,20 @@ export class ModelInfoCard implements OnInit {
       note = '(partly estimated)';
     }
     return { text: `~${formatGrams(Math.round(info.totalGrams))}`, note };
+  });
+
+  /** "~78 g · 2 h 5 min" for the header; empty while nothing is known. */
+  protected readonly headerSummary = computed(() => {
+    const parts: string[] = [];
+    const weight = this.weight();
+    if (weight) {
+      parts.push(weight.text);
+    }
+    const time = this.printTime();
+    if (time) {
+      parts.push(time);
+    }
+    return parts.join(' · ');
   });
 
   protected readonly printTime = computed(() => {
@@ -211,6 +254,11 @@ export class ModelInfoCard implements OnInit {
       return `Made for ${madeFor}. Numbers are for your ${target}`;
     }
     return target;
+  });
+
+  /** Shown in the header, so a collapsed card still flags it; the reason stays in the body (admin). */
+  protected readonly slicingFailed = computed(() => {
+    return this.info().slicing.status === 'FAILED';
   });
 
   /** Only the admin gets the reason; for others the card just falls back. */

@@ -14,11 +14,16 @@ import jakarta.ws.rs.*;
 import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
+import jakarta.ws.rs.core.StreamingOutput;
 import jakarta.ws.rs.core.UriBuilder;
+import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
+import java.nio.file.Files;
 import java.util.List;
+import java.util.zip.ZipEntry;
+import java.util.zip.ZipOutputStream;
 
 /** Print requests: users manage their own; the admin can open, review and delete any of them. */
 @Path("/requests")
@@ -60,9 +65,8 @@ public class PrintRequestResource {
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     public Response create(@Valid NewPrintRequestForm form) {
-        UploadedModel upload = new UploadedModel(form.file.fileName(), form.file.uploadedFile(), form.file.size());
         PrintRequestDto created = service.create(currentUser.id(),
-                new NewPrintRequest(form.name, form.description, upload));
+                new NewPrintRequest(form.name, form.description, upload(form.file), quantityOrOne(form.quantity)));
         return Response.created(UriBuilder.fromPath("/api/requests/{id}").build(created.id()))
                 .entity(created)
                 .build();
@@ -72,6 +76,51 @@ public class PrintRequestResource {
     @Path("/{id}")
     public PrintRequestDto get(@PathParam("id") long id) {
         return service.get(id, currentUser.caller());
+    }
+
+    /** Adds a model file to the request (#23); answers with the whole request. */
+    @POST
+    @Path("/{id}/files")
+    @Consumes(MediaType.MULTIPART_FORM_DATA)
+    public Response addFile(@PathParam("id") long id, @Valid NewFileForm form) {
+        PrintRequestDto updated = service.addFile(id, upload(form.file), quantityOrOne(form.quantity),
+                currentUser.caller());
+        return Response.status(Response.Status.CREATED).entity(updated).build();
+    }
+
+    @DELETE
+    @Path("/{id}/files/{fileId}")
+    public PrintRequestDto removeFile(@PathParam("id") long id, @PathParam("fileId") long fileId) {
+        return service.removeFile(id, fileId, currentUser.caller());
+    }
+
+    @PUT
+    @Path("/{id}/files/{fileId}/quantity")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public PrintRequestDto changeQuantity(@PathParam("id") long id, @PathParam("fileId") long fileId,
+                                          @Valid @NotNull QuantityChangeRequest request) {
+        return service.changeQuantity(id, fileId, request.quantity(), currentUser.caller());
+    }
+
+    /** Every file of the request in one ZIP, under its original name. */
+    @GET
+    @Path("/{id}/files.zip")
+    @Produces({"application/zip", MediaType.APPLICATION_JSON})
+    public Response downloadAll(@PathParam("id") long id) {
+        FileBundle bundle = service.files(id, currentUser.caller());
+        // Streamed, so a large request isn't held in memory. Every file was checked to be on disk.
+        StreamingOutput zip = output -> {
+            try (ZipOutputStream out = new ZipOutputStream(output)) {
+                for (StoredFile file : bundle.files()) {
+                    out.putNextEntry(new ZipEntry(file.filename()));
+                    Files.copy(file.path(), out);
+                    out.closeEntry();
+                }
+            }
+        };
+        return Response.ok(zip, "application/zip")
+                .header(HttpHeaders.CONTENT_DISPOSITION, contentDisposition(bundle.name()))
+                .build();
     }
 
     @GET
@@ -104,12 +153,12 @@ public class PrintRequestResource {
                 .build();
     }
 
-    /** Slices the request's files again on the server (admin). */
+    /** Slices one file of the request again on the server (admin). */
     @POST
-    @Path("/{id}/reslice")
+    @Path("/{id}/files/{fileId}/reslice")
     @RolesAllowed(Role.ADMIN_ROLE)
-    public PrintRequestDto reslice(@PathParam("id") long id) {
-        return service.reslice(id);
+    public PrintRequestDto reslice(@PathParam("id") long id, @PathParam("fileId") long fileId) {
+        return service.reslice(id, fileId);
     }
 
     @PUT
@@ -141,6 +190,17 @@ public class PrintRequestResource {
     public Response delete(@PathParam("id") long id) {
         service.delete(id, currentUser.caller());
         return Response.noContent().build();
+    }
+
+    private static UploadedModel upload(FileUpload file) {
+        return new UploadedModel(file.fileName(), file.uploadedFile(), file.size());
+    }
+
+    private static int quantityOrOne(Integer quantity) {
+        if (quantity == null) {
+            return RequestFile.MIN_QUANTITY;
+        }
+        return quantity;
     }
 
     /** RFC 6266: an ASCII fallback plus the exact UTF-8 name for browsers that support it. */
