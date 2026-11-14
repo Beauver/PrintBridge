@@ -1,0 +1,58 @@
+<div class="mb-3" data-cy="add-files">
+  <div class="d-flex flex-wrap align-items-center gap-2">
+    <label
+      class="btn btn-sm btn-outline-primary mb-0"
+      [class.disabled]="busy()"
+      for="add-files-input"
+      data-cy="add-files-button"
+      >Add files</label
+    >
+    <input
+      id="add-files-input"
+      type="file"
+      class="d-none"
+      multiple
+      [accept]="accept()"
+      [disabled]="busy()"
+      (change)="onFilesSelected($event)"
+      data-cy="add-files-input"
+    />
+    @if (limits()) {
+      <span class="small text-body-secondary" data-cy="add-files-limits">{{ limits() }}</span>
+    }
+  </div>
+
+  @for (upload of queue(); track upload.key; let first = $first) {
+    <div class="small mt-2" data-cy="add-files-upload">
+      {{ upload.file.name }}
+      @if (first) {
+        <div
+          class="progress"
+          role="progressbar"
+          [attr.aria-label]="'Upload progress of ' + upload.file.name"
+          [attr.aria-valuenow]="upload.progress"
+          aria-valuemin="0"
+          aria-valuemax="100"
+        >
+          <div class="progress-bar" [style.width.%]="upload.progress">{{ upload.progress }}%</div>
+        </div>
+      } @else {
+        <span class="text-body-secondary">waiting</span>
+      }
+    </div>
+  }
+
+  @if (failed().length > 0) {
+    <div class="alert alert-warning alert-dismissible py-2 mt-2 mb-0" data-cy="add-files-failed">
+      These files weren't added:
+      <ul class="mb-0">
+        @for (failure of failed(); track $index) {
+          <li>
+            <span class="text-break">{{ failure.filename }}</span>: {{ failure.reason }}
+          </li>
+        }
+      </ul>
+      <button type="button" class="btn-close" aria-label="Close" (click)="dismissFailed()"></button>
+    </div>
+  }
+</div>

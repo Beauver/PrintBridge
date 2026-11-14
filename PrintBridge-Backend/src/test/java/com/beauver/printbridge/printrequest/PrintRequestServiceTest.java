@@ -6,6 +6,10 @@ import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
+import com.beauver.printbridge.modelinfo.ModelInfoStatus;
+import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
+import com.beauver.printbridge.settings.SettingsService;
+import com.beauver.printbridge.settings.UploadLimits;
 import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.storage.FileStorage;
@@ -49,6 +53,8 @@ class PrintRequestServiceTest {
     ModelInfoService modelInfo;
     @Mock
     SlicingService slicing;
+    @Mock
+    SettingsService settings;
 
     @TempDir
     Path dir;
@@ -72,6 +78,10 @@ class PrintRequestServiceTest {
         service.validator = validator;
         service.storage = storage;
         service.afterTransaction = afterTransaction;
+        service.settings = settings;
+        lenient().when(settings.uploads()).thenReturn(new UploadLimits(3, 2, 5));
+        lenient().when(modelInfo.describe(any(), anyBoolean()))
+                .thenReturn(ModelInfoDto.withStatus(ModelInfoStatus.PENDING, null));
         service.uploadConfig = new UploadConfig() {
             @Override
             public int maxSizeMb() {
@@ -112,7 +122,7 @@ class PrintRequestServiceTest {
     }
 
     private NewPrintRequest input(String filename, long size) {
-        return new NewPrintRequest(" Benchy ", "  ", new UploadedModel(filename, dir.resolve("upload"), size));
+        return new NewPrintRequest(" Benchy ", "  ", new UploadedModel(filename, dir.resolve("upload"), size), 1);
     }
 
     private Runnable captured(boolean commit) {
@@ -132,6 +142,7 @@ class PrintRequestServiceTest {
         allowed = List.of("STL", "obj", "stl");
         UploadConfigDto config = service.uploadConfig();
         assertEquals(2L * 1024 * 1024, config.maxSizeBytes());
+        assertEquals(3, config.maxFiles());
         assertEquals(List.of("stl"), config.allowedExtensions());
     }
 
@@ -162,7 +173,7 @@ class PrintRequestServiceTest {
         verify(requests).flush();
 
         captured(false).run();
-        verify(storage).deleteDirectory("9");
+        verify(storage).deleteFile("9/uuid.stl");
     }
 
     @Test
@@ -176,9 +187,10 @@ class PrintRequestServiceTest {
         when(storage.store(any(), any(), eq("3mf"))).thenReturn("1/uuid.3mf");
 
         PrintRequestDto dto = service.create(2,
-                new NewPrintRequest("Box", " A box ", new UploadedModel("box.3mf", dir.resolve("upload"), 10)));
+                new NewPrintRequest("Box", " A box ", new UploadedModel("box.3mf", dir.resolve("upload"), 10), 4));
 
         assertEquals("A box", dto.description());
+        assertEquals(4, dto.files().getFirst().quantity());
         assertEquals(ModelFileType.THREE_MF, dto.files().getFirst().type());
     }
 
@@ -530,5 +542,234 @@ class PrintRequestServiceTest {
         captor.getAllValues().forEach(Runnable::run);
         verify(storage).deleteDirectory("4");
         verify(storage).deleteDirectory("5");
+    }
+
+    // --- files of a request (#23) ---
+
+    private PrintRequest locked(RequestStatus status) {
+        PrintRequest r = request(4, user(2, "bob"), status);
+        lenient().when(requests.findLockedWithDetails(4)).thenReturn(Optional.of(r));
+        return r;
+    }
+
+    private UploadedModel upload(String filename) {
+        return new UploadedModel(filename, dir.resolve("upload"), 100);
+    }
+
+    private static RequestFile extraFile(PrintRequest r, long id, String name) {
+        RequestFile f = new RequestFile();
+        f.id = id;
+        f.originalFilename = name;
+        f.storagePath = r.id + "/" + id + ".stl";
+        f.fileType = ModelFileType.STL;
+        f.sizeBytes = 10;
+        r.addFile(f);
+        return f;
+    }
+
+    @Test
+    void ownerAddsFileWhileSubmitted() {
+        PrintRequest r = locked(RequestStatus.SUBMITTED);
+        when(validator.isValid(dir.resolve("upload"), ModelFileType.STL)).thenReturn(true);
+        when(storage.store(dir.resolve("upload"), "4", "stl")).thenReturn("4/new.stl");
+
+        PrintRequestDto dto = service.addFile(4, upload("lid.stl"), 3, BOB);
+
+        assertEquals(2, dto.files().size());
+        RequestFileDto added = dto.files().get(1);
+        assertEquals("lid.stl", added.originalFilename());
+        assertEquals(3, added.quantity());
+        assertEquals(4, dto.totals().copies());
+        RequestFile file = r.files.get(1);
+        verify(modelInfo).analyze(file);
+        verify(slicing).enqueueIfEnabled(file);
+        captured(false).run();
+        verify(storage).deleteFile("4/new.stl");
+    }
+
+    @Test
+    void ownerCannotAddFileOnceInReview() {
+        locked(RequestStatus.IN_REVIEW);
+        var e = assertThrows(ConflictException.class, () -> service.addFile(4, upload("lid.stl"), 1, BOB));
+        assertEquals("Files can only be changed while the request is submitted", e.getMessage());
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void adminAddsFileInAnyStatus() {
+        locked(RequestStatus.COMPLETED);
+        when(validator.isValid(any(), any())).thenReturn(true);
+        when(storage.store(any(), any(), any())).thenReturn("4/new.stl");
+        assertEquals(2, service.addFile(4, upload("lid.stl"), 1, ADMIN).files().size());
+    }
+
+    @Test
+    void addFileRefusedAtTheFileLimit() {
+        PrintRequest r = locked(RequestStatus.SUBMITTED);
+        extraFile(r, 201, "a.stl");
+        extraFile(r, 202, "b.stl");
+        var e = assertThrows(InvalidInputException.class, () -> service.addFile(4, upload("lid.stl"), 1, BOB));
+        assertEquals("A request can hold at most 3 files", e.getMessage());
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void addFileChecksTheUpload() {
+        locked(RequestStatus.SUBMITTED);
+        assertThrows(InvalidInputException.class, () -> service.addFile(4, upload("lid.obj"), 1, BOB));
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void otherUserCannotAddFile() {
+        locked(RequestStatus.SUBMITTED);
+        assertThrows(ResourceNotFoundException.class, () -> service.addFile(4, upload("lid.stl"), 1, EVE));
+        when(requests.findLockedWithDetails(5)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> service.addFile(5, upload("lid.stl"), 1, ADMIN));
+    }
+
+    @Test
+    void ownerRemovesFileAndItLeavesTheDiskAfterCommit() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
+        extraFile(r, 201, "lid.stl");
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+
+        PrintRequestDto dto = service.removeFile(4, 104, BOB);
+
+        assertEquals(List.of(201L), dto.files().stream().map(RequestFileDto::id).toList());
+        verify(requests).flush();
+        verify(storage, never()).deleteFile(any());
+        captured(true).run();
+        verify(storage).deleteFile("4/abc.stl");
+    }
+
+    @Test
+    void lastFileCannotBeRemoved() {
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(request(4, user(2, "bob"), RequestStatus.SUBMITTED)));
+        var e = assertThrows(ConflictException.class, () -> service.removeFile(4, 104, ADMIN));
+        assertEquals("A request needs at least one file; delete the request instead", e.getMessage());
+        verifyNoInteractions(afterTransaction);
+    }
+
+    @Test
+    void ownerCannotRemoveFileOnceAccepted() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.ACCEPTED);
+        extraFile(r, 201, "lid.stl");
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+        assertThrows(ConflictException.class, () -> service.removeFile(4, 201, BOB));
+        assertEquals(2, r.files.size());
+    }
+
+    @Test
+    void adminRemovesFileInAnyStatus() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.DECLINED);
+        extraFile(r, 201, "lid.stl");
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+        assertEquals(1, service.removeFile(4, 201, ADMIN).files().size());
+    }
+
+    @Test
+    void removingUnknownFileIsNotFound() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
+        extraFile(r, 201, "lid.stl");
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+        assertThrows(ResourceNotFoundException.class, () -> service.removeFile(4, 999, BOB));
+    }
+
+    @Test
+    void ownerChangesQuantityWhileSubmitted() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+
+        PrintRequestDto dto = service.changeQuantity(4, 104, 7, BOB);
+
+        assertEquals(7, dto.files().getFirst().quantity());
+        assertEquals(7, r.files.getFirst().quantity);
+        verify(requests).flush();
+    }
+
+    @Test
+    void ownerCannotChangeQuantityOnceInReview() {
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(request(4, user(2, "bob"), RequestStatus.IN_REVIEW)));
+        var e = assertThrows(ConflictException.class, () -> service.changeQuantity(4, 104, 2, BOB));
+        assertEquals("Quantities can only be changed while the request is submitted", e.getMessage());
+    }
+
+    @Test
+    void adminChangesQuantityUntilFinal() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.PRINTING);
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+        assertEquals(2, service.changeQuantity(4, 104, 2, ADMIN).files().getFirst().quantity());
+
+        r.status = RequestStatus.COMPLETED;
+        assertThrows(ConflictException.class, () -> service.changeQuantity(4, 104, 3, ADMIN));
+        assertEquals(2, r.files.getFirst().quantity);
+    }
+
+    @Test
+    void otherUserCannotChangeQuantity() {
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(request(4, user(2, "bob"), RequestStatus.SUBMITTED)));
+        assertThrows(ResourceNotFoundException.class, () -> service.changeQuantity(4, 104, 2, EVE));
+    }
+
+    @Test
+    void filesBundleGivesEveryFileAUniqueName() throws IOException {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
+        r.name = "Box/lid set";
+        extraFile(r, 201, "MODEL.stl");
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+        when(storage.resolve(any())).thenReturn(Files.writeString(dir.resolve("on-disk.stl"), "x"));
+
+        FileBundle bundle = service.files(4, BOB);
+
+        assertEquals("Box_lid set.zip", bundle.name());
+        assertEquals(List.of("model.stl", "MODEL (2).stl"), bundle.files().stream().map(StoredFile::filename).toList());
+    }
+
+    @Test
+    void filesBundleFailsWhenAFileIsMissing() {
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(request(4, user(2, "bob"), RequestStatus.SUBMITTED)));
+        when(storage.resolve("4/abc.stl")).thenReturn(dir.resolve("gone.stl"));
+        assertThrows(ResourceNotFoundException.class, () -> service.files(4, BOB));
+    }
+
+    @Test
+    void otherUserCannotDownloadAllFiles() {
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(request(4, user(2, "bob"), RequestStatus.SUBMITTED)));
+        assertThrows(ResourceNotFoundException.class, () -> service.files(4, EVE));
+    }
+
+    @Test
+    void uniqueNamesNumbersDuplicates() {
+        assertEquals(
+                List.of("a.stl", "b.stl", "a (2).stl", "A (3).stl", "noext", "noext (2)", ".hidden", ".hidden (2)"),
+                PrintRequestService.uniqueNames(
+                        List.of("a.stl", "b.stl", "a.stl", "A.stl", "noext", "noext", ".hidden", ".hidden")));
+    }
+
+    @Test
+    void uniqueNamesSkipsANumberThatIsTaken() {
+        assertEquals(List.of("a (2).stl", "a.stl", "a (3).stl"),
+                PrintRequestService.uniqueNames(List.of("a (2).stl", "a.stl", "a.stl")));
+    }
+
+    @Test
+    void resliceQueuesOnlyThatFile() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.ACCEPTED);
+        RequestFile lid = extraFile(r, 201, "lid.stl");
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+
+        service.reslice(4, 201);
+
+        verify(slicing).reslice(List.of(lid));
+    }
+
+    @Test
+    void resliceOfUnknownFileOrRequestIsNotFound() {
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(request(4, user(2, "bob"), RequestStatus.ACCEPTED)));
+        assertThrows(ResourceNotFoundException.class, () -> service.reslice(4, 999));
+        when(requests.findWithDetails(5)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> service.reslice(5, 105));
+        verifyNoInteractions(slicing);
     }
 }

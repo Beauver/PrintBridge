@@ -10,6 +10,10 @@ import java.time.Instant;
 @Table(name = "request_files")
 public class RequestFile extends PanacheEntityBase {
 
+    /** Copies of one file in a request (#23); the database checks the same range. */
+    public static final int MIN_QUANTITY = 1;
+    public static final int MAX_QUANTITY = 100;
+
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
     public Long id;
@@ -31,6 +35,10 @@ public class RequestFile extends PanacheEntityBase {
 
     @Column(name = "size_bytes", nullable = false)
     public long sizeBytes;
+
+    /** How many copies of this file to print. */
+    @Column(nullable = false)
+    public int quantity = MIN_QUANTITY;
 
     @Column(name = "created_at", nullable = false)
     public Instant createdAt;

@@ -3,6 +3,7 @@ package com.beauver.printbridge.settings;
 import com.beauver.printbridge.settings.dto.PrinterInputDto;
 import com.beauver.printbridge.settings.dto.SettingsDto;
 import com.beauver.printbridge.settings.dto.SlicingSettingsDto;
+import com.beauver.printbridge.settings.dto.UploadSettingsDto;
 import com.beauver.printbridge.user.Role;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -31,6 +32,12 @@ public class SettingsResource {
     @Path("/slicing")
     public SettingsDto updateSlicing(@Valid @NotNull SlicingSettingsDto slicing) {
         return service.updateSlicing(slicing);
+    }
+
+    @PUT
+    @Path("/uploads")
+    public SettingsDto updateUploads(@Valid @NotNull UploadSettingsDto uploads) {
+        return service.updateUploads(uploads);
     }
 
     @POST

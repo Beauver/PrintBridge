@@ -29,6 +29,12 @@ describe('SettingsService', () => {
     const update = http.expectOne({ method: 'PUT', url: '/api/settings/slicing' });
     expect(update.request.body).toEqual(slicing);
     update.flush({});
+
+    const uploads = { maxFiles: 5, maxFileSizeMb: 50 };
+    service.updateUploads(uploads).subscribe();
+    const uploadsUpdate = http.expectOne({ method: 'PUT', url: '/api/settings/uploads' });
+    expect(uploadsUpdate.request.body).toEqual(uploads);
+    uploadsUpdate.flush({});
   });
 
   it('calls the printers API', () => {

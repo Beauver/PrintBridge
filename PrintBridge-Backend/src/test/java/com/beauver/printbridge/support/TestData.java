@@ -53,7 +53,7 @@ public class TestData {
         em.createNativeQuery("TRUNCATE users, refresh_tokens, print_requests, request_files, model_info "
                 + "RESTART IDENTITY CASCADE").executeUpdate();
         em.createNativeQuery("UPDATE app_settings SET slicing_enabled = FALSE, slicing_timeout_minutes = 10, "
-                + "default_printer_id = NULL").executeUpdate();
+                + "default_printer_id = NULL, upload_max_files = NULL, upload_max_file_size_mb = NULL").executeUpdate();
         // Not TRUNCATE: app_settings references printers, and its row must stay.
         em.createNativeQuery("DELETE FROM printers").executeUpdate();
         em.createNativeQuery("ALTER SEQUENCE printers_id_seq RESTART").executeUpdate();
@@ -74,7 +74,7 @@ public class TestData {
             Path upload = Files.createTempFile("upload", ".stl");
             Files.write(upload, ModelFiles.binaryStl(1));
             PrintRequestDto created = printRequestService.create(owner.id,
-                    new NewPrintRequest(name, null, new UploadedModel("benchy.stl", upload, Files.size(upload))));
+                    new NewPrintRequest(name, null, new UploadedModel("benchy.stl", upload, Files.size(upload)), 1));
             Files.delete(upload);
             setStatus(created.id(), status);
             return created;
@@ -86,6 +86,15 @@ public class TestData {
     @Transactional
     public void setPrice(long requestId, java.math.BigDecimal price) {
         em.find(PrintRequest.class, requestId).finalPrice = price;
+    }
+
+    /** Writes the upload limits straight to the table, past the checks of the settings endpoint. */
+    @Transactional
+    public void setUploadLimits(Integer maxFiles, Integer maxFileSizeMb) {
+        em.createNativeQuery("UPDATE app_settings SET upload_max_files = ?1, upload_max_file_size_mb = ?2")
+                .setParameter(1, maxFiles)
+                .setParameter(2, maxFileSizeMb)
+                .executeUpdate();
     }
 
     @Transactional

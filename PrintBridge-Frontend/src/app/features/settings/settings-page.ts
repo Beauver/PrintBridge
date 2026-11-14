@@ -5,11 +5,12 @@ import { SlicerPrinter, SlicerStatus } from '../../core/models/slicer.model';
 import { PrintersCard } from './printers-card/printers-card';
 import { SettingsService } from './settings.service';
 import { SlicingSettingsCard } from './slicing-settings/slicing-settings';
+import { UploadSettingsCard } from './upload-settings/upload-settings';
 
-/** Admin page for application settings: server slicing and the printers. */
+/** Admin page for application settings: the printers, server slicing and the upload limits. */
 @Component({
   selector: 'app-settings-page',
-  imports: [SlicingSettingsCard, PrintersCard],
+  imports: [SlicingSettingsCard, PrintersCard, UploadSettingsCard],
   templateUrl: './settings-page.html',
 })
 export class SettingsPage implements OnInit {

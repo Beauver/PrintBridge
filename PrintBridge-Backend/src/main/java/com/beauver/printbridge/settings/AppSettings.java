@@ -25,6 +25,14 @@ public class AppSettings extends PanacheEntityBase {
     @Column(name = "default_printer_id")
     public Long defaultPrinterId;
 
+    /** Most files one request may hold; {@code null} means {@link UploadLimits#DEFAULT_MAX_FILES}. */
+    @Column(name = "upload_max_files")
+    public Integer uploadMaxFiles;
+
+    /** Largest model file in MB; {@code null} means the server's ceiling ({@code UPLOAD_MAX_SIZE_MB}). */
+    @Column(name = "upload_max_file_size_mb")
+    public Integer uploadMaxFileSizeMb;
+
     @Column(name = "updated_at", nullable = false)
     public Instant updatedAt;
 

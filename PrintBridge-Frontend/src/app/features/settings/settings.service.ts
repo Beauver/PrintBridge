@@ -1,7 +1,12 @@
 import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { PrinterInput, Settings, SlicingSettings } from '../../core/models/settings.model';
+import {
+  PrinterInput,
+  Settings,
+  SlicingSettings,
+  UploadSettings,
+} from '../../core/models/settings.model';
 import { SlicerPrinter, SlicerProfiles, SlicerStatus } from '../../core/models/slicer.model';
 
 /** Admin settings API, plus what the slicer service offers for them. Changes answer with all settings. */
@@ -15,6 +20,10 @@ export class SettingsService {
 
   updateSlicing(slicing: SlicingSettings): Observable<Settings> {
     return this.http.put<Settings>('/api/settings/slicing', slicing);
+  }
+
+  updateUploads(uploads: UploadSettings): Observable<Settings> {
+    return this.http.put<Settings>('/api/settings/uploads', uploads);
   }
 
   addPrinter(printer: PrinterInput): Observable<Settings> {

@@ -3,11 +3,14 @@ package com.beauver.printbridge.settings;
 import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
+import com.beauver.printbridge.printrequest.UploadConfig;
 import com.beauver.printbridge.settings.dto.BuildPlateDto;
 import com.beauver.printbridge.settings.dto.PrinterDto;
 import com.beauver.printbridge.settings.dto.PrinterInputDto;
 import com.beauver.printbridge.settings.dto.SettingsDto;
 import com.beauver.printbridge.settings.dto.SlicingSettingsDto;
+import com.beauver.printbridge.settings.dto.UploadLimitsDto;
+import com.beauver.printbridge.settings.dto.UploadSettingsDto;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
@@ -22,7 +25,7 @@ import java.util.TreeSet;
 
 /**
  * Settings the admin edits in the browser instead of through environment variables: server
- * slicing and the owned printers (build plate and slicing setup each).
+ * slicing, the owned printers (build plate and slicing setup each) and the upload limits.
  */
 @ApplicationScoped
 public class SettingsService {
@@ -32,6 +35,9 @@ public class SettingsService {
 
     @Inject
     PrinterRepository printers;
+
+    @Inject
+    UploadConfig uploadConfig;
 
     /** Fired after server slicing was switched on or off, inside the saving transaction. */
     @Inject
@@ -68,6 +74,30 @@ public class SettingsService {
             slicingToggled.fire(new SlicingToggled(settings.slicingEnabled));
         }
         return toDto(settings);
+    }
+
+    /**
+     * Sets the upload limits (#23). The size per file can't go above the server's ceiling
+     * ({@code UPLOAD_MAX_SIZE_MB}): the HTTP layer refuses bigger bodies before the app sees them.
+     */
+    @Transactional
+    public SettingsDto updateUploads(UploadSettingsDto input) {
+        int ceiling = uploadConfig.maxSizeMb();
+        if (input.maxFileSizeMb() > ceiling) {
+            throw new InvalidInputException("Max size per file can be at most " + ceiling
+                    + " MB; raise UPLOAD_MAX_SIZE_MB on the server to allow more");
+        }
+        AppSettings settings = repository.get();
+        settings.uploadMaxFiles = input.maxFiles();
+        settings.uploadMaxFileSizeMb = input.maxFileSizeMb();
+        repository.flush();
+        return toDto(settings);
+    }
+
+    /** The upload limits that apply now. */
+    @Transactional
+    public UploadLimits uploads() {
+        return uploads(repository.get());
     }
 
     /** Adds a printer; the first one becomes the default printer. */
@@ -170,8 +200,27 @@ public class SettingsService {
 
     private SettingsDto toDto(AppSettings settings) {
         List<PrinterDto> owned = printers.listInOrder().stream().map(SettingsService::toDto).toList();
+        UploadLimits uploads = uploads(settings);
         return new SettingsDto(new SlicingSettingsDto(settings.slicingEnabled, settings.slicingTimeoutMinutes),
-                settings.defaultPrinterId, owned);
+                settings.defaultPrinterId, owned,
+                new UploadLimitsDto(uploads.maxFiles(), uploads.maxFileSizeMb(), uploads.ceilingMb()));
+    }
+
+    /**
+     * Unset limits take their default. A saved size above the ceiling (the ceiling was lowered
+     * in the environment later) is capped, since bigger uploads can't get through anyway.
+     */
+    private UploadLimits uploads(AppSettings settings) {
+        int ceiling = uploadConfig.maxSizeMb();
+        int maxFiles = UploadLimits.DEFAULT_MAX_FILES;
+        if (settings.uploadMaxFiles != null) {
+            maxFiles = settings.uploadMaxFiles;
+        }
+        int maxFileSize = ceiling;
+        if (settings.uploadMaxFileSizeMb != null) {
+            maxFileSize = Math.min(settings.uploadMaxFileSizeMb, ceiling);
+        }
+        return new UploadLimits(maxFiles, maxFileSize, ceiling);
     }
 
     private static PrinterSettings toSettings(Printer printer) {

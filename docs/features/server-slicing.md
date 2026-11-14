@@ -23,7 +23,7 @@ Uploads are sliced on the server with [OrcaSlicer](https://github.com/OrcaSlicer
 
 ## What gets sliced, and how
 
-- New uploads are queued while slicing is on. Older requests are only sliced when the admin clicks **Re-slice** on the Model card (also after changing printers or profiles).
+- New uploads are queued while slicing is on. Older requests are only sliced when the admin clicks **Re-slice** on a file's Model card (also after changing printers or profiles).
 - One job at a time, in the background. The queue is the `slice_results` table, so it survives a restart (a job that was running is queued again).
 - Every file is sliced once, on one printer (not once per printer). Each plate is sliced separately, so a plate OrcaSlicer refuses only loses that plate.
 
@@ -45,7 +45,7 @@ A printer counts as owned when the project names the same model (case doesn't ma
 - The fit check uses the build plate of the printer it was sliced for.
 - A plate OrcaSlicer refused shows its own estimate (`~X g`); the total then says *(partly estimated)*. The admin also sees OrcaSlicer's reason under the plate.
 - When the whole job failed (slicer unreachable, timed out, file missing, …) the card falls back to the file's own slice data or the estimate. The admin sees *Slicing failed: <reason>* and can re-slice; the requester just sees the fallback.
-- **Re-slice** (admin, while slicing is on): queues the files again. Refused (`409`) while a file is still queued or running.
+- **Re-slice** (admin, while slicing is on): queues that card's file again; the request's other files are left alone (#23). Refused (`409`) while the file is still queued or running.
 - Switching slicing off drops queued jobs (a running one finishes). Switching it on again doesn't re-queue them.
 
 ## Slicer service
@@ -61,7 +61,7 @@ Measured on the four sample projects and an STL: 1–5 s per file, peak memory 0
 
 ## Data
 
-- `app_settings`: `slicing_enabled`, `slicing_timeout_minutes` (V5), `default_printer_id` (V6).
+- `app_settings`: `slicing_enabled`, `slicing_timeout_minutes` (V5), `default_printer_id` (V6). The upload limits (V8) are described in [print requests](print-requests.md#upload-settings-adminsettings).
 - `printers` (V6): `model` (unique, case-insensitive), `build_plate_x/y/z`, `owned_nozzles` (`NUMERIC(4,2)[]`, mm), `default_nozzle`, `process`, `filament`. V6 moved the single printer of V4/V5 (when its build plate was set) into this table as the default.
 - `slice_results` (V5, printer columns V6): one row per file (`ON DELETE CASCADE`): `status` (`QUEUED`, `RUNNING`, `DONE`, `FAILED`), `printer`, `nozzle`, `made_for_printer`, `made_for_nozzle`, `plates` (JSONB per plate: grams, seconds, filaments or OrcaSlicer's refusal), `error`, `queued_at`, `finished_at`. Only the numbers are kept; the G-code is thrown away.
 
