@@ -4,13 +4,10 @@ import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.settings.dto.BuildPlateDto;
-import com.beauver.printbridge.settings.dto.PrinterDto;
 import com.beauver.printbridge.settings.dto.PrinterInputDto;
 import com.beauver.printbridge.settings.dto.SettingsDto;
 import com.beauver.printbridge.settings.dto.SlicingSettingsDto;
-import com.beauver.printbridge.settings.dto.UploadLimitsDto;
 import com.beauver.printbridge.settings.dto.UploadSettingsDto;
-import com.beauver.printbridge.settings.printer.BuildPlate;
 import com.beauver.printbridge.settings.printer.Printer;
 import com.beauver.printbridge.settings.printer.PrinterRepository;
 import com.beauver.printbridge.settings.printer.PrinterSettings;
@@ -41,6 +38,9 @@ public class SettingsService {
 
     @Inject
     UploadConfig uploadConfig;
+
+    @Inject
+    SettingsMapper mapper;
 
     /** Fired after server slicing was switched on or off, inside the saving transaction. */
     @Inject
@@ -173,7 +173,7 @@ public class SettingsService {
             throw new ConflictException("You already have a printer called " + sameModel.get().model);
         }
         List<BigDecimal> owned = normalize(input.ownedNozzles());
-        BigDecimal defaultNozzle = strip(input.defaultNozzle());
+        BigDecimal defaultNozzle = SettingsMapper.strip(input.defaultNozzle());
         if (defaultNozzle != null && !owned.isEmpty() && owned.stream().noneMatch(defaultNozzle::equals)) {
             throw new InvalidInputException("The default nozzle must be one of the owned nozzles");
         }
@@ -197,16 +197,12 @@ public class SettingsService {
         return printers.findByIdOptional(id).orElseThrow(() -> new ResourceNotFoundException("Printer not found"));
     }
 
-    private List<PrinterSettings> printerSettings() {
-        return printers.listInOrder().stream().map(SettingsService::toSettings).toList();
+    private SettingsDto toDto(AppSettings settings) {
+        return mapper.toDto(settings, printers.listInOrder(), uploads(settings));
     }
 
-    private SettingsDto toDto(AppSettings settings) {
-        List<PrinterDto> owned = printers.listInOrder().stream().map(SettingsService::toDto).toList();
-        UploadLimits uploads = uploads(settings);
-        return new SettingsDto(new SlicingSettingsDto(settings.slicingEnabled, settings.slicingTimeoutMinutes),
-                settings.defaultPrinterId, owned,
-                new UploadLimitsDto(uploads.maxFiles(), uploads.maxFileSizeMb(), uploads.ceilingMb()));
+    private List<PrinterSettings> printerSettings() {
+        return printers.listInOrder().stream().map(mapper::toSettings).toList();
     }
 
     /**
@@ -226,36 +222,12 @@ public class SettingsService {
         return new UploadLimits(maxFiles, maxFileSize, ceiling);
     }
 
-    private static PrinterSettings toSettings(Printer printer) {
-        return new PrinterSettings(printer.id, printer.model,
-                new BuildPlate(printer.buildPlateX, printer.buildPlateY, printer.buildPlateZ),
-                stripAll(printer.ownedNozzles), strip(printer.defaultNozzle), printer.process, printer.filament);
-    }
-
-    private static PrinterDto toDto(Printer printer) {
-        return new PrinterDto(printer.id, printer.model,
-                new BuildPlateDto(printer.buildPlateX, printer.buildPlateY, printer.buildPlateZ),
-                stripAll(printer.ownedNozzles), strip(printer.defaultNozzle), printer.process, printer.filament);
-    }
-
     /** Sorted, without duplicates or trailing zeros (0.40 and 0.4 are the same nozzle). */
     private static List<BigDecimal> normalize(List<BigDecimal> nozzles) {
         if (nozzles == null) {
             return List.of();
         }
-        return new ArrayList<>(new TreeSet<>(nozzles.stream().map(SettingsService::strip).toList()));
-    }
-
-    /** The database keeps two decimals (0.40); the API and the planner use 0.4. */
-    private static List<BigDecimal> stripAll(List<BigDecimal> nozzles) {
-        return nozzles.stream().map(SettingsService::strip).toList();
-    }
-
-    private static BigDecimal strip(BigDecimal value) {
-        if (value == null) {
-            return null;
-        }
-        return value.stripTrailingZeros();
+        return new ArrayList<>(new TreeSet<>(nozzles.stream().map(SettingsMapper::strip).toList()));
     }
 
     private static String blankToNull(String value) {

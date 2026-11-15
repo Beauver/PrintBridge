@@ -129,4 +129,21 @@ describe('AddFiles', () => {
     expect(requestsService.addFile).not.toHaveBeenCalled();
     expect(card['busy']()).toBe(false);
   });
+
+  it('cancels the remaining uploads and emits nothing once it is destroyed', () => {
+    const fixture = TestBed.createComponent(AddFiles);
+    fixture.componentRef.setInput('requestId', 4);
+    fixture.componentRef.setInput('fileCount', 1);
+    const leaving = fixture.componentInstance;
+    leaving.ngOnInit();
+    const input = { files: [stl(), stl(10, 'b.stl')], value: 'x' } as unknown as HTMLInputElement;
+    leaving['onFilesSelected']({ target: input } as unknown as Event);
+    expect(leaving.busy()).toBe(true);
+
+    fixture.destroy();
+    expect(uploads[0].observed).toBe(false);
+    uploads[0].next({ type: 'done', request: REQUEST });
+    expect(requestsService.addFile).toHaveBeenCalledTimes(1);
+    expect(added).toEqual([]);
+  });
 });

@@ -2,14 +2,16 @@ import { Location } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
+import { By } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
-import { of, throwError } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FileSaverService } from '../../../core/files/file-saver.service';
 import { PrintRequest, RequestFile } from '../../../core/models/print-request.model';
 import { NO_SLICING, REQUEST, STL_INFO } from '../../../../testing/fixtures';
 import { SliceStatus } from '../../../core/models/model-info.model';
-import { PrintRequestsService } from '../print-requests.service';
+import { PrintRequestsService, UploadEvent } from '../print-requests.service';
+import { AddFiles } from './add-files/add-files';
 import { RequestDetailPage, SLICING_POLL_MS } from './request-detail-page';
 
 describe('RequestDetailPage', () => {
@@ -498,5 +500,25 @@ describe('RequestDetailPage', () => {
       expect(page['confirmingRemoveId']()).toBeNull();
       expect(page['request']()).toEqual(TWO_FILES);
     });
+  });
+
+  it('says uploads are pending while "Add files" is uploading', () => {
+    const upload = new Subject<UploadEvent>();
+    requestsService.uploadConfig.mockReturnValue(
+      of({ maxSizeBytes: 1024, maxFiles: 3, allowedExtensions: ['stl'] }),
+    );
+    requestsService.addFile.mockReturnValue(upload);
+    const page = create();
+    expect(page.hasPendingUploads()).toBe(false);
+
+    fixture.detectChanges();
+    const addFiles = fixture.debugElement.query(By.directive(AddFiles))
+      .componentInstance as AddFiles;
+    const input = { files: [new File([new Uint8Array(10)], 'b.stl')], value: 'x' };
+    addFiles['onFilesSelected']({ target: input } as unknown as Event);
+    expect(page.hasPendingUploads()).toBe(true);
+
+    upload.next({ type: 'done', request: REQUEST });
+    expect(page.hasPendingUploads()).toBe(false);
   });
 });

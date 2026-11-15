@@ -21,14 +21,20 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class ModelInfoMapperTest {
+class ModelDetailsCalculatorTest {
 
+    final ModelDetailsCalculator calculator = new ModelDetailsCalculator();
     final ModelInfoMapper mapper = new ModelInfoMapper();
+
+    /** The details as the API returns them, so the mapper is covered too. */
+    private ModelInfoDto describe(ModelInfo info, SliceResult slice, ModelDetailsCalculator.Context context) {
+        return mapper.toDto(calculator.calculate(info, slice, context));
+    }
     static final PrinterSettings P1S = printer(1, "Bambu Lab P1S", new BuildPlate(256, 256, 250));
     static final PrinterSettings MINI = printer(2, "Bambu Lab A1 mini", new BuildPlate(180, 180, 180));
     static final SlicingSettings SETTINGS = new SlicingSettings(true, Duration.ofMinutes(10), List.of(P1S, MINI), P1S);
-    static final ModelInfoMapper.Context USER = new ModelInfoMapper.Context(SETTINGS, false);
-    static final ModelInfoMapper.Context ADMIN = new ModelInfoMapper.Context(SETTINGS, true);
+    static final ModelDetailsCalculator.Context USER = new ModelDetailsCalculator.Context(SETTINGS, false);
+    static final ModelDetailsCalculator.Context ADMIN = new ModelDetailsCalculator.Context(SETTINGS, true);
     static final Dimensions SMALL = new Dimensions(10, 10, 10);
     static final FilamentUsage WHITE = new FilamentUsage("PLA", "#FFFFFF", null);
 
@@ -63,7 +69,7 @@ class ModelInfoMapperTest {
 
     @Test
     void missingRowIsPendingAndCarriesSlicing() {
-        ModelInfoDto dto = mapper.toDto(null, null, USER);
+        ModelInfoDto dto = describe(null, null, USER);
 
         assertEquals(ModelInfoStatus.PENDING, dto.status());
         assertTrue(dto.slicing().enabled());
@@ -75,7 +81,7 @@ class ModelInfoMapperTest {
         ModelInfo info = new ModelInfo();
         info.status = ModelInfoStatus.FAILED;
 
-        ModelInfoDto dto = mapper.toDto(info, null, USER);
+        ModelInfoDto dto = describe(info, null, USER);
 
         assertEquals(ModelInfoStatus.FAILED, dto.status());
         assertNull(dto.volumeCm3());
@@ -84,7 +90,7 @@ class ModelInfoMapperTest {
 
     @Test
     void estimatesEachPlateFromItsVolume() {
-        ModelInfoDto dto = mapper.toDto(analyzed(plate(1, new Dimensions(300, 10, 10), null, null),
+        ModelInfoDto dto = describe(analyzed(plate(1, new Dimensions(300, 10, 10), null, null),
                 plate(2, SMALL, null, null)), null, USER);
 
         assertEquals(100.0, dto.volumeCm3());
@@ -100,7 +106,7 @@ class ModelInfoMapperTest {
 
     @Test
     void usesTheFilesOwnSliceData() {
-        ModelInfoDto dto = mapper.toDto(analyzed(plate(1, SMALL, 33.691, 2963L), plate(2, SMALL, 31.56, 2757L),
+        ModelInfoDto dto = describe(analyzed(plate(1, SMALL, 33.691, 2963L), plate(2, SMALL, 31.56, 2757L),
                 plate(3, null, null, null)), null, USER);
 
         assertEquals(65.25, dto.totalGrams());
@@ -118,7 +124,7 @@ class ModelInfoMapperTest {
         SlicedPlate sliced = new SlicedPlate(1, 40.0, 3000L, List.of(new FilamentUsage("PLA", "#FFFFFF", 10.0),
                 new FilamentUsage("PLA", "#FFFFFF", 25.0), new FilamentUsage("PETG", "#FF0000", 5.0)), null);
 
-        ModelInfoDto dto = mapper.toDto(analyzed(plate(1, SMALL, 33.0, 2900L)), done(null, sliced), USER);
+        ModelInfoDto dto = describe(analyzed(plate(1, SMALL, 33.0, 2900L)), done(null, sliced), USER);
 
         PlateDto plate = dto.plates().getFirst();
         assertEquals(40.0, plate.grams());
@@ -136,8 +142,8 @@ class ModelInfoMapperTest {
         SliceResult slice = done(null, new SlicedPlate(1, 20.0, 1000L, List.of(), null),
                 new SlicedPlate(2, null, null, List.of(), "Object conflicts"));
 
-        ModelInfoDto user = mapper.toDto(analyzed(plate(1, SMALL, null, null), plate(2, SMALL, null, null)), slice, USER);
-        ModelInfoDto admin = mapper.toDto(analyzed(plate(1, SMALL, null, null), plate(2, SMALL, null, null)), slice, ADMIN);
+        ModelInfoDto user = describe(analyzed(plate(1, SMALL, null, null), plate(2, SMALL, null, null)), slice, USER);
+        ModelInfoDto admin = describe(analyzed(plate(1, SMALL, null, null), plate(2, SMALL, null, null)), slice, ADMIN);
 
         assertEquals(24.0, user.totalGrams());
         assertEquals(WeightKind.PARTLY_ESTIMATED, user.weight());
@@ -152,7 +158,7 @@ class ModelInfoMapperTest {
         SliceResult slice = done(new BigDecimal("0.8"),
                 new SlicedPlate(1, 20.0, 1000L, List.of(new FilamentUsage("PLA", "#F2754E", 20.0)), null));
 
-        ModelInfoDto dto = mapper.toDto(analyzed(plate(1, SMALL, null, null)), slice, USER);
+        ModelInfoDto dto = describe(analyzed(plate(1, SMALL, null, null)), slice, USER);
 
         assertEquals(List.of(new FilamentDto("PLA", "#FFFFFF", null)), dto.plates().getFirst().filaments());
         assertEquals(new BigDecimal("0.8"), dto.slicing().madeForNozzle());
@@ -164,7 +170,7 @@ class ModelInfoMapperTest {
                 new SlicedPlate(1, 20.0, 1000L, List.of(new FilamentUsage("PLA", "#F2754E", 20.0)), null));
         slice.madeForPrinter = "Bambu Lab X1 Carbon";
 
-        ModelInfoDto dto = mapper.toDto(analyzed(plate(1, SMALL, null, null)), slice, USER);
+        ModelInfoDto dto = describe(analyzed(plate(1, SMALL, null, null)), slice, USER);
 
         assertEquals(List.of(new FilamentDto("PLA", "#FFFFFF", null)), dto.plates().getFirst().filaments());
         assertEquals("Bambu Lab X1 Carbon", dto.slicing().madeForPrinter());
@@ -176,15 +182,15 @@ class ModelInfoMapperTest {
         SliceResult onMini = done(null, new SlicedPlate(1, 20.0, 1000L, List.of(), null));
         onMini.printer = "bambu lab a1 mini";
 
-        ModelInfoDto dto = mapper.toDto(info, onMini, USER);
+        ModelInfoDto dto = describe(info, onMini, USER);
         assertFalse(dto.fits());
         assertEquals("Bambu Lab A1 mini", dto.fitPrinter());
 
         onMini.printer = "A printer that was removed";
-        assertTrue(mapper.toDto(info, onMini, USER).fits());
+        assertTrue(describe(info, onMini, USER).fits());
         onMini.status = SliceStatus.FAILED;
         onMini.printer = "Bambu Lab A1 mini";
-        assertEquals("Bambu Lab P1S", mapper.toDto(info, onMini, USER).fitPrinter());
+        assertEquals("Bambu Lab P1S", describe(info, onMini, USER).fitPrinter());
     }
 
     @Test
@@ -192,7 +198,7 @@ class ModelInfoMapperTest {
         SliceResult running = done(null, new SlicedPlate(1, 99.0, 1L, List.of(), null));
         running.status = SliceStatus.RUNNING;
 
-        ModelInfoDto dto = mapper.toDto(analyzed(plate(1, SMALL, null, null)), running, USER);
+        ModelInfoDto dto = describe(analyzed(plate(1, SMALL, null, null)), running, USER);
 
         assertEquals(4.0, dto.totalGrams());
         assertEquals(SliceStatus.RUNNING, dto.slicing().status());
@@ -204,16 +210,16 @@ class ModelInfoMapperTest {
         failed.status = SliceStatus.FAILED;
         failed.error = "The slicer can't be reached";
 
-        assertNull(mapper.toDto(null, failed, USER).slicing().error());
-        assertEquals("The slicer can't be reached", mapper.toDto(null, failed, ADMIN).slicing().error());
+        assertNull(describe(null, failed, USER).slicing().error());
+        assertEquals("The slicer can't be reached", describe(null, failed, ADMIN).slicing().error());
     }
 
     @Test
     void noFitCheckWithoutPrinters() {
-        ModelInfoMapper.Context noPlate = new ModelInfoMapper.Context(
+        ModelDetailsCalculator.Context noPlate = new ModelDetailsCalculator.Context(
                 new SlicingSettings(false, Duration.ofMinutes(10), List.of(), null), false);
 
-        ModelInfoDto dto = mapper.toDto(analyzed(plate(1, new Dimensions(999, 999, 999), null, null)), null, noPlate);
+        ModelInfoDto dto = describe(analyzed(plate(1, new Dimensions(999, 999, 999), null, null)), null, noPlate);
 
         assertNull(dto.fits());
         assertNull(dto.fitPrinter());
@@ -223,7 +229,7 @@ class ModelInfoMapperTest {
 
     @Test
     void onlyEmptyPlatesHaveNoTotals() {
-        ModelInfoDto dto = mapper.toDto(analyzed(plate(1, null, null, null)), null, USER);
+        ModelInfoDto dto = describe(analyzed(plate(1, null, null, null)), null, USER);
 
         assertNull(dto.totalGrams());
         assertNull(dto.weight());
