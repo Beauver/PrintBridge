@@ -1,10 +1,17 @@
 import { DOCUMENT } from '@angular/common';
 import { TestBed } from '@angular/core/testing';
-import { ActivatedRouteSnapshot, RouterStateSnapshot } from '@angular/router';
-import { LEAVE_WHILE_UPLOADING, pendingUploadsGuard } from './pending-uploads.guard';
+import {
+  LEAVE_WHILE_UPLOADING,
+  mayLeaveWhileUploading,
+  pendingUploadsGuard,
+} from './pending-uploads.guard';
 
 describe('pendingUploadsGuard', () => {
   const confirm = vi.fn();
+
+  it('is the check on leaving', () => {
+    expect(pendingUploadsGuard).toBe(mayLeaveWhileUploading);
+  });
 
   function leave(uploading: boolean): unknown {
     const page = {
@@ -13,12 +20,7 @@ describe('pendingUploadsGuard', () => {
       },
     };
     return TestBed.runInInjectionContext(() => {
-      return pendingUploadsGuard(
-        page,
-        {} as ActivatedRouteSnapshot,
-        {} as RouterStateSnapshot,
-        {} as RouterStateSnapshot,
-      );
+      return mayLeaveWhileUploading(page);
     });
   }
 
