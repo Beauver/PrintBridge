@@ -17,13 +17,14 @@ Packages under `com.beauver.printbridge`, one per domain:
 | Package | Contents |
 |---|---|
 | `license` | Public `/license`: licence and source link for the footer |
-| `auth` | Setup, login/refresh/logout, JWT and refresh tokens, `CurrentUser`, stale-token filter |
+| `auth` | Login/refresh/logout, `CurrentUser`. `token`: JWT and refresh tokens, refresh cookie, stale-token filter. `setup`: first-run setup |
 | `user` | `User` entity, user management, password hashing |
-| `printrequest` | Print requests and their model files: entities, upload validation, access rules |
-| `modelinfo` | Model analysis of uploaded files (`analysis`: STL/3MF readers, also the 3D preview mesh), stored results, startup backfill |
-| `preview` | 3D preview: mesh encoding, preview before upload, plate images |
-| `settings` | Admin-editable application settings (owned printers with their build plate, server slicing) |
-| `slicing` | Server slicing: job queue, planner (which printer/nozzle/profiles), background worker, client for the slicer service |
+| `printrequest` | Print requests: entity, status flow, upload rules, access rules. `file`: the model files of a request |
+| `modelfile` | Reading model files. The package itself is what others use: file types and validation, `ModelAnalyzer`, `PreviewMeshReader`, read limits, `StoredModelFiles` (find a stored file by id). `analysis`: what an analysis returns. `stl`, `threemf`: the readers per format (Bambu Studio / OrcaSlicer projects are in `threemf`). `geometry`: bounds, transforms, mesh building. `mesh`: the preview mesh and its placement on the bed |
+| `modelinfo` | What is known about an uploaded file: stored analysis results, startup backfill |
+| `preview` | 3D preview: mesh encoding, preview before upload, mesh and plate images of request files |
+| `settings` | Admin-editable application settings (server slicing, upload limits). `printer`: the owned printers with their build plate |
+| `slicing` | Server slicing: planner (which printer/nozzle/profiles), background worker. `result`: stored results, which are also the job queue. `client`: client for the slicer service |
 | `storage` | `FileStorage`: files on disk under `STORAGE_PATH` |
 | `common.error` | Domain exceptions and their HTTP mapping |
 | `common.transaction` | `AfterTransaction`: run disk side effects only after commit/rollback |
@@ -34,6 +35,18 @@ Layering:
 - **Repository** (`*Repository`, Panache repository pattern): queries.
 - Entities never leave the backend: resources return DTO records built by mappers.
 - Services that check ownership take a `Caller` (`id`, `admin`) from `CurrentUser.caller()` instead of reading the JWT themselves.
+- A package that grows past about ten files gets sub-packages by what the code is about (`token`, `printer`, `threemf`), not by layer: the class names already say resource, service or repository.
+- `dto` sub-packages hold only what crosses HTTP (JSON records, multipart forms). Values used between services sit in the package itself.
+
+Dependencies between packages go one way:
+
+```
+common, storage ◀─ modelfile ◀─ settings ◀─ modelinfo, slicing ◀─ printrequest ◀─ preview
+```
+
+- `auth` and `user` belong together and use each other; everything may use them.
+- `modelinfo` and `slicing` work on files by id and find them through `modelfile.StoredModelFiles`, which `printrequest` implements (`RequestFileLookup`).
+- Deleting a user fires `UserDeleted`; `printrequest` listens and removes the user's files, so `user` doesn't know about print requests.
 
 Conventions:
 - All endpoints live under `/api` (`quarkus.rest.path`).
@@ -52,7 +65,9 @@ Optional. OrcaSlicer's command line behind a small Python HTTP API (standard lib
 | `core/` | App-wide services: auth (service, interceptor, guards), setup status, licence and source link, theme, file saving, models, HTTP error helper |
 | `features/<name>/` | One folder per page/feature: page component (`.ts` + `.html`) and its API service |
 | `layout/` | Navbar, footer (licence and source links), theme toggle |
-| `shared/` | Reusable form and display helpers (status labels/badges, file sizes, prices, model sizes/weights/times); `model-viewer/`: the Three.js 3D preview, loaded on demand |
+| `shared/` | Reusable pieces: `format/` (status labels/badges, file sizes, prices, model sizes/weights/times), `forms/` (account form, field error texts), `price-tag/`, `model-viewer/` (the Three.js 3D preview, loaded on demand) |
+
+Test fixtures shared by the specs are in `src/testing/`, outside the app build.
 
 Layering: template → component → service → backend API. Components never use `HttpClient` directly.
 

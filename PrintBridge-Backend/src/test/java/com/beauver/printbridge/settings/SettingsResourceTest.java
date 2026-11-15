@@ -1,5 +1,7 @@
 package com.beauver.printbridge.settings;
 
+import com.beauver.printbridge.settings.printer.BuildPlate;
+import com.beauver.printbridge.settings.printer.PrinterSettings;
 import com.beauver.printbridge.support.TestData;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;

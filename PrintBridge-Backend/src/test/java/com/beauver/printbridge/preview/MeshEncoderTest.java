@@ -1,9 +1,9 @@
 package com.beauver.printbridge.preview;
 
-import com.beauver.printbridge.modelinfo.analysis.PreviewBed;
-import com.beauver.printbridge.modelinfo.analysis.PreviewMesh;
-import com.beauver.printbridge.modelinfo.analysis.PreviewPart;
-import com.beauver.printbridge.modelinfo.analysis.PreviewPlate;
+import com.beauver.printbridge.modelfile.mesh.PreviewBed;
+import com.beauver.printbridge.modelfile.mesh.PreviewMesh;
+import com.beauver.printbridge.modelfile.mesh.PreviewPart;
+import com.beauver.printbridge.modelfile.mesh.PreviewPlate;
 import com.beauver.printbridge.support.MeshFiles;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.Test;

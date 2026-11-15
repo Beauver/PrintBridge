@@ -1,10 +1,10 @@
 package com.beauver.printbridge.slicing;
 
-import com.beauver.printbridge.modelinfo.analysis.ModelSource;
-import com.beauver.printbridge.modelinfo.analysis.ProjectSettings;
-import com.beauver.printbridge.printrequest.ModelFileType;
-import com.beauver.printbridge.settings.BuildPlate;
-import com.beauver.printbridge.settings.PrinterSettings;
+import com.beauver.printbridge.modelfile.analysis.ModelSource;
+import com.beauver.printbridge.modelfile.threemf.ProjectSettings;
+import com.beauver.printbridge.modelfile.ModelFileType;
+import com.beauver.printbridge.settings.printer.BuildPlate;
+import com.beauver.printbridge.settings.printer.PrinterSettings;
 import com.beauver.printbridge.settings.SlicingSettings;
 import org.junit.jupiter.api.Test;
 

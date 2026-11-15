@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { Settings, UploadLimits } from '../../../core/models/settings.model';
-import { NO_SETTINGS } from '../../../core/testing';
+import { NO_SETTINGS } from '../../../../testing/fixtures';
 import { SettingsService } from '../settings.service';
 import { UploadSettingsCard } from './upload-settings';
 

@@ -1,16 +1,16 @@
 package com.beauver.printbridge.modelinfo;
 
-import com.beauver.printbridge.modelinfo.analysis.ModelAnalysis;
-import com.beauver.printbridge.modelinfo.analysis.ModelAnalyzer;
+import com.beauver.printbridge.modelfile.analysis.ModelAnalysis;
+import com.beauver.printbridge.modelfile.ModelAnalyzer;
+import com.beauver.printbridge.modelfile.StoredModelFile;
+import com.beauver.printbridge.modelfile.StoredModelFiles;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
-import com.beauver.printbridge.printrequest.RequestFile;
 import com.beauver.printbridge.settings.SettingsService;
 import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.storage.FileStorage;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
 import java.nio.file.Files;
@@ -41,29 +41,29 @@ public class ModelInfoService {
     FileStorage storage;
 
     @Inject
-    EntityManager entityManager;
+    StoredModelFiles files;
 
     @Inject
     SlicingService slicing;
 
     /** Analyses a stored file and saves the result. Runs inside the caller's transaction. */
     @Transactional(Transactional.TxType.MANDATORY)
-    public void analyze(RequestFile file) {
+    public void analyze(StoredModelFile file) {
         ModelInfo info = new ModelInfo();
-        info.fileId = file.id;
-        Path path = storage.resolve(file.storagePath);
+        info.fileId = file.id();
+        Path path = storage.resolve(file.storagePath());
         try {
             if (!Files.isRegularFile(path)) {
                 throw new IllegalStateException("File is missing on disk");
             }
-            ModelAnalysis analysis = analyzer.analyze(path, file.fileType);
+            ModelAnalysis analysis = analyzer.analyze(path, file.type());
             info.status = ModelInfoStatus.ANALYZED;
             info.source = analysis.source();
             info.volumeMm3 = analysis.volumeMm3();
             info.plates = analysis.plates();
         } catch (Exception e) {
             // Anything can be wrong with an uploaded file; the request must not suffer for it.
-            Log.warnf("Could not analyse file %d (%s): %s", file.id, file.storagePath, e.getMessage());
+            Log.warnf("Could not analyse file %d (%s): %s", file.id(), file.storagePath(), e.getMessage());
             info.status = ModelInfoStatus.FAILED;
         }
         repository.persist(info);
@@ -72,9 +72,8 @@ public class ModelInfoService {
     /** Analyses one stored file in its own transaction (startup backfill). */
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     public void analyzeStored(long fileId) {
-        RequestFile file = entityManager.find(RequestFile.class, fileId);
-        if (file != null && repository.findByIdOptional(fileId).isEmpty()) {
-            analyze(file);
+        if (repository.findByIdOptional(fileId).isEmpty()) {
+            files.find(fileId).ifPresent(this::analyze);
         }
     }
 
@@ -88,8 +87,8 @@ public class ModelInfoService {
      * The stored analysis of a file combined with its server slicing result, with the fit check
      * against the current printers. Slicing errors are only included for the admin.
      */
-    public ModelInfoDto describe(RequestFile file, boolean admin) {
+    public ModelInfoDto describe(long fileId, boolean admin) {
         ModelInfoMapper.Context context = new ModelInfoMapper.Context(settings.slicing(), admin);
-        return mapper.toDto(repository.findById(file.id), slicing.find(file.id).orElse(null), context);
+        return mapper.toDto(repository.findById(fileId), slicing.find(fileId).orElse(null), context);
     }
 }

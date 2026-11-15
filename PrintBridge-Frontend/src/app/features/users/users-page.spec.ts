@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { User } from '../../core/models/account.model';
-import { ADMIN, ALICE } from '../../core/testing';
+import { ADMIN, ALICE } from '../../../testing/fixtures';
 import { UsersPage } from './users-page';
 import { UsersService } from './users.service';
 

@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
-import { REQUEST_SUMMARY } from '../../../core/testing';
+import { REQUEST_SUMMARY } from '../../../../testing/fixtures';
 import { RequestList } from './request-list';
 
 describe('RequestList', () => {

@@ -20,14 +20,14 @@ import {
   PrintRequest,
   RequestFile,
 } from '../../../core/models/print-request.model';
-import { formatDuration, formatGrams } from '../../../shared/model-info-display';
+import { formatDuration, formatGrams } from '../../../shared/format/model-info-display';
 import { PriceTag } from '../../../shared/price-tag/price-tag';
 import {
   allowsPayment,
   formatBytes,
   statusBadgeClass,
   statusLabel,
-} from '../../../shared/print-request-display';
+} from '../../../shared/format/print-request-display';
 import { PrintRequestsService } from '../print-requests.service';
 import { isValidQuantity, MAX_QUANTITY, MIN_QUANTITY } from '../upload-checks';
 import { AddFiles } from './add-files/add-files';

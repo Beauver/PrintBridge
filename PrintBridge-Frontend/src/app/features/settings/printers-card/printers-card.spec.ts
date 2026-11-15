@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { Printer, Settings } from '../../../core/models/settings.model';
-import { SAVED_P1S } from '../../../core/testing';
+import { SAVED_P1S } from '../../../../testing/fixtures';
 import { SettingsService } from '../settings.service';
 import { PrintersCard } from './printers-card';
 

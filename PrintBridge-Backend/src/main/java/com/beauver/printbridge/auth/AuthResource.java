@@ -2,6 +2,7 @@ package com.beauver.printbridge.auth;
 
 import com.beauver.printbridge.auth.dto.AuthResponse;
 import com.beauver.printbridge.auth.dto.LoginRequest;
+import com.beauver.printbridge.auth.token.RefreshCookie;
 import com.beauver.printbridge.user.UserService;
 import com.beauver.printbridge.user.dto.UserDto;
 import io.quarkus.security.Authenticated;

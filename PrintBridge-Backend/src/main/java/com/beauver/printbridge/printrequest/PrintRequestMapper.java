@@ -1,12 +1,13 @@
 package com.beauver.printbridge.printrequest;
 
 import com.beauver.printbridge.modelinfo.ModelInfoService;
+import com.beauver.printbridge.modelinfo.WeightKind;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
-import com.beauver.printbridge.modelinfo.dto.WeightKind;
 import com.beauver.printbridge.printrequest.dto.PrintRequestDto;
 import com.beauver.printbridge.printrequest.dto.PrintRequestSummaryDto;
 import com.beauver.printbridge.printrequest.dto.RequestFileDto;
 import com.beauver.printbridge.printrequest.dto.RequestTotalsDto;
+import com.beauver.printbridge.printrequest.file.RequestFile;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 
@@ -32,7 +33,7 @@ public class PrintRequestMapper {
 
     public RequestFileDto toDto(RequestFile f, boolean admin) {
         return new RequestFileDto(f.id, f.originalFilename, f.fileType, f.sizeBytes, f.quantity, f.createdAt,
-                modelInfo.describe(f, admin));
+                modelInfo.describe(f.id, admin));
     }
 
     /**

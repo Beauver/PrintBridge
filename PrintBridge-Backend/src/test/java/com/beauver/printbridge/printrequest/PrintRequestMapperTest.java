@@ -1,9 +1,10 @@
 package com.beauver.printbridge.printrequest;
 
 import com.beauver.printbridge.modelinfo.ModelInfoStatus;
-import com.beauver.printbridge.modelinfo.analysis.ModelSource;
+import com.beauver.printbridge.modelfile.ModelFileType;
+import com.beauver.printbridge.modelfile.analysis.ModelSource;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
-import com.beauver.printbridge.modelinfo.dto.WeightKind;
+import com.beauver.printbridge.modelinfo.WeightKind;
 import com.beauver.printbridge.printrequest.dto.RequestFileDto;
 import com.beauver.printbridge.printrequest.dto.RequestTotalsDto;
 import org.junit.jupiter.api.Test;

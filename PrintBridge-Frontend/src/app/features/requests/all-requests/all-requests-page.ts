@@ -8,7 +8,7 @@ import {
   RequestStatus,
   StatusFilter,
 } from '../../../core/models/print-request.model';
-import { statusLabel } from '../../../shared/print-request-display';
+import { statusLabel } from '../../../shared/format/print-request-display';
 import { PrintRequestsService } from '../print-requests.service';
 import { RequestList } from '../request-list/request-list';
 

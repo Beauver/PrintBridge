@@ -4,7 +4,8 @@ import { Router } from '@angular/router';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/http/api-error';
 import { SetupStatusService } from '../../core/setup/setup-status.service';
-import { fieldError, newAccountForm } from '../../shared/account-form';
+import { newAccountForm } from '../../shared/forms/account-form';
+import { fieldError } from '../../shared/forms/field-error';
 
 /** First-run page: creates the admin account. Only reachable while no admin exists. */
 @Component({

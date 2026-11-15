@@ -1,19 +1,18 @@
 package com.beauver.printbridge.modelinfo;
 
-import com.beauver.printbridge.modelinfo.analysis.Dimensions;
-import com.beauver.printbridge.modelinfo.analysis.FilamentUsage;
-import com.beauver.printbridge.modelinfo.analysis.ModelSource;
-import com.beauver.printbridge.modelinfo.analysis.PlateAnalysis;
+import com.beauver.printbridge.modelfile.analysis.Dimensions;
+import com.beauver.printbridge.modelfile.analysis.FilamentUsage;
+import com.beauver.printbridge.modelfile.analysis.ModelSource;
+import com.beauver.printbridge.modelfile.analysis.PlateAnalysis;
 import com.beauver.printbridge.modelinfo.dto.FilamentDto;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.modelinfo.dto.PlateDto;
-import com.beauver.printbridge.modelinfo.dto.WeightKind;
-import com.beauver.printbridge.settings.BuildPlate;
-import com.beauver.printbridge.settings.PrinterSettings;
+import com.beauver.printbridge.settings.printer.BuildPlate;
+import com.beauver.printbridge.settings.printer.PrinterSettings;
 import com.beauver.printbridge.settings.SlicingSettings;
-import com.beauver.printbridge.slicing.SliceResult;
-import com.beauver.printbridge.slicing.SliceStatus;
-import com.beauver.printbridge.slicing.SlicedPlate;
+import com.beauver.printbridge.slicing.result.SliceResult;
+import com.beauver.printbridge.slicing.result.SliceStatus;
+import com.beauver.printbridge.slicing.result.SlicedPlate;
 import org.junit.jupiter.api.Test;
 
 import java.math.BigDecimal;

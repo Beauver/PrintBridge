@@ -1,6 +1,6 @@
 import { TestBed } from '@angular/core/testing';
 import { PreviewMesh } from '../../core/models/model-preview.model';
-import { TRIANGLE_MESH } from '../../core/testing';
+import { TRIANGLE_MESH } from '../../../testing/fixtures';
 import { ModelViewer } from './model-viewer';
 import { PREVIEW_SCENE_FACTORY, PreviewSceneHandle } from './preview-scene-factory';
 

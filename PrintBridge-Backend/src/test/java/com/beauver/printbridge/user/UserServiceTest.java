@@ -1,11 +1,11 @@
 package com.beauver.printbridge.user;
 
-import com.beauver.printbridge.auth.RefreshTokenService;
+import com.beauver.printbridge.auth.token.RefreshTokenService;
 import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
-import com.beauver.printbridge.printrequest.PrintRequestService;
 import com.beauver.printbridge.user.dto.NewAccountRequest;
 import com.beauver.printbridge.user.dto.UserDto;
+import jakarta.enterprise.event.Event;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -30,7 +30,7 @@ class UserServiceTest {
     @Mock
     RefreshTokenService refreshTokens;
     @Mock
-    PrintRequestService printRequests;
+    Event<UserDeleted> userDeleted;
 
     UserService service;
 
@@ -40,7 +40,7 @@ class UserServiceTest {
         service.users = users;
         service.passwordHasher = passwordHasher;
         service.refreshTokens = refreshTokens;
-        service.printRequests = printRequests;
+        service.userDeleted = userDeleted;
         service.mapper = new UserMapper();
     }
 
@@ -125,7 +125,7 @@ class UserServiceTest {
         User bob = user(3, "bob");
         when(users.findByIdOptional(3L)).thenReturn(Optional.of(bob));
         service.delete(3L, 1L);
-        verify(printRequests).deleteFilesOfOwner(3L);
+        verify(userDeleted).fire(new UserDeleted(3L));
         verify(users).delete(bob);
     }
 
@@ -133,7 +133,7 @@ class UserServiceTest {
     void cannotDeleteSelf() {
         assertThrows(ConflictException.class, () -> service.delete(1L, 1L));
         verify(users, never()).delete(any(User.class));
-        verifyNoInteractions(printRequests);
+        verifyNoInteractions(userDeleted);
     }
 
     @Test

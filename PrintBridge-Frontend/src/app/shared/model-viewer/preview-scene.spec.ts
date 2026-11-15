@@ -1,5 +1,5 @@
 import { Box3, LineSegments, Mesh, MeshStandardMaterial, Vector3 } from 'three';
-import { TRIANGLE_MESH } from '../../core/testing';
+import { TRIANGLE_MESH } from '../../../testing/fixtures';
 import { isWebGlAvailable } from './preview-scene-factory';
 import { bedLines, cameraPlacement, NEUTRAL_COLOR, plateObjects } from './preview-scene';
 

@@ -1,7 +1,7 @@
 package com.beauver.printbridge.modelinfo;
 
-import com.beauver.printbridge.modelinfo.analysis.ModelSource;
-import com.beauver.printbridge.modelinfo.analysis.PlateAnalysis;
+import com.beauver.printbridge.modelfile.analysis.ModelSource;
+import com.beauver.printbridge.modelfile.analysis.PlateAnalysis;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 import org.hibernate.annotations.JdbcTypeCode;

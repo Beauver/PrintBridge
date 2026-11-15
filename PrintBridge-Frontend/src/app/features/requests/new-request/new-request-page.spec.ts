@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
-import { REQUEST, TRIANGLE_MESH } from '../../../core/testing';
+import { REQUEST, TRIANGLE_MESH } from '../../../../testing/fixtures';
 import { ModelPreviewService } from '../model-preview.service';
 import { PrintRequestsService, UploadEvent } from '../print-requests.service';
 import { FileEntry, NewRequestPage } from './new-request-page';

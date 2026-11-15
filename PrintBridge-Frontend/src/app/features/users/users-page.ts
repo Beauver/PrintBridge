@@ -4,7 +4,8 @@ import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
 import { AuthService } from '../../core/auth/auth.service';
 import { errorMessage } from '../../core/http/api-error';
 import { User } from '../../core/models/account.model';
-import { fieldError, newAccountForm, PASSWORD_VALIDATORS } from '../../shared/account-form';
+import { newAccountForm, PASSWORD_VALIDATORS } from '../../shared/forms/account-form';
+import { fieldError } from '../../shared/forms/field-error';
 import { UsersService } from './users.service';
 
 /** Admin page: list, create, reset password and delete accounts. */

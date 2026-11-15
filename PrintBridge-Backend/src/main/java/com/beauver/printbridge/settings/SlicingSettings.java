@@ -1,5 +1,6 @@
 package com.beauver.printbridge.settings;
 
+import com.beauver.printbridge.settings.printer.PrinterSettings;
 import java.time.Duration;
 import java.util.List;
 import java.util.Optional;

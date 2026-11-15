@@ -1,12 +1,12 @@
 package com.beauver.printbridge.user;
 
-import com.beauver.printbridge.auth.RefreshTokenService;
+import com.beauver.printbridge.auth.token.RefreshTokenService;
 import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
-import com.beauver.printbridge.printrequest.PrintRequestService;
 import com.beauver.printbridge.user.dto.NewAccountRequest;
 import com.beauver.printbridge.user.dto.UserDto;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
@@ -28,8 +28,9 @@ public class UserService {
     @Inject
     RefreshTokenService refreshTokens;
 
+    /** Lets the owners of a user's data outside the database (request files) clean up. */
     @Inject
-    PrintRequestService printRequests;
+    Event<UserDeleted> userDeleted;
 
     public List<UserDto> getAll() {
         return users.listAllByUsername().stream().map(mapper::toDto).toList();
@@ -83,7 +84,7 @@ public class UserService {
             throw new ConflictException("You cannot delete your own account");
         }
         User user = find(id);
-        printRequests.deleteFilesOfOwner(id);
+        userDeleted.fire(new UserDeleted(id));
         users.delete(user);
     }
 

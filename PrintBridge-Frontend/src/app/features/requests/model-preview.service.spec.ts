@@ -3,7 +3,7 @@ import { HttpTestingController, provideHttpClientTesting } from '@angular/common
 import { TestBed } from '@angular/core/testing';
 import { errorMessage } from '../../core/http/api-error';
 import { PreviewMesh } from '../../core/models/model-preview.model';
-import { encodeMesh, TRIANGLE_MESH } from '../../core/testing';
+import { encodeMesh, TRIANGLE_MESH } from '../../../testing/fixtures';
 import { ModelPreviewService } from './model-preview.service';
 
 describe('ModelPreviewService', () => {

@@ -2,6 +2,8 @@ package com.beauver.printbridge.slicing;
 
 import com.beauver.printbridge.slicing.client.SliceResponse;
 import com.beauver.printbridge.slicing.client.SlicerException;
+import com.beauver.printbridge.slicing.result.SliceResult;
+import com.beauver.printbridge.slicing.result.SliceStatus;
 import com.beauver.printbridge.support.FakeSlicerClient;
 import com.beauver.printbridge.support.ModelFiles;
 import com.beauver.printbridge.support.TestData;

@@ -30,7 +30,7 @@ Issue: #12, extended by #15 ([server slicing](server-slicing.md)) and #23 (one c
 - **Older uploads:** at startup the backend analyses all files that have no result yet, one per transaction, in a background thread (`ModelInfoBackfill`, switch: `printbridge.model-info.backfill-on-start`). Failed files keep their failed result and are not retried.
 - Numbers are shown the Dutch way like prices: `120 × 80,5 × 40 mm`, `63,2 cm³`, `33,69 g`; times as `2 h 5 min`.
 
-## How files are read (`modelinfo.analysis`)
+## How files are read (`modelfile`)
 
 - **STL:** binary or ASCII (same detection as the upload validation). STL has no unit; millimetres are assumed. Volume is the signed volume of the triangles, so it is only right for a closed mesh.
 - **3MF:** the root model part (from `_rels/.rels`, else `3D/3dmodel.model`), objects (meshes, or components that point to objects in other parts as Bambu Studio does with `3D/Objects/*.model`) and the build items with their transforms. Units (`micron` … `meter`) are converted to mm.

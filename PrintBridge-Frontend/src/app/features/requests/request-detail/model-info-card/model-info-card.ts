@@ -18,7 +18,7 @@ import {
   formatGrams,
   formatNozzle,
   formatVolume,
-} from '../../../../shared/model-info-display';
+} from '../../../../shared/format/model-info-display';
 
 /**
  * What the backend knows about the model file: size, plates, weight, time and filaments, from

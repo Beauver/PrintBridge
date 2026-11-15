@@ -1,5 +1,5 @@
 import { Scene } from 'three';
-import { TRIANGLE_MESH } from '../../core/testing';
+import { TRIANGLE_MESH } from '../../../testing/fixtures';
 
 const renderer = vi.hoisted(() => {
   return {

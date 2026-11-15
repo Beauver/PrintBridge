@@ -5,15 +5,24 @@ import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
+import com.beauver.printbridge.modelfile.ModelFileType;
+import com.beauver.printbridge.modelfile.ModelFileValidator;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
-import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.printrequest.dto.*;
+import com.beauver.printbridge.printrequest.file.FileBundle;
+import com.beauver.printbridge.printrequest.file.RequestFile;
+import com.beauver.printbridge.printrequest.file.StoredFile;
+import com.beauver.printbridge.printrequest.file.UploadedModel;
 import com.beauver.printbridge.settings.SettingsService;
+import com.beauver.printbridge.settings.UploadConfig;
 import com.beauver.printbridge.settings.UploadLimits;
+import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.storage.FileStorage;
+import com.beauver.printbridge.user.UserDeleted;
 import com.beauver.printbridge.user.UserRepository;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
@@ -203,8 +212,8 @@ public class PrintRequestService {
         afterTransaction.onRollback(() -> storage.deleteFile(storagePath));
         request.addFile(file);
         requests.flush();
-        modelInfo.analyze(file);
-        slicing.enqueueIfEnabled(file);
+        modelInfo.analyze(file.stored());
+        slicing.enqueueIfEnabled(file.id);
     }
 
     /** Owners change files only while the request is SUBMITTED; the admin always may. */
@@ -314,7 +323,7 @@ public class PrintRequestService {
     public PrintRequestDto reslice(long id, long fileId) {
         PrintRequest request = requests.findWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
-        slicing.reslice(List.of(fileOf(request, fileId)));
+        slicing.reslice(List.of(fileOf(request, fileId).id));
         return mapper.toDto(request, true);
     }
 
@@ -348,11 +357,11 @@ public class PrintRequestService {
     }
 
     /**
-     * Schedules removal of all files of a user's requests. Called when the user is deleted; the
-     * rows themselves go via ON DELETE CASCADE. Must run inside the deleting transaction.
+     * Schedules removal of all files of a user's requests when the user is deleted; the rows
+     * themselves go via ON DELETE CASCADE. Runs inside the deleting transaction.
      */
-    public void deleteFilesOfOwner(long ownerId) {
-        requests.idsOfOwner(ownerId).forEach(this::deleteFilesAfterCommit);
+    void onUserDeleted(@Observes UserDeleted deleted) {
+        requests.idsOfOwner(deleted.userId()).forEach(this::deleteFilesAfterCommit);
     }
 
     private void deleteFilesAfterCommit(long requestId) {

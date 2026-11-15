@@ -1,7 +1,7 @@
 package com.beauver.printbridge.preview;
 
-import com.beauver.printbridge.slicing.SliceResult;
-import com.beauver.printbridge.slicing.SliceStatus;
+import com.beauver.printbridge.slicing.result.SliceResult;
+import com.beauver.printbridge.slicing.result.SliceStatus;
 import com.beauver.printbridge.support.MeshFiles;
 import com.beauver.printbridge.support.ModelFiles;
 import com.beauver.printbridge.support.TestData;

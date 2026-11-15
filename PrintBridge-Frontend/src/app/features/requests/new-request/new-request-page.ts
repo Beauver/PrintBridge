@@ -8,9 +8,9 @@ import {
   FailedUploadsState,
   UploadConfig,
 } from '../../../core/models/print-request.model';
-import { fieldError } from '../../../shared/account-form';
+import { fieldError } from '../../../shared/forms/field-error';
 import { ModelPreview } from '../../../shared/model-viewer/model-preview';
-import { formatBytes } from '../../../shared/print-request-display';
+import { formatBytes } from '../../../shared/format/print-request-display';
 import { ModelPreviewService } from '../model-preview.service';
 import { PrintRequestsService } from '../print-requests.service';
 import {

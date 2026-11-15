@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { SettingsPage } from './settings-page';
 import { SettingsService } from './settings.service';
-import { NO_SETTINGS, SLICER_P1S } from '../../core/testing';
+import { NO_SETTINGS, SLICER_P1S } from '../../../testing/fixtures';
 
 describe('SettingsPage', () => {
   const settingsService = { get: vi.fn(), slicerStatus: vi.fn(), slicerPrinters: vi.fn() };

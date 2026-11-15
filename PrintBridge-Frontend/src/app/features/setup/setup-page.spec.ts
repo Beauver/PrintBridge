@@ -4,7 +4,7 @@ import { Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { SetupStatusService } from '../../core/setup/setup-status.service';
-import { ADMIN } from '../../core/testing';
+import { ADMIN } from '../../../testing/fixtures';
 import { SetupPage } from './setup-page';
 
 describe('SetupPage', () => {
