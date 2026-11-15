@@ -11,3 +11,5 @@
   - [Model info and settings](features/model-info.md)
   - [Server slicing](features/server-slicing.md)
   - [3D preview](features/model-preview.md)
+- Audits:
+  - [Code audit, 2026-11-15](audits/2026-11-15-code-audit.md): findings by severity and file structure advice
