@@ -1,7 +1,7 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { errorMessage } from '../../core/http/api-error';
 import { UploadConfig } from '../../core/models/print-request.model';
-import { formatBytes } from '../../shared/print-request-display';
+import { formatBytes } from '../../shared/format/print-request-display';
 
 /** Used until the upload config is loaded (or if loading it fails); the backend checks anyway. */
 export const FALLBACK_CONFIG: UploadConfig = {

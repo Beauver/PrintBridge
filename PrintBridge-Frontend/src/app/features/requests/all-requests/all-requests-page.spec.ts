@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, Subject, throwError } from 'rxjs';
 import { PrintRequestSummary } from '../../../core/models/print-request.model';
-import { REQUEST_SUMMARY } from '../../../core/testing';
+import { REQUEST_SUMMARY } from '../../../../testing/fixtures';
 import { PrintRequestsService } from '../print-requests.service';
 import { AllRequestsPage } from './all-requests-page';
 

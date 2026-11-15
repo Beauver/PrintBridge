@@ -1,7 +1,6 @@
 package com.beauver.printbridge.printrequest;
 
 import com.beauver.printbridge.common.error.InvalidInputException;
-
 import java.util.EnumSet;
 import java.util.Locale;
 import java.util.Set;

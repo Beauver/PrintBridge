@@ -14,8 +14,13 @@ import {
   allowsPayment,
   isFinalStatus,
   statusLabel,
-} from '../../../../shared/print-request-display';
-import { formatEuro, formatPriceInput, MAX_PRICE, parsePrice } from '../../../../shared/price';
+} from '../../../../shared/format/print-request-display';
+import {
+  formatEuro,
+  formatPriceInput,
+  MAX_PRICE,
+  parsePrice,
+} from '../../../../shared/format/price';
 import { PrintRequestsService } from '../../print-requests.service';
 
 /** A readable price ("69,42", "6.900,42", "69.42", ...) within the backend's range. */

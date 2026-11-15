@@ -2,8 +2,8 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { ModelInfo, PlateInfo, SlicingInfo } from '../../../../core/models/model-info.model';
-import { NO_SLICING, STL_INFO } from '../../../../core/testing';
-import { TRIANGLE_MESH } from '../../../../core/testing';
+import { NO_SLICING, STL_INFO } from '../../../../../testing/fixtures';
+import { TRIANGLE_MESH } from '../../../../../testing/fixtures';
 import { ModelPreviewService } from '../../model-preview.service';
 import { ModelInfoCard } from './model-info-card';
 

@@ -1,7 +1,7 @@
 package com.beauver.printbridge.preview;
 
-import com.beauver.printbridge.modelinfo.analysis.PreviewMesh;
-import com.beauver.printbridge.modelinfo.analysis.PreviewPart;
+import com.beauver.printbridge.modelfile.mesh.PreviewMesh;
+import com.beauver.printbridge.modelfile.mesh.PreviewPart;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import jakarta.enterprise.context.ApplicationScoped;

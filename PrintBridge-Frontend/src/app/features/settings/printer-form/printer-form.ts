@@ -3,7 +3,7 @@ import { AbstractControl, FormBuilder, ReactiveFormsModule, Validators } from '@
 import { errorMessage } from '../../../core/http/api-error';
 import { Printer, PrinterInput, Settings } from '../../../core/models/settings.model';
 import { SlicerPrinter, SlicerProfiles } from '../../../core/models/slicer.model';
-import { formatNozzle } from '../../../shared/model-info-display';
+import { formatNozzle } from '../../../shared/format/model-info-display';
 import { SettingsService } from '../settings.service';
 
 /** Same limits as the backend (whole millimetres, 1–2000). */

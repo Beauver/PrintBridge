@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { Printer } from '../../../core/models/settings.model';
 import { SlicerPrinter } from '../../../core/models/slicer.model';
-import { SAVED_P1S, SLICER_P1S } from '../../../core/testing';
+import { SAVED_P1S, SLICER_P1S } from '../../../../testing/fixtures';
 import { SettingsService } from '../settings.service';
 import { PrinterForm } from './printer-form';
 

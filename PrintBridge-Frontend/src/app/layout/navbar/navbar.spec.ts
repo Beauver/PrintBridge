@@ -3,7 +3,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter, Router } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
-import { ALICE } from '../../core/testing';
+import { ALICE } from '../../../testing/fixtures';
 import { Navbar } from './navbar';
 
 describe('Navbar', () => {

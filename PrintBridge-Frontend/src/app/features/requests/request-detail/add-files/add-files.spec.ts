@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { of, Subject, throwError } from 'rxjs';
 import { PrintRequest } from '../../../../core/models/print-request.model';
-import { REQUEST } from '../../../../core/testing';
+import { REQUEST } from '../../../../../testing/fixtures';
 import { PrintRequestsService, UploadEvent } from '../../print-requests.service';
 import { AddFiles } from './add-files';
 

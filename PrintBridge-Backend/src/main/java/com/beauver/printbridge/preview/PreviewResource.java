@@ -1,6 +1,6 @@
 package com.beauver.printbridge.preview;
 
-import com.beauver.printbridge.printrequest.dto.UploadedModel;
+import com.beauver.printbridge.printrequest.file.UploadedModel;
 import com.beauver.printbridge.user.Role;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -16,8 +16,8 @@ import org.jboss.resteasy.reactive.multipart.FileUpload;
 
 /**
  * Preview of a model file before it is uploaded, for the new request form. The file is checked
- * like an upload, read and thrown away. The previews of uploaded files are under
- * {@code /requests/{id}/files/{fileId}}.
+ * like an upload, read and thrown away. The previews of uploaded files are in
+ * {@link FilePreviewResource}.
  */
 @Path("/previews")
 @RolesAllowed({Role.USER_ROLE, Role.ADMIN_ROLE})

@@ -73,7 +73,7 @@
           "options": {
             "coverageExclude": [
               "**/*.html",
-              "src/app/core/testing.ts"
+              "src/testing/**"
             ]
           }
         }

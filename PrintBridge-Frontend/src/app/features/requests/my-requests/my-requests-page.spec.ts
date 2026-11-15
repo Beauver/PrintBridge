@@ -4,7 +4,7 @@ import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
-import { ALICE, REQUEST_SUMMARY } from '../../../core/testing';
+import { ALICE, REQUEST_SUMMARY } from '../../../../testing/fixtures';
 import { PrintRequestsService } from '../print-requests.service';
 import { MyRequestsPage } from './my-requests-page';
 

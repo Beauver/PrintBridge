@@ -1,4 +1,4 @@
-import { encodeMesh, TRIANGLE_MESH } from '../../core/testing';
+import { encodeMesh, TRIANGLE_MESH } from '../../../testing/fixtures';
 import { decodeMesh } from './mesh-decoder';
 
 describe('decodeMesh', () => {

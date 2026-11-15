@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
 import { Observable, of, throwError } from 'rxjs';
 import { PreviewMesh } from '../../core/models/model-preview.model';
-import { TRIANGLE_MESH } from '../../core/testing';
+import { TRIANGLE_MESH } from '../../../testing/fixtures';
 import { ModelPreview } from './model-preview';
 import { PREVIEW_SCENE_FACTORY } from './preview-scene-factory';
 

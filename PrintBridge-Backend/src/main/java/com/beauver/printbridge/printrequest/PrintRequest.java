@@ -1,5 +1,6 @@
 package com.beauver.printbridge.printrequest;
 
+import com.beauver.printbridge.printrequest.file.RequestFile;
 import com.beauver.printbridge.user.User;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;

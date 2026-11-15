@@ -1,6 +1,6 @@
 package com.beauver.printbridge.printrequest.dto;
 
-import com.beauver.printbridge.modelinfo.dto.WeightKind;
+import com.beauver.printbridge.modelinfo.WeightKind;
 
 /**
  * The whole request: every file times its quantity (#23).

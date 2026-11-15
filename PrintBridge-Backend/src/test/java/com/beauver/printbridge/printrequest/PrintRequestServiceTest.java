@@ -5,16 +5,24 @@ import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
+import com.beauver.printbridge.modelfile.ModelFileType;
+import com.beauver.printbridge.modelfile.ModelFileValidator;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
 import com.beauver.printbridge.modelinfo.ModelInfoStatus;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
+import com.beauver.printbridge.printrequest.dto.*;
+import com.beauver.printbridge.printrequest.file.FileBundle;
+import com.beauver.printbridge.printrequest.file.RequestFile;
+import com.beauver.printbridge.printrequest.file.StoredFile;
+import com.beauver.printbridge.printrequest.file.UploadedModel;
 import com.beauver.printbridge.settings.SettingsService;
+import com.beauver.printbridge.settings.UploadConfig;
 import com.beauver.printbridge.settings.UploadLimits;
 import com.beauver.printbridge.slicing.SlicingService;
-import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.storage.FileStorage;
 import com.beauver.printbridge.user.Role;
 import com.beauver.printbridge.user.User;
+import com.beauver.printbridge.user.UserDeleted;
 import com.beauver.printbridge.user.UserRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -29,6 +37,7 @@ import java.math.BigDecimal;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
@@ -60,6 +69,8 @@ class PrintRequestServiceTest {
     Path dir;
 
     PrintRequestService service;
+    /** Requests of the test; the mocked flush gives their new files an id, as the database would. */
+    final List<PrintRequest> tracked = new ArrayList<>();
     List<String> allowed = List.of("stl", "3mf");
 
     static final Caller BOB = new Caller(2, false);
@@ -80,7 +91,11 @@ class PrintRequestServiceTest {
         service.afterTransaction = afterTransaction;
         service.settings = settings;
         lenient().when(settings.uploads()).thenReturn(new UploadLimits(3, 2, 5));
-        lenient().when(modelInfo.describe(any(), anyBoolean()))
+        lenient().doAnswer(inv -> {
+            assignFileIds();
+            return null;
+        }).when(requests).flush();
+        lenient().when(modelInfo.describe(anyLong(), anyBoolean()))
                 .thenReturn(ModelInfoDto.withStatus(ModelInfoStatus.PENDING, null));
         service.uploadConfig = new UploadConfig() {
             @Override
@@ -103,7 +118,18 @@ class PrintRequestServiceTest {
         return u;
     }
 
-    private static PrintRequest request(long id, User owner, RequestStatus status) {
+    private void assignFileIds() {
+        long next = 900;
+        for (PrintRequest request : tracked) {
+            for (RequestFile file : request.files) {
+                if (file.id == null) {
+                    file.id = next++;
+                }
+            }
+        }
+    }
+
+    private PrintRequest request(long id, User owner, RequestStatus status) {
         PrintRequest r = new PrintRequest();
         r.id = id;
         r.owner = owner;
@@ -118,6 +144,7 @@ class PrintRequestServiceTest {
         f.fileType = ModelFileType.STL;
         f.sizeBytes = 134;
         r.addFile(f);
+        tracked.add(r);
         return r;
     }
 
@@ -154,7 +181,9 @@ class PrintRequestServiceTest {
         when(users.findByIdOptional(2L)).thenReturn(Optional.of(bob));
         when(validator.isValid(dir.resolve("upload"), ModelFileType.STL)).thenReturn(true);
         doAnswer(inv -> {
-            ((PrintRequest) inv.getArgument(0)).id = 9L;
+            PrintRequest created = inv.getArgument(0);
+            created.id = 9L;
+            tracked.add(created);
             return null;
         }).when(requests).persist(any(PrintRequest.class));
         when(storage.store(dir.resolve("upload"), "9", "stl")).thenReturn("9/uuid.stl");
@@ -181,7 +210,9 @@ class PrintRequestServiceTest {
         when(users.findByIdOptional(2L)).thenReturn(Optional.of(user(2, "bob")));
         when(validator.isValid(any(), eq(ModelFileType.THREE_MF))).thenReturn(true);
         doAnswer(inv -> {
-            ((PrintRequest) inv.getArgument(0)).id = 1L;
+            PrintRequest created = inv.getArgument(0);
+            created.id = 1L;
+            tracked.add(created);
             return null;
         }).when(requests).persist(any(PrintRequest.class));
         when(storage.store(any(), any(), eq("3mf"))).thenReturn("1/uuid.3mf");
@@ -532,10 +563,10 @@ class PrintRequestServiceTest {
     }
 
     @Test
-    void deleteFilesOfOwnerSchedulesEveryRequestDirectory() {
+    void deletingAUserSchedulesEveryRequestDirectory() {
         when(requests.idsOfOwner(2)).thenReturn(List.of(4L, 5L));
 
-        service.deleteFilesOfOwner(2);
+        service.onUserDeleted(new UserDeleted(2));
 
         ArgumentCaptor<Runnable> captor = ArgumentCaptor.forClass(Runnable.class);
         verify(afterTransaction, times(2)).onCommit(captor.capture());
@@ -581,8 +612,8 @@ class PrintRequestServiceTest {
         assertEquals(3, added.quantity());
         assertEquals(4, dto.totals().copies());
         RequestFile file = r.files.get(1);
-        verify(modelInfo).analyze(file);
-        verify(slicing).enqueueIfEnabled(file);
+        verify(modelInfo).analyze(file.stored());
+        verify(slicing).enqueueIfEnabled(file.id);
         captured(false).run();
         verify(storage).deleteFile("4/new.stl");
     }
@@ -761,7 +792,7 @@ class PrintRequestServiceTest {
 
         service.reslice(4, 201);
 
-        verify(slicing).reslice(List.of(lid));
+        verify(slicing).reslice(List.of(lid.id));
     }
 
     @Test

@@ -7,7 +7,7 @@ import { of, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FileSaverService } from '../../../core/files/file-saver.service';
 import { PrintRequest, RequestFile } from '../../../core/models/print-request.model';
-import { NO_SLICING, REQUEST, STL_INFO } from '../../../core/testing';
+import { NO_SLICING, REQUEST, STL_INFO } from '../../../../testing/fixtures';
 import { SliceStatus } from '../../../core/models/model-info.model';
 import { PrintRequestsService } from '../print-requests.service';
 import { RequestDetailPage, SLICING_POLL_MS } from './request-detail-page';

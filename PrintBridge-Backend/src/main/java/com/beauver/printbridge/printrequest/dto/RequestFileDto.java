@@ -1,8 +1,7 @@
 package com.beauver.printbridge.printrequest.dto;
 
+import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
-import com.beauver.printbridge.printrequest.ModelFileType;
-
 import java.time.Instant;
 
 /**

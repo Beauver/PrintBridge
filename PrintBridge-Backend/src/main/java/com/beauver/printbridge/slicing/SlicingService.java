@@ -2,25 +2,29 @@ package com.beauver.printbridge.slicing;
 
 import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
+import com.beauver.printbridge.modelfile.analysis.FilamentUsage;
+import com.beauver.printbridge.modelfile.ModelFileType;
+import com.beauver.printbridge.modelfile.analysis.ModelSource;
+import com.beauver.printbridge.modelfile.analysis.PlateAnalysis;
+import com.beauver.printbridge.modelfile.StoredModelFile;
+import com.beauver.printbridge.modelfile.StoredModelFiles;
+import com.beauver.printbridge.modelfile.threemf.ProjectSettings;
 import com.beauver.printbridge.modelinfo.ModelInfo;
 import com.beauver.printbridge.modelinfo.ModelInfoRepository;
 import com.beauver.printbridge.modelinfo.ModelInfoStatus;
-import com.beauver.printbridge.modelinfo.analysis.FilamentUsage;
-import com.beauver.printbridge.modelinfo.analysis.ModelSource;
-import com.beauver.printbridge.modelinfo.analysis.PlateAnalysis;
-import com.beauver.printbridge.modelinfo.analysis.ProjectSettings;
-import com.beauver.printbridge.printrequest.ModelFileType;
-import com.beauver.printbridge.printrequest.RequestFile;
-import com.beauver.printbridge.settings.SettingsService;
 import com.beauver.printbridge.settings.SettingsService.SlicingToggled;
+import com.beauver.printbridge.settings.SettingsService;
 import com.beauver.printbridge.settings.SlicingSettings;
 import com.beauver.printbridge.slicing.client.SliceResponse;
+import com.beauver.printbridge.slicing.result.SliceResult;
+import com.beauver.printbridge.slicing.result.SliceResultRepository;
+import com.beauver.printbridge.slicing.result.SliceStatus;
+import com.beauver.printbridge.slicing.result.SlicedPlate;
 import com.beauver.printbridge.storage.FileStorage;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Observes;
 import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
 import jakarta.transaction.Transactional;
 
 import java.nio.file.Files;
@@ -55,7 +59,7 @@ public class SlicingService {
     FileStorage storage;
 
     @Inject
-    EntityManager entityManager;
+    StoredModelFiles files;
 
     @Inject
     AfterTransaction afterTransaction;
@@ -65,25 +69,25 @@ public class SlicingService {
 
     /** Queues a new upload while server slicing is on. Runs inside the upload's transaction. */
     @Transactional(Transactional.TxType.MANDATORY)
-    public void enqueueIfEnabled(RequestFile file) {
+    public void enqueueIfEnabled(long fileId) {
         if (settings.slicing().enabled()) {
-            queue(file.id);
+            queue(fileId);
         }
     }
 
     /** Slices these files again (admin). Refused while slicing is off or a file is already in the queue. */
     @Transactional(Transactional.TxType.MANDATORY)
-    public void reslice(Collection<RequestFile> files) {
+    public void reslice(Collection<Long> fileIds) {
         if (!settings.slicing().enabled()) {
             throw new ConflictException("Server slicing is off");
         }
-        for (RequestFile file : files) {
-            Optional<SliceResult> existing = results.findByIdOptional(file.id);
+        for (long fileId : fileIds) {
+            Optional<SliceResult> existing = results.findByIdOptional(fileId);
             if (existing.isPresent() && existing.get().status.isPending()) {
                 throw new ConflictException("This file is already being sliced");
             }
         }
-        files.forEach(file -> queue(file.id));
+        fileIds.forEach(this::queue);
     }
 
     public Optional<SliceResult> find(long fileId) {
@@ -132,10 +136,10 @@ public class SlicingService {
     }
 
     private Optional<SliceJob> prepare(SliceResult result, SlicingSettings slicing) {
-        RequestFile file = entityManager.find(RequestFile.class, result.fileId);
+        StoredModelFile file = files.find(result.fileId).orElse(null);
         Path path = null;
         if (file != null) {
-            path = storage.resolve(file.storagePath);
+            path = storage.resolve(file.storagePath());
         }
         if (file == null || !Files.isRegularFile(path)) {
             markFailed(result, "The model file is missing on disk");
@@ -147,7 +151,7 @@ public class SlicingService {
         if (info != null && info.status == ModelInfoStatus.ANALYZED) {
             source = info.source;
             plates = info.plates.stream().filter(plate -> plate.size() != null).map(PlateAnalysis::index).toList();
-        } else if (file.fileType == ModelFileType.THREE_MF && info == null) {
+        } else if (file.type() == ModelFileType.THREE_MF && info == null) {
             markFailed(result, "Model details aren't available yet; try again in a moment");
             return Optional.empty();
         }
@@ -155,8 +159,8 @@ public class SlicingService {
         if (source == ModelSource.BAMBU) {
             project = ProjectSettings.read(path);
         }
-        SlicePlan plan = planner.plan(slicing, file.fileType, source, plates, project);
-        return Optional.of(new SliceJob(file.id, path, plan, slicing.timeout()));
+        SlicePlan plan = planner.plan(slicing, file.type(), source, plates, project);
+        return Optional.of(new SliceJob(file.id(), path, plan, slicing.timeout()));
     }
 
     /** Stores what the slicer returned. Ignored when the file was deleted in the meantime. */

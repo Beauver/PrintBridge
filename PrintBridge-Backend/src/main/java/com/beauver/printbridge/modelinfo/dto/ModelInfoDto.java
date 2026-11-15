@@ -1,8 +1,8 @@
 package com.beauver.printbridge.modelinfo.dto;
 
+import com.beauver.printbridge.modelfile.analysis.ModelSource;
 import com.beauver.printbridge.modelinfo.ModelInfoStatus;
-import com.beauver.printbridge.modelinfo.analysis.ModelSource;
-
+import com.beauver.printbridge.modelinfo.WeightKind;
 import java.util.List;
 
 /**

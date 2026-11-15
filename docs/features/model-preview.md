@@ -36,7 +36,7 @@ Measured on the four sample projects: 35–350 ms on the server, 130 kB – 1.5 
 
 ## How it works
 
-- `PreviewMeshReader` (backend, `modelinfo.analysis`) reuses the model info parser: STL triangles (identical corners shared), 3MF objects, components across parts (`3D/Objects/*.model`), transforms, Bambu plates and part types. For a preview the 3MF reader keeps the triangles, which model info doesn't need.
+- `PreviewMeshReader` (backend, `modelfile`) reuses the model info parser: STL triangles (identical corners shared), 3MF objects, components across parts (`3D/Objects/*.model`), transforms, Bambu plates and part types. For a preview the 3MF reader keeps the triangles, which model info doesn't need.
 - `MeshEncoder` (backend, `preview`) writes a compact binary format, gzipped: `"PBM1"`, a uint32 header length, a JSON header (`bed`, `plates`, `parts` with plate, colour and counts), then per part float32 positions and uint32 indices, little-endian. The frontend's `decodeMesh` reads it without copying.
 - `ModelPreview` (frontend, `shared/model-viewer`) is the button, spinner and error; `ModelViewer` the plate buttons and canvas; `PreviewScene` the Three.js scene, which only renders when the view changes.
 - Nothing is stored or cached: the mesh is read from the file on every request.

@@ -1,5 +1,5 @@
 import { Component, computed, input } from '@angular/core';
-import { formatEuro } from '../price';
+import { formatEuro } from '../format/price';
 
 /** A request's price: "Price pending", the price, or the price crossed out with a Paid badge. */
 @Component({

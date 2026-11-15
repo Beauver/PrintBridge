@@ -1,7 +1,6 @@
 package com.beauver.printbridge.modelinfo.dto;
 
-import com.beauver.printbridge.slicing.SliceStatus;
-
+import com.beauver.printbridge.slicing.result.SliceStatus;
 import java.math.BigDecimal;
 
 /**

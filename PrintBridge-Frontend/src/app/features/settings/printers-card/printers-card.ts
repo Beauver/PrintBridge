@@ -3,7 +3,7 @@ import { Observable } from 'rxjs';
 import { errorMessage } from '../../../core/http/api-error';
 import { Printer, Settings } from '../../../core/models/settings.model';
 import { SlicerPrinter } from '../../../core/models/slicer.model';
-import { formatDimensions, formatNozzle } from '../../../shared/model-info-display';
+import { formatDimensions, formatNozzle } from '../../../shared/format/model-info-display';
 import { SettingsService } from '../settings.service';
 import { PrinterForm } from '../printer-form/printer-form';
 

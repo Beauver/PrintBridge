@@ -2,7 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { of, throwError } from 'rxjs';
 import { PrintRequest } from '../../../../core/models/print-request.model';
-import { REQUEST } from '../../../../core/testing';
+import { REQUEST } from '../../../../../testing/fixtures';
 import { PrintRequestsService } from '../../print-requests.service';
 import { ReviewPanel } from './review-panel';
 

@@ -1,7 +1,7 @@
 import { HttpEventType, provideHttpClient } from '@angular/common/http';
 import { HttpTestingController, provideHttpClientTesting } from '@angular/common/http/testing';
 import { TestBed } from '@angular/core/testing';
-import { REQUEST, REQUEST_SUMMARY } from '../../core/testing';
+import { REQUEST, REQUEST_SUMMARY } from '../../../testing/fixtures';
 import { PrintRequestsService, UploadEvent } from './print-requests.service';
 
 describe('PrintRequestsService', () => {
