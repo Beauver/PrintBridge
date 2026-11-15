@@ -96,7 +96,7 @@ public class PrintRequestService {
     }
 
     public PrintRequestDto get(long id, Caller caller) {
-        return mapper.toDto(findVisible(id, caller), caller.admin());
+        return describe(findVisible(id, caller), caller.admin());
     }
 
     /**
@@ -116,7 +116,7 @@ public class PrintRequestService {
         requests.persist(request);
         attach(request, input.file(), input.quantity());
         // A fresh upload has no slicing errors yet, so nothing admin-only to show.
-        return mapper.toDto(request, false);
+        return describe(request, false);
     }
 
     /**
@@ -136,7 +136,7 @@ public class PrintRequestService {
         }
         checkUpload(upload);
         attach(request, upload, quantity);
-        return mapper.toDto(request, caller.admin());
+        return describe(request, caller.admin());
     }
 
     /**
@@ -156,7 +156,7 @@ public class PrintRequestService {
         requests.flush();
         String storagePath = file.storagePath;
         afterTransaction.onCommit(() -> storage.deleteFile(storagePath));
-        return mapper.toDto(request, caller.admin());
+        return describe(request, caller.admin());
     }
 
     /**
@@ -175,7 +175,7 @@ public class PrintRequestService {
         }
         fileOf(request, fileId).quantity = quantity;
         requests.flush();
-        return mapper.toDto(request, caller.admin());
+        return describe(request, caller.admin());
     }
 
     /**
@@ -192,6 +192,18 @@ public class PrintRequestService {
         }
         // The name is only used for the download, but keep slashes out of it anyway.
         return new FileBundle(request.name.replaceAll("[\\\\/\\p{Cntrl}]", "_") + ".zip", files);
+    }
+
+    /**
+     * The request as the API returns it: its files with what is known about each model, and the
+     * totals over them.
+     *
+     * @param admin whether the caller is the admin (sees slicing errors)
+     */
+    private PrintRequestDto describe(PrintRequest request, boolean admin) {
+        List<Long> fileIds = request.files.stream().map(file -> file.id).toList();
+        List<RequestFileDto> files = mapper.toFileDtos(request.files, modelInfo.describe(fileIds, admin));
+        return mapper.toDto(request, files, RequestTotals.of(files));
     }
 
     /**
@@ -274,7 +286,7 @@ public class PrintRequestService {
             request.declineReason = blankToNull(declineReason);
         }
         requests.flush();
-        return mapper.toDto(request, true);
+        return describe(request, true);
     }
 
     /**
@@ -289,7 +301,7 @@ public class PrintRequestService {
         }
         request.finalPrice = finalPrice;
         requests.flush();
-        return mapper.toDto(request, true);
+        return describe(request, true);
     }
 
     /**
@@ -311,7 +323,7 @@ public class PrintRequestService {
             request.paidAt = Instant.now();
         }
         requests.flush();
-        return mapper.toDto(request, true);
+        return describe(request, true);
     }
 
     /**
@@ -324,7 +336,7 @@ public class PrintRequestService {
         PrintRequest request = requests.findWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
         slicing.reslice(List.of(fileOf(request, fileId).id));
-        return mapper.toDto(request, true);
+        return describe(request, true);
     }
 
     /** The file of a request, for download by the owner or the admin. */

@@ -7,6 +7,7 @@ import com.beauver.printbridge.modelfile.StoredModelFiles;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.settings.SettingsService;
 import com.beauver.printbridge.slicing.SlicingService;
+import com.beauver.printbridge.slicing.result.SliceResult;
 import com.beauver.printbridge.storage.FileStorage;
 import io.quarkus.logging.Log;
 import jakarta.enterprise.context.ApplicationScoped;
@@ -15,7 +16,10 @@ import jakarta.transaction.Transactional;
 
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 /**
  * Analyses model files and serves the result. Analysis never fails the caller: a file the
@@ -30,6 +34,9 @@ public class ModelInfoService {
 
     @Inject
     ModelInfoRepository repository;
+
+    @Inject
+    ModelDetailsCalculator calculator;
 
     @Inject
     ModelInfoMapper mapper;
@@ -84,11 +91,19 @@ public class ModelInfoService {
     }
 
     /**
-     * The stored analysis of a file combined with its server slicing result, with the fit check
-     * against the current printers. Slicing errors are only included for the admin.
+     * What is known about each of these files: the stored analysis combined with the server
+     * slicing result and the fit check against the current printers. Slicing errors are only
+     * included for the admin. Everything is loaded at once, however many files there are.
      */
-    public ModelInfoDto describe(long fileId, boolean admin) {
-        ModelInfoMapper.Context context = new ModelInfoMapper.Context(settings.slicing(), admin);
-        return mapper.toDto(repository.findById(fileId), slicing.find(fileId).orElse(null), context);
+    public Map<Long, ModelInfoDto> describe(Collection<Long> fileIds, boolean admin) {
+        ModelDetailsCalculator.Context context = new ModelDetailsCalculator.Context(settings.slicing(), admin);
+        Map<Long, ModelInfo> infos = repository.findByFileIds(fileIds);
+        Map<Long, SliceResult> slices = slicing.find(fileIds);
+        Map<Long, ModelInfoDto> described = new HashMap<>();
+        for (Long fileId : fileIds) {
+            ModelDetails details = calculator.calculate(infos.get(fileId), slices.get(fileId), context);
+            described.put(fileId, mapper.toDto(details));
+        }
+        return described;
     }
 }

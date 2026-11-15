@@ -1,10 +1,21 @@
-import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
+import {
+  Component,
+  computed,
+  DestroyRef,
+  inject,
+  input,
+  OnInit,
+  output,
+  signal,
+} from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   FailedUpload,
   PrintRequest,
   UploadConfig,
 } from '../../../../core/models/print-request.model';
 import { PrintRequestsService } from '../../print-requests.service';
+import { RequestUploadService } from '../../request-upload.service';
 import {
   checkFile,
   dotted,
@@ -32,6 +43,8 @@ export interface PendingUpload {
 })
 export class AddFiles implements OnInit {
   private readonly requestsService = inject(PrintRequestsService);
+  private readonly uploadService = inject(RequestUploadService);
+  private readonly destroyRef = inject(DestroyRef);
   private nextKey = 1;
 
   readonly requestId = input.required<number>();
@@ -44,7 +57,8 @@ export class AddFiles implements OnInit {
   protected readonly queue = signal<PendingUpload[]>([]);
   protected readonly failed = signal<FailedUpload[]>([]);
 
-  protected readonly busy = computed(() => {
+  /** Whether files are waiting or going up; also what the request page asks before leaving. */
+  readonly busy = computed(() => {
     return this.queue().length > 0;
   });
 
@@ -96,7 +110,7 @@ export class AddFiles implements OnInit {
     }
     this.failed.set(failed);
     this.queue.set(accepted);
-    this.uploadNext();
+    this.upload(accepted);
   }
 
   protected dismissFailed(): void {
@@ -112,26 +126,31 @@ export class AddFiles implements OnInit {
     return maxFiles - this.fileCount();
   }
 
-  private uploadNext(): void {
-    const [next] = this.queue();
-    if (!next) {
-      return;
-    }
-    this.requestsService.addFile(this.requestId(), next.file, MIN_QUANTITY).subscribe({
-      next: (event) => {
-        if (event.type === 'progress') {
-          this.setProgress(next.key, event.percent);
-        } else {
-          this.added.emit(event.request);
-          this.dequeue(next.key);
-        }
-      },
-      error: (err: unknown) => {
-        const reason = uploadErrorMessage(err, this.config(), 'Could not upload this file.');
-        this.failed.set([...this.failed(), { filename: next.file.name, reason }]);
-        this.dequeue(next.key);
-      },
+  /** Sends the accepted files one at a time, one copy each. */
+  private upload(accepted: PendingUpload[]): void {
+    const files = accepted.map((pending) => {
+      return { file: pending.file, quantity: MIN_QUANTITY };
     });
+    this.uploadService
+      .addFiles(this.requestId(), files)
+      .pipe(takeUntilDestroyed(this.destroyRef))
+      .subscribe((event) => {
+        const pending = accepted[event.index];
+        if (event.type === 'progress') {
+          this.setProgress(pending.key, event.percent);
+        } else if (event.type === 'uploaded') {
+          this.added.emit(event.request);
+          this.dequeue(pending.key);
+        } else if (event.type === 'failed') {
+          const reason = uploadErrorMessage(
+            event.error,
+            this.config(),
+            'Could not upload this file.',
+          );
+          this.failed.set([...this.failed(), { filename: pending.file.name, reason }]);
+          this.dequeue(pending.key);
+        }
+      });
   }
 
   private dequeue(key: number): void {
@@ -140,7 +159,6 @@ export class AddFiles implements OnInit {
         return upload.key !== key;
       }),
     );
-    this.uploadNext();
   }
 
   private setProgress(key: number, progress: number): void {

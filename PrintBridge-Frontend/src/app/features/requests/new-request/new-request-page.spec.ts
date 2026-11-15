@@ -313,5 +313,31 @@ describe('NewRequestPage', () => {
       create.error(new HttpErrorResponse({ status: 413 }));
       expect(page['error']()).toBe('The file is too large');
     });
+
+    it('says uploads are pending only while they run', () => {
+      expect(page.hasPendingUploads()).toBe(false);
+      select(stl());
+      page['submit']();
+      expect(page.hasPendingUploads()).toBe(true);
+      create.next({ type: 'done', request: REQUEST });
+      expect(page.hasPendingUploads()).toBe(false);
+    });
+
+    it('cancels the remaining uploads and does not navigate once the page is left', () => {
+      const fixture = TestBed.createComponent(NewRequestPage);
+      const leaving = fixture.componentInstance;
+      leaving.ngOnInit();
+      leaving['form'].setValue({ name: 'Cube', description: '' });
+      const input = { files: [stl(), stl(10, 'b.stl')], value: 'x' } as unknown as HTMLInputElement;
+      leaving['onFilesSelected']({ target: input } as unknown as Event);
+      leaving['submit']();
+      create.next({ type: 'done', request: REQUEST });
+      expect(requestsService.addFile).toHaveBeenCalledTimes(1);
+
+      fixture.destroy();
+      expect(adds[0].observed).toBe(false);
+      adds[0].next({ type: 'done', request: REQUEST });
+      expect(router.navigate).not.toHaveBeenCalled();
+    });
   });
 });

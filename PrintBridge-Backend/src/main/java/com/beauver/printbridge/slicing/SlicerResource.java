@@ -1,9 +1,7 @@
 package com.beauver.printbridge.slicing;
 
-import com.beauver.printbridge.slicing.client.SlicerClient;
-import com.beauver.printbridge.slicing.client.SlicerException;
-import com.beauver.printbridge.slicing.client.SlicerPrinter;
-import com.beauver.printbridge.slicing.client.SlicerProfiles;
+import com.beauver.printbridge.slicing.dto.SlicerPrinterDto;
+import com.beauver.printbridge.slicing.dto.SlicerProfilesDto;
 import com.beauver.printbridge.slicing.dto.SlicerStatusDto;
 import com.beauver.printbridge.user.Role;
 import jakarta.annotation.security.RolesAllowed;
@@ -28,31 +26,24 @@ import java.util.List;
 public class SlicerResource {
 
     @Inject
-    SlicerClient client;
+    SlicerService service;
 
     @GET
     @Path("/status")
     public SlicerStatusDto status() {
-        if (!client.isConfigured()) {
-            return new SlicerStatusDto(false, false, null, "Server slicing isn't set up (SLICER_URL is missing)");
-        }
-        try {
-            return new SlicerStatusDto(true, true, client.version(), null);
-        } catch (SlicerException e) {
-            return new SlicerStatusDto(true, false, null, e.getMessage());
-        }
+        return service.status();
     }
 
     @GET
     @Path("/printers")
-    public List<SlicerPrinter> printers() {
-        return client.printers();
+    public List<SlicerPrinterDto> printers() {
+        return service.printers();
     }
 
     @GET
     @Path("/profiles")
-    public SlicerProfiles profiles(@QueryParam("printer") @NotBlank String printer,
-                                   @QueryParam("nozzle") @NotNull @DecimalMin("0.05") @DecimalMax("5") BigDecimal nozzle) {
-        return client.profiles(printer, nozzle);
+    public SlicerProfilesDto profiles(@QueryParam("printer") @NotBlank String printer,
+                                      @QueryParam("nozzle") @NotNull @DecimalMin("0.05") @DecimalMax("5") BigDecimal nozzle) {
+        return service.profiles(printer, nozzle);
     }
 }

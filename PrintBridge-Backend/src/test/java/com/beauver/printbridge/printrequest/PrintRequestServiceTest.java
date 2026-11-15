@@ -38,7 +38,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -83,7 +86,6 @@ class PrintRequestServiceTest {
         service.requests = requests;
         service.users = users;
         service.mapper = new PrintRequestMapper();
-        service.mapper.modelInfo = modelInfo;
         service.modelInfo = modelInfo;
         service.slicing = slicing;
         service.validator = validator;
@@ -95,8 +97,12 @@ class PrintRequestServiceTest {
             assignFileIds();
             return null;
         }).when(requests).flush();
-        lenient().when(modelInfo.describe(anyLong(), anyBoolean()))
-                .thenReturn(ModelInfoDto.withStatus(ModelInfoStatus.PENDING, null));
+        lenient().when(modelInfo.describe(anyCollection(), anyBoolean())).thenAnswer(inv -> {
+            Collection<Long> fileIds = inv.getArgument(0);
+            Map<Long, ModelInfoDto> infos = new HashMap<>();
+            fileIds.forEach(id -> infos.put(id, ModelInfoDto.withStatus(ModelInfoStatus.PENDING, null)));
+            return infos;
+        });
         service.uploadConfig = new UploadConfig() {
             @Override
             public int maxSizeMb() {

@@ -34,6 +34,8 @@ Layering:
 - **Service** (`*Service`): business rules, ownership checks, transactions. Throws domain exceptions (`InvalidInputException` → 400, `ConflictException` → 409, `ResourceNotFoundException` → 404, `InvalidCredentialsException` → 401), mapped in `ExceptionMappers`.
 - **Repository** (`*Repository`, Panache repository pattern): queries.
 - Entities never leave the backend: resources return DTO records built by mappers.
+- **Mapper** (`*Mapper`): only copies fields into DTOs. It injects no service or repository; what isn't on the entity is loaded or worked out by the service and handed in (`ModelDetailsCalculator` for model details, `RequestTotals` for a request's totals).
+- A resource never calls a client of another system directly: `SlicerResource` → `SlicerService` → `SlicerClient`, and the API has its own DTOs, so the slicer's format can change on its own.
 - Services that check ownership take a `Caller` (`id`, `admin`) from `CurrentUser.caller()` instead of reading the JWT themselves.
 - A package that grows past about ten files gets sub-packages by what the code is about (`token`, `printer`, `threemf`), not by layer: the class names already say resource, service or repository.
 - `dto` sub-packages hold only what crosses HTTP (JSON records, multipart forms). Values used between services sit in the package itself.
@@ -69,7 +71,7 @@ Optional. OrcaSlicer's command line behind a small Python HTTP API (standard lib
 
 Test fixtures shared by the specs are in `src/testing/`, outside the app build.
 
-Layering: template → component → service → backend API. Components never use `HttpClient` directly.
+Layering: template → component → service → backend API. Components never use `HttpClient` directly. A flow over several calls belongs in a service too: `RequestUploadService` uploads the files of a request one at a time for both the new request page and "Add files".
 
 Angular style: standalone components, signals for state, `inject()`, lazy-loaded routes, reactive forms. UI is Bootstrap 5 (CSS only, no Bootstrap JS); dark theme by default with a floating toggle bottom-right (`ThemeService`, `layout/theme-toggle`). Interactive elements carry `data-cy` attributes for future Cypress tests.
 

@@ -32,7 +32,10 @@ import java.nio.file.Path;
 import java.time.Instant;
 import java.util.Collection;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 
 /**
  * Server slicing (#15): queues files, hands jobs to the {@link SliceWorker} one at a time and
@@ -92,6 +95,15 @@ public class SlicingService {
 
     public Optional<SliceResult> find(long fileId) {
         return results.findByIdOptional(fileId);
+    }
+
+    /** The slicing results of these files, by file id; files that were never queued are left out. */
+    public Map<Long, SliceResult> find(Collection<Long> fileIds) {
+        if (fileIds.isEmpty()) {
+            return Map.of();
+        }
+        return results.list("fileId in ?1", fileIds).stream()
+                .collect(Collectors.toMap(result -> result.fileId, Function.identity()));
     }
 
     /** Switching slicing off drops waiting jobs (a running one finishes); switching it on starts the worker. */

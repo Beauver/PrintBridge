@@ -9,6 +9,7 @@ import {
   numberAttribute,
   OnInit,
   signal,
+  viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
 import { AuthService } from '../../../core/auth/auth.service';
@@ -28,6 +29,7 @@ import {
   statusBadgeClass,
   statusLabel,
 } from '../../../shared/format/print-request-display';
+import { HasPendingUploads } from '../pending-uploads.guard';
 import { PrintRequestsService } from '../print-requests.service';
 import { isValidQuantity, MAX_QUANTITY, MIN_QUANTITY } from '../upload-checks';
 import { AddFiles } from './add-files/add-files';
@@ -105,7 +107,7 @@ function printTimeTotal(request: PrintRequest): { text: string; note: string | n
   templateUrl: './request-detail-page.html',
   styleUrl: './request-detail-page.css',
 })
-export class RequestDetailPage implements OnInit {
+export class RequestDetailPage implements OnInit, HasPendingUploads {
   private readonly requestsService = inject(PrintRequestsService);
   private readonly fileSaver = inject(FileSaverService);
   private readonly router = inject(Router);
@@ -113,6 +115,9 @@ export class RequestDetailPage implements OnInit {
   private readonly location = inject(Location);
   protected readonly auth = inject(AuthService);
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
+
+  /** Only there while files may be added. */
+  private readonly addFiles = viewChild(AddFiles);
 
   /** Route parameter `:id`. */
   readonly id = input.required({ transform: numberAttribute });
@@ -217,6 +222,11 @@ export class RequestDetailPage implements OnInit {
     if (state?.failedUploads) {
       this.failedUploads.set(state.failedUploads);
     }
+  }
+
+  /** Whether "Add files" is uploading right now; leaving the page then asks first. */
+  hasPendingUploads(): boolean {
+    return this.addFiles()?.busy() ?? false;
   }
 
   ngOnInit(): void {
