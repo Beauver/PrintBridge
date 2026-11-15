@@ -3,9 +3,9 @@
 Code quality, security and best-practices audit of the whole repository (`PrintBridge-Backend`, `PrintBridge-Frontend`, `PrintBridge-Slicer`, `docs/`, config and CI), followed by a review of the file structure.
 
 - **Audited:** `main` at `f6c6086` (same content as `dev` at `cc50de4`).
-- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. Line numbers are from the audited commit and may have shifted.
+- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. After #31 (merged) the findings it fixed were removed too: N+1 queries on a request's files, mappers with business logic, `SlicerResource` without a service, and the upload flow in components. Line numbers are from the audited commit and may have shifted.
 - **Method:** reading the code. No test suites were run and no code was changed. One finding (nested 3MF components) was reproduced with a throwaway harness outside the repository; every other finding is from reading only and says so where it matters.
-- **Result:** no Critical findings, 2 High, 9 Medium, 13 Low / Nitpick.
+- **Result:** no Critical findings, 2 High, 9 Medium, 14 Low / Nitpick at the time of the audit. Still open below: 2 High, 8 Medium, 11 Low / Nitpick.
 
 Contents:
 
@@ -62,19 +62,14 @@ Contents:
   - **Issue:** Each preview re-parses the file and holds vertices, indices, their `ByteBuffer` copies and the gzip output at once (tens of MB at the 2M-triangle limit). `Cache-Control: no-store` means every click repeats it, and `POST /api/previews` lets a user trigger it with arbitrary files. A few parallel requests can exhaust a small heap.
   - **Recommendation:** Cache the encoded mesh per stored file (on disk next to the upload, invalidated when printers change), allow private caching with an ETag, and cap concurrent preview builds with a semaphore.
 
-- **[MEDIUM] N+1 queries when describing a request's files**
-  - **Location:** `.../modelinfo/ModelInfoService.java:91` (`describe`), called per file from `PrintRequestMapper.java:33`; `SettingsService.java:155` (`slicing`)
-  - **Category:** Panache/ORM
-  - **Issue:** For each file the mapper loads `ModelInfo` and `SliceResult` and queries the printers list again. A 50-file request costs about 150 queries, and the detail page polls every 3 s while slicing.
-  - **Recommendation:** Load the model infos and slice results for all file ids in two `in` queries, build `SlicingSettings` once per request and pass it into the mapper.
-
-- **[MEDIUM] Subscriptions outlive their components: polling continues and destroyed outputs are emitted**
-  - **Location:** `PrintBridge-Frontend/src/app/features/requests/request-detail/request-detail-page.ts:264-288`; `add-files/add-files.ts:120`; `review-panel/review-panel.ts:226,249`; `shared/model-viewer/model-preview.ts:41`
+- **[MEDIUM] Subscriptions outlive their components: polling continues and a destroyed output is emitted**
+  - **Location:** `PrintBridge-Frontend/src/app/features/requests/request-detail/request-detail-page.ts` (`show`, `refresh`); `review-panel/review-panel.ts` (`applyStatus`, `save`); `shared/model-viewer/model-preview.ts` (`show`)
   - **Category:** RxJS
-  - **Issue:** Only 5 of 38 `.subscribe()` calls are torn down. Concretely:
+  - **Issue:** Most `.subscribe()` calls are not torn down. Concretely:
     - If a poll request is in flight when the detail page is destroyed, its response calls `show()`, which arms a new timer, so polling runs until slicing ends.
-    - `AddFiles` and `ReviewPanel` call `output.emit()` after destroy, which throws NG0953 in current Angular and stalls the rest of the upload queue.
+    - `ReviewPanel` calls `output.emit()` after destroy, which throws NG0953 in current Angular.
     - `ModelPreview` can show file A's mesh under file B when the loader changes mid-request.
+    - The upload flows (new request page, "Add files") were fixed in #31.
   - **Recommendation:** Add `takeUntilDestroyed(destroyRef)` to these pipelines and use a `switchMap` on the loader in `ModelPreview`.
 
 - **[MEDIUM] README and config describe features that do not exist**
@@ -102,24 +97,6 @@ Contents:
   - **Category:** State machine
   - **Issue:** `RequestStatus` says nothing changes after DECLINED / COMPLETED, and quantity changes respect that, but the admin can still add, remove and re-slice files.
   - **Recommendation:** Apply `isFinal()` consistently, or document the exception.
-
-- **[LOW] Upload flow logic lives in components**
-  - **Location:** `PrintBridge-Frontend/src/app/features/requests/new-request/new-request-page.ts:162-228`; `request-detail/add-files/add-files.ts:115-144`
-  - **Category:** Architecture (fat component)
-  - **Issue:** Sequential multi-file upload with failure collection is implemented twice, recursively, in components. Leaving the new-request page mid-upload also still triggers `router.navigate` to the detail page later.
-  - **Recommendation:** Move it to one service method that returns a progress stream (`concatMap`), and add a `canDeactivate` guard while uploading.
-
-- **[LOW] Mappers contain business logic and database access**
-  - **Location:** `.../printrequest/PrintRequestMapper.java:18,43`; `.../modelinfo/ModelInfoMapper.java`; `SettingsService.java:201-236`
-  - **Category:** SOLID (single responsibility)
-  - **Issue:** `PrintRequestMapper` injects a service that queries, and computes totals. `ModelInfoMapper` does fit checks and weight estimation. `SettingsService` maps inline.
-  - **Recommendation:** Compute totals and fit in a service or a domain object and keep the mappers pure.
-
-- **[LOW] `SlicerResource` skips the service layer and returns client types**
-  - **Location:** `.../slicing/SlicerResource.java:30-57`
-  - **Category:** Architecture
-  - **Issue:** The resource calls `SlicerClient` directly, builds the status in a try/catch, and returns `SlicerPrinter` / `SlicerProfiles` (the slicer's wire format) as the API response.
-  - **Recommendation:** Add a thin service with its own DTOs, so the slicer contract can change independently.
 
 - **[LOW] List endpoints are unpaginated and uploads have no per-user quota**
   - **Location:** `PrintRequestRepository.java:16-35`; `PrintRequestService.create`
@@ -191,7 +168,7 @@ Already tracked elsewhere and not repeated here: #7 (bcrypt ignores bytes after 
 1. **Budget the component walk** in `ThreeMfGeometry`: a few lines close the reproduced DoS.
 2. **Cap the metadata JSON size** in `ProjectSettings` / `BambuProject`: one small `ReadBudget` per metadata part.
 3. **Block declining a paid request:** one check in `changeStatus` plus a test.
-4. **Add `takeUntilDestroyed`** to the subscriptions in the detail page, `AddFiles`, `ReviewPanel` and `ModelPreview`.
+4. **Add `takeUntilDestroyed`** to the subscriptions in the detail page, `ReviewPanel` and `ModelPreview`.
 5. **Bind the local slicer port to `127.0.0.1`** and correct the README feature list.
 
 ## File structure
