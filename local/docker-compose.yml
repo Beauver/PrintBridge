@@ -1,4 +1,5 @@
-# Local development dependencies for PrintBridge.
+# Local development dependencies for PrintBridge: what the backend needs while you run it and
+# the frontend from source. To run PrintBridge itself from images, see deploy/.
 # Usage: cd local && docker compose up -d
 name: printbridge
 
@@ -12,29 +13,13 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-change-me}
       TZ: ${TZ:-UTC}
     ports:
-      - "${POSTGRES_PORT:-5432}:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - postgres-data:/var/lib/postgresql/data
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
-      retries: 10
-
-  spoolman:
-    image: ghcr.io/donkie/spoolman:latest
-    restart: unless-stopped
-    environment:
-      TZ: ${TZ:-UTC}
-      SPOOLMAN_DB_TYPE: sqlite
-    ports:
-      - "${SPOOLMAN_PORT:-7912}:8000"
-    volumes:
-      - spoolman-data:/home/app/.local/share/spoolman
-    healthcheck:
-      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/api/v1/health')"]
-      interval: 10s
-      timeout: 5s
       retries: 10
 
   # Optional: server slicing (OrcaSlicer, ~1.6 GB). Start with: docker compose --profile slicer up -d
@@ -46,8 +31,8 @@ services:
     environment:
       TZ: ${TZ:-UTC}
     ports:
-      - "${SLICER_PORT:-18000}:8000"
+      # Localhost only: the service has no authentication.
+      - "127.0.0.1:${SLICER_PORT:-18000}:8000"
 
 volumes:
   postgres-data:
-  spoolman-data:

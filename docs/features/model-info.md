@@ -4,7 +4,7 @@ Issue: #12, extended by #15 ([server slicing](server-slicing.md)) and #23 (one c
 
 ## What it does
 
-- **Analysis:** every uploaded STL/3MF is read right after the upload and the result is stored with the file. If the file can't be read (odd or damaged, but it passed the [upload validation](print-requests.md#upload-validation-backend)), the upload still succeeds and the result is marked failed.
+- **Analysis:** every uploaded STL/3MF is read right after the upload, once its row is committed, and the result is stored with the file. The reading itself runs outside a database transaction; only looking the file up and saving the result use one (short) transaction each. If the file can't be read (odd or damaged, but it passed the [upload validation](print-requests.md#upload-validation-backend)), the upload still succeeds and the result is marked failed.
 - **Model card** on the request detail page, for the requester and the admin, one per file. The cards are collapsible: the first is open, the others closed, and the header shows the file name, "× quantity", grams, time and the badges. Plate images load when a card is first opened.
 
   | | STL / plain 3MF (and other slicers' projects) | Bambu Studio / OrcaSlicer project |
@@ -27,7 +27,7 @@ Issue: #12, extended by #15 ([server slicing](server-slicing.md)) and #23 (one c
 - **Badges** in a card's header, visible when collapsed too: *Slicing…*, *Slicing failed* and *Too big for …*.
 - **Fit check:** a plate (or the whole model) fits if X and Y fit as placed or turned 90°, and the height fits Z (0,01 mm slack for rounding). It is done when the request is shown, against the build plate of the printer the file was [sliced](server-slicing.md) for, else of the default printer, so changing a printer applies to existing requests. Without printers there is no check; the admin sees a hint linking to *Settings*.
 - **Settings** (`/admin/settings`, navbar *Settings*, admin only): the printers you own, each with its build plate X/Y/Z in whole mm (1–2000), and a default printer. See [server slicing](server-slicing.md#settings-adminsettings).
-- **Older uploads:** at startup the backend analyses all files that have no result yet, one per transaction, in a background thread (`ModelInfoBackfill`, switch: `printbridge.model-info.backfill-on-start`). Failed files keep their failed result and are not retried.
+- **Older uploads:** at startup the backend analyses all files that have no result yet, one at a time, in a background thread (`ModelInfoBackfill`, switch: `printbridge.model-info.backfill-on-start`). Failed files keep their failed result and are not retried. This also catches a file whose upload was cut short (backend stopped) between storing it and analysing it.
 - Numbers are shown the Dutch way like prices: `120 × 80,5 × 40 mm`, `63,2 cm³`, `33,69 g`; times as `2 h 5 min`.
 
 ## How files are read (`modelfile`)
@@ -47,6 +47,8 @@ Issue: #12, extended by #15 ([server slicing](server-slicing.md)) and #23 (one c
 ## Limits and safety
 
 - A 3MF is a ZIP: everything read from it is counted, and the analysis stops above 1 GiB uncompressed (zip bombs) or 5 million vertices kept in memory (60 MB). XML is parsed streaming with DTDs and external entities disabled.
+- A 3MF can place one mesh any number of times, with build items or with components inside components, so a file of a few hundred bytes can ask for billions of placements. Every placement is counted (the object's vertices plus 16), and the analysis stops above 50 million with "too detailed". Normal projects are far below that.
+- The slicer metadata in a 3MF has its own limits on uncompressed size: 2 MB for `Metadata/project_settings.config` (JSON that is kept in memory; real ones are tens of kB) and 16 MB each for `Metadata/model_settings.config`, `Metadata/slice_info.config` and `_rels/.rels`. A larger part fails the analysis; for server slicing the project settings then count as absent.
 - Components nested more than 8 deep (or in a cycle) and more than 500 plates are refused.
 - Text and colours from the file are cleaned before storing: control characters removed, at most 100 characters, colours only as `#RRGGBB`.
 

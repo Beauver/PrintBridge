@@ -5,6 +5,7 @@ import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
+import com.beauver.printbridge.common.transaction.RecordingTransactions;
 import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelfile.ModelFileValidator;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
@@ -29,6 +30,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.junit.jupiter.api.io.TempDir;
 import org.mockito.ArgumentCaptor;
+import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
@@ -38,7 +40,10 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -68,6 +73,7 @@ class PrintRequestServiceTest {
     @TempDir
     Path dir;
 
+    final RecordingTransactions transactions = new RecordingTransactions();
     PrintRequestService service;
     /** Requests of the test; the mocked flush gives their new files an id, as the database would. */
     final List<PrintRequest> tracked = new ArrayList<>();
@@ -83,20 +89,24 @@ class PrintRequestServiceTest {
         service.requests = requests;
         service.users = users;
         service.mapper = new PrintRequestMapper();
-        service.mapper.modelInfo = modelInfo;
         service.modelInfo = modelInfo;
         service.slicing = slicing;
         service.validator = validator;
         service.storage = storage;
         service.afterTransaction = afterTransaction;
+        service.transactions = transactions;
         service.settings = settings;
         lenient().when(settings.uploads()).thenReturn(new UploadLimits(3, 2, 5));
         lenient().doAnswer(inv -> {
             assignFileIds();
             return null;
         }).when(requests).flush();
-        lenient().when(modelInfo.describe(anyLong(), anyBoolean()))
-                .thenReturn(ModelInfoDto.withStatus(ModelInfoStatus.PENDING, null));
+        lenient().when(modelInfo.describe(anyCollection(), anyBoolean())).thenAnswer(inv -> {
+            Collection<Long> fileIds = inv.getArgument(0);
+            Map<Long, ModelInfoDto> infos = new HashMap<>();
+            fileIds.forEach(id -> infos.put(id, ModelInfoDto.withStatus(ModelInfoStatus.PENDING, null)));
+            return infos;
+        });
         service.uploadConfig = new UploadConfig() {
             @Override
             public int maxSizeMb() {
@@ -200,6 +210,9 @@ class PrintRequestServiceTest {
         assertEquals(ModelFileType.STL, file.type());
         assertEquals(500, file.sizeBytes());
         verify(requests).flush();
+        // Analysed and queued once the request and its file are committed.
+        verify(modelInfo).analyze(900L);
+        verify(slicing).enqueueIfEnabled(900L);
 
         captured(false).run();
         verify(storage).deleteFile("9/uuid.stl");
@@ -579,6 +592,8 @@ class PrintRequestServiceTest {
 
     private PrintRequest locked(RequestStatus status) {
         PrintRequest r = request(4, user(2, "bob"), status);
+        // The first look at the request, and the locked one inside the insert.
+        lenient().when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
         lenient().when(requests.findLockedWithDetails(4)).thenReturn(Optional.of(r));
         return r;
     }
@@ -612,10 +627,104 @@ class PrintRequestServiceTest {
         assertEquals(3, added.quantity());
         assertEquals(4, dto.totals().copies());
         RequestFile file = r.files.get(1);
-        verify(modelInfo).analyze(file.stored());
-        verify(slicing).enqueueIfEnabled(file.id);
-        captured(false).run();
+        // Analysed first: slicing a 3MF needs the model details.
+        InOrder order = inOrder(requests, modelInfo, slicing);
+        order.verify(requests).flush();
+        order.verify(modelInfo).analyze(file.id);
+        order.verify(slicing).enqueueIfEnabled(file.id);
+        verify(storage, never()).deleteFile(any());
+    }
+
+    @Test
+    void onlyTheInsertOfAnAddedFileHoldsATransaction() {
+        locked(RequestStatus.SUBMITTED);
+        when(validator.isValid(any(), any())).thenAnswer(inv -> {
+            assertFalse(transactions.active(), "the upload is checked outside a transaction");
+            return true;
+        });
+        when(storage.store(any(), any(), any())).thenAnswer(inv -> {
+            assertFalse(transactions.active(), "the file is copied outside a transaction");
+            return "4/new.stl";
+        });
+        when(requests.findLockedWithDetails(4)).thenAnswer(inv -> {
+            assertTrue(transactions.active(), "the request is locked inside a transaction");
+            return requests.findWithDetails(4);
+        });
+        doAnswer(inv -> {
+            assertFalse(transactions.active(), "the model is analysed outside a transaction");
+            return null;
+        }).when(modelInfo).analyze(anyLong());
+        doAnswer(inv -> {
+            assertTrue(transactions.active(), "queueing for slicing needs a transaction");
+            return null;
+        }).when(slicing).enqueueIfEnabled(anyLong());
+
+        service.addFile(4, upload("lid.stl"), 1, BOB);
+
+        verify(modelInfo).analyze(anyLong());
+        verify(slicing).enqueueIfEnabled(anyLong());
+    }
+
+    @Test
+    void theModelOfANewRequestIsAnalysedOutsideTheTransaction() {
+        when(users.findByIdOptional(2L)).thenReturn(Optional.of(user(2, "bob")));
+        when(validator.isValid(any(), any())).thenReturn(true);
+        doAnswer(inv -> {
+            PrintRequest created = inv.getArgument(0);
+            created.id = 9L;
+            tracked.add(created);
+            return null;
+        }).when(requests).persist(any(PrintRequest.class));
+        when(storage.store(any(), any(), any())).thenReturn("9/uuid.stl");
+        doAnswer(inv -> {
+            assertFalse(transactions.active(), "the model is analysed outside a transaction");
+            return null;
+        }).when(modelInfo).analyze(anyLong());
+
+        service.create(2, input("benchy.stl", 500));
+
+        verify(modelInfo).analyze(900L);
+    }
+
+    @Test
+    void theCopyIsRemovedWhenTheRequestChangedWhileItWasMade() {
+        locked(RequestStatus.SUBMITTED);
+        // Between the first look and the insert another upload filled the request.
+        PrintRequest full = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
+        extraFile(full, 201, "a.stl");
+        extraFile(full, 202, "b.stl");
+        when(requests.findLockedWithDetails(4)).thenReturn(Optional.of(full));
+        when(validator.isValid(any(), any())).thenReturn(true);
+        when(storage.store(any(), any(), any())).thenReturn("4/new.stl");
+
+        assertThrows(InvalidInputException.class, () -> service.addFile(4, upload("lid.stl"), 1, BOB));
+
         verify(storage).deleteFile("4/new.stl");
+        verifyNoInteractions(modelInfo, slicing);
+    }
+
+    @Test
+    void theCopyIsRemovedWhenTheRequestWasDeletedWhileItWasMade() {
+        locked(RequestStatus.SUBMITTED);
+        when(requests.findLockedWithDetails(4)).thenReturn(Optional.empty());
+        when(validator.isValid(any(), any())).thenReturn(true);
+        when(storage.store(any(), any(), any())).thenReturn("4/new.stl");
+
+        assertThrows(ResourceNotFoundException.class, () -> service.addFile(4, upload("lid.stl"), 1, BOB));
+
+        verify(storage).deleteFile("4/new.stl");
+    }
+
+    @Test
+    void aFailingAnalysisOrQueueDoesNotFailTheUpload() {
+        locked(RequestStatus.SUBMITTED);
+        when(validator.isValid(any(), any())).thenReturn(true);
+        when(storage.store(any(), any(), any())).thenReturn("4/new.stl");
+        doThrow(new IllegalStateException("gone")).when(modelInfo).analyze(anyLong());
+
+        assertEquals(2, service.addFile(4, upload("lid.stl"), 1, BOB).files().size());
+
+        verify(storage, never()).deleteFile(any());
     }
 
     @Test
@@ -655,8 +764,9 @@ class PrintRequestServiceTest {
     void otherUserCannotAddFile() {
         locked(RequestStatus.SUBMITTED);
         assertThrows(ResourceNotFoundException.class, () -> service.addFile(4, upload("lid.stl"), 1, EVE));
-        when(requests.findLockedWithDetails(5)).thenReturn(Optional.empty());
+        when(requests.findWithDetails(5)).thenReturn(Optional.empty());
         assertThrows(ResourceNotFoundException.class, () -> service.addFile(5, upload("lid.stl"), 1, ADMIN));
+        verifyNoInteractions(storage);
     }
 
     @Test

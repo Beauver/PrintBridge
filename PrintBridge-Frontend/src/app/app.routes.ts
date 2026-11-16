@@ -6,6 +6,7 @@ import {
   setupDoneGuard,
   setupPageGuard,
 } from './core/auth/guards';
+import { pendingUploadsGuard } from './features/requests/pending-uploads.guard';
 
 export const routes: Routes = [
   {
@@ -32,12 +33,14 @@ export const routes: Routes = [
       },
       {
         path: 'requests/new',
+        canDeactivate: [pendingUploadsGuard],
         title: 'New request · PrintBridge',
         loadComponent: () =>
           import('./features/requests/new-request/new-request-page').then((m) => m.NewRequestPage),
       },
       {
         path: 'requests/:id',
+        canDeactivate: [pendingUploadsGuard],
         title: 'Request · PrintBridge',
         loadComponent: () =>
           import('./features/requests/request-detail/request-detail-page').then(

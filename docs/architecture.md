@@ -27,13 +27,16 @@ Packages under `com.beauver.printbridge`, one per domain:
 | `slicing` | Server slicing: planner (which printer/nozzle/profiles), background worker. `result`: stored results, which are also the job queue. `client`: client for the slicer service |
 | `storage` | `FileStorage`: files on disk under `STORAGE_PATH` |
 | `common.error` | Domain exceptions and their HTTP mapping |
-| `common.transaction` | `AfterTransaction`: run disk side effects only after commit/rollback |
+| `common.ratelimit` | `@RateLimit` for REST endpoints and the in-memory `RateLimiter` behind it |
+| `common.transaction` | `AfterTransaction`: run disk side effects only after commit/rollback. `Transactions`: run one step of a longer flow in its own short transaction |
 
 Layering:
 - **Resource** (`*Resource`): HTTP only. Paths, status codes, `@RolesAllowed`/`@PermitAll`, Bean Validation on DTOs. No business logic.
-- **Service** (`*Service`): business rules, ownership checks, transactions. Throws domain exceptions (`InvalidInputException` → 400, `ConflictException` → 409, `ResourceNotFoundException` → 404, `InvalidCredentialsException` → 401), mapped in `ExceptionMappers`.
+- **Service** (`*Service`): business rules, ownership checks, transactions. Slow work (copying an upload, reading a model, calling the slicer) stays outside transactions: such a method is `NOT_SUPPORTED` and wraps its database steps in `Transactions`. Throws domain exceptions (`InvalidInputException` → 400, `ConflictException` → 409, `ResourceNotFoundException` → 404, `InvalidCredentialsException` → 401, `TooManyRequestsException` → 429), mapped in `ExceptionMappers`.
 - **Repository** (`*Repository`, Panache repository pattern): queries.
 - Entities never leave the backend: resources return DTO records built by mappers.
+- **Mapper** (`*Mapper`): only copies fields into DTOs. It injects no service or repository; what isn't on the entity is loaded or worked out by the service and handed in (`ModelDetailsCalculator` for model details, `RequestTotals` for a request's totals).
+- A resource never calls a client of another system directly: `SlicerResource` → `SlicerService` → `SlicerClient`, and the API has its own DTOs, so the slicer's format can change on its own.
 - Services that check ownership take a `Caller` (`id`, `admin`) from `CurrentUser.caller()` instead of reading the JWT themselves.
 - A package that grows past about ten files gets sub-packages by what the code is about (`token`, `printer`, `threemf`), not by layer: the class names already say resource, service or repository.
 - `dto` sub-packages hold only what crosses HTTP (JSON records, multipart forms). Values used between services sit in the package itself.
@@ -51,8 +54,9 @@ common, storage ◀─ modelfile ◀─ settings ◀─ modelinfo, slicing ◀�
 Conventions:
 - All endpoints live under `/api` (`quarkus.rest.path`).
 - Unannotated endpoints are denied (`quarkus.security.jaxrs.deny-unannotated-endpoints`); every resource states its access rule.
+- Rate limits: put `@RateLimit(limit = 10, windowSeconds = 60)` on a resource method (or class). `per = IP` (default) counts by client address, `per = USER` by logged-in user. Over the limit the endpoint answers `429` with `Retry-After` before it runs. Limits that depend on an outcome (failed logins) use `RateLimiter` from the service instead.
 - Schema changes only via Flyway (`src/main/resources/db/migration`). Hibernate validates the mapping against it in tests and never changes it.
-- Config via env vars, see `application.properties` and `/.env.example`.
+- Config via env vars, see `application.properties` and `PrintBridge-Backend/.env.example` (running from source) or `deploy/.env.example` (running the images, see [deployment](deployment.md)).
 
 ## Slicer service (`PrintBridge-Slicer`)
 
@@ -69,7 +73,7 @@ Optional. OrcaSlicer's command line behind a small Python HTTP API (standard lib
 
 Test fixtures shared by the specs are in `src/testing/`, outside the app build.
 
-Layering: template → component → service → backend API. Components never use `HttpClient` directly.
+Layering: template → component → service → backend API. Components never use `HttpClient` directly. A flow over several calls belongs in a service too: `RequestUploadService` uploads the files of a request one at a time for both the new request page and "Add files".
 
 Angular style: standalone components, signals for state, `inject()`, lazy-loaded routes, reactive forms. UI is Bootstrap 5 (CSS only, no Bootstrap JS); dark theme by default with a floating toggle bottom-right (`ThemeService`, `layout/theme-toggle`). Interactive elements carry `data-cy` attributes for future Cypress tests.
 

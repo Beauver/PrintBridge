@@ -2,7 +2,7 @@
 
 Web app where registered users request custom 3D prints (STL/3MF), pick filament from a self-hosted Spoolman, and the owner reviews/prices/accepts. See README.md for the full goal and `docs/` for what exists.
 
-Stack: Quarkus + Panache + PostgreSQL + Flyway (`PrintBridge-Backend`), Angular 22 + Bootstrap (`PrintBridge-Frontend`), local deps in `local/` (docker compose), config via env vars (`.env.example`).
+Stack: Quarkus + Panache + PostgreSQL + Flyway (`PrintBridge-Backend`), Angular 22 + Bootstrap (`PrintBridge-Frontend`), local deps in `local/` (docker compose), running the published images in `deploy/`, config via env vars (`PrintBridge-Backend/.env.example`, `deploy/.env.example`).
 
 ## Architecture
 

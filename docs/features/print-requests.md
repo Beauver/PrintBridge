@@ -18,6 +18,7 @@ Issue: #4 (part of #2); several files per request, quantities and upload setting
   - **Files:** a heading with the counts ("3 files · 7 copies") and *Download all (ZIP)*.
   - **One Model card per file** ([model info](model-info.md)), collapsible: the first is open, the others closed. The header shows the file name, "× quantity", grams, time and the slicing / fit badges. The body starts with the file's type and size, its quantity, *Download* and *Remove*.
   - **Add files** (owner while *Submitted*, admin always): choose one or more files; they go through the same checks and limits and are uploaded one at a time with one copy each. Files that fail are listed with the reason. New files are analysed and, with server slicing on, queued.
+  - **Leaving while files upload** (new request page and request page): the browser asks "Files are still uploading. Leave and cancel the remaining uploads?". Staying lets the upload go on; leaving cancels the file that is going up and skips the rest. Files that were already uploaded stay on the request.
   - **Quantity:** a number field per file (1–100), saved when it changes. The owner can change it while *Submitted*, the admin until the request is final.
   - **Remove** a file (owner while *Submitted*, admin always) asks for confirmation. The last file can't be removed; delete the request instead.
   - **Download all (ZIP)** holds every file under its original name; a duplicate name gets a number (`part (2).stl`), also when only the case differs.
@@ -67,6 +68,10 @@ The *Uploads* card on the admin settings page:
 
 - Files are stored under `STORAGE_PATH` as `<requestId>/<random-uuid>.<ext>`. The client's filename is never used in a path; it is only kept for display and as the download name.
 - In production, set `STORAGE_PATH` to an absolute path (e.g. `/data/uploads`) and mount a volume there. A relative path is resolved against the backend's working directory. The directory must not be served by a web server.
+- An upload is not one database transaction (#39), so a large file doesn't hold a connection or a row lock while it is copied and read:
+  1. The upload is checked. When adding a file, the request is looked at first, so an upload that will be refused isn't copied.
+  2. Adding a file: the file is copied into storage, then a short transaction locks the request, checks the rules and the file limit again and inserts the file row. Creating a request: the request, the copy and the file row are one short transaction, because the directory is named after the new request's id.
+  3. After the commit the model is analysed (see [model info](model-info.md)) and, with server slicing on, queued. A failure there never fails the upload.
 - Disk work follows the database transaction:
   - If creating a request or adding a file fails after the file was stored, the file is removed again.
   - A removed file, and the files of deleted requests or users, are removed after the commit. A failure there is logged and leaves an orphan file; the deletion still succeeds.

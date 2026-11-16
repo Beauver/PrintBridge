@@ -25,7 +25,8 @@ class ThreeMfGeometryTest {
             ThreeMfGeometry geometry = ThreeMfGeometry.load(pkg);
             ThreeMfGeometry.BuildItem item = geometry.buildItems().getFirst();
             assertThrows(IllegalStateException.class,
-                    () -> geometry.meshes(item, ThreeMfGeometry.ComponentFilter.ALL));
+                    () -> geometry.meshes(item, ThreeMfGeometry.ComponentFilter.ALL, mesh -> {
+                    }));
         }
         try (ThreeMfPackage pkg = ThreeMfPackage.open(file, new ReadBudget(ReadBudget.MAX_BYTES, 100, 5))) {
             ModelTooDetailedException e = assertThrows(ModelTooDetailedException.class,

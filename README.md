@@ -29,25 +29,28 @@ Status flow: `SUBMITTED → IN_REVIEW → ACCEPTED / DECLINED → COMPLETED`
 PrintBridge-Backend/    Quarkus API
 PrintBridge-Frontend/   Angular app
 PrintBridge-Slicer/     optional slicer service (OrcaSlicer behind a small HTTP API)
-local/                  docker-compose for local dependencies (Postgres, Spoolman)
-docs/                   architecture, auth, API and per-feature documentation
-.env.example            configuration template
+local/                  docker compose for development dependencies (Postgres, optional slicer)
+deploy/                 docker compose for running the published images
+docs/                   architecture, auth, API, deployment and per-feature documentation
 ```
 
 ## Getting started
 
-1. Copy `.env.example` to `.env` and adjust the values.
-2. Start the local dependencies, see [local/README.md](local/README.md):
+**Running it:** see [deployment](docs/deployment.md) for the compose file in `deploy/`.
+
+**Developing:**
+
+1. Start the local dependencies, see [local/README.md](local/README.md):
    ```sh
    cd local && cp .env.example .env && docker compose up -d
    ```
-3. Run the backend: `./gradlew quarkusDev` in `PrintBridge-Backend` (JDK 21+). It connects to the local Postgres with the `DB_*` defaults and runs the Flyway migrations.
-4. Run the frontend: `npm start` in `PrintBridge-Frontend`, then open http://localhost:4200. The dev server proxies `/api` to the backend on :8080.
-5. The first visit asks you to create the admin account.
+2. Run the backend: `./gradlew quarkusDev` in `PrintBridge-Backend` (JDK 21+). It connects to the local Postgres with its defaults and runs the Flyway migrations. To change a setting, copy `PrintBridge-Backend/.env.example` to `PrintBridge-Backend/.env`.
+3. Run the frontend: `npm start` in `PrintBridge-Frontend`, then open http://localhost:4200. The dev server proxies `/api` to the backend on :8080.
+4. The first visit asks you to create the admin account.
 
-JWT keys are only needed in production (see `local/README.md`); dev and tests generate throwaway keys. Documentation lives in [`docs/`](docs/README.md).
+Dev mode and tests generate throwaway JWT keys; real keys are only needed for a deployment. Documentation lives in [`docs/`](docs/README.md).
 
-All external connections (database, Spoolman, file storage) are configured through environment variables.
+All external connections (database, file storage, slicer) are configured through environment variables.
 
 ## Out of scope (v1)
 

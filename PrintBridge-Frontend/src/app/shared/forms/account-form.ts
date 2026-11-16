@@ -14,10 +14,31 @@ export const USERNAME_VALIDATORS = [
   Validators.pattern(/^[A-Za-z0-9_.-]+$/),
 ];
 export const EMAIL_VALIDATORS = [Validators.required, Validators.email, Validators.maxLength(254)];
+/** bcrypt hashes only the first 72 bytes of a password; anything after that would not count. */
+const MAX_PASSWORD_BYTES = 72;
+
+/**
+ * At most `max` bytes in UTF-8, the same rule as the backend's `@MaxUtf8Bytes`. Accented letters
+ * take two bytes and emoji four, so this can be fewer characters than `max`.
+ */
+export function maxUtf8Bytes(max: number): ValidatorFn {
+  return (control: AbstractControl): ValidationErrors | null => {
+    const value = control.value;
+    if (typeof value !== 'string') {
+      return null;
+    }
+    const actual = new TextEncoder().encode(value).length;
+    if (actual <= max) {
+      return null;
+    }
+    return { maxbytes: { max, actual } };
+  };
+}
+
 export const PASSWORD_VALIDATORS = [
   Validators.required,
   Validators.minLength(8),
-  Validators.maxLength(72),
+  maxUtf8Bytes(MAX_PASSWORD_BYTES),
 ];
 
 /** Group validator: `password` and `confirmPassword` must be equal. */

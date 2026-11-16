@@ -12,6 +12,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 
 import static com.beauver.printbridge.support.ThreeMfFiles.*;
@@ -163,6 +164,30 @@ class PreviewMeshReaderTest {
         assertThrows(ModelTooDetailedException.class,
                 () -> reader.read(ModelFiles.write(dir, "c.stl", ModelFiles.cubeStl(1)), ModelFileType.STL, null,
                         11));
+    }
+
+    @Test
+    void refusesNestedComponentsWithoutPlacingThemAll() {
+        byte[] file = ThreeMfFiles.builder().entry("3D/3dmodel.model", nestedComponents(8, 30)).build();
+
+        assertTimeoutPreemptively(Duration.ofSeconds(20),
+                () -> assertThrows(ModelTooDetailedException.class, () -> read("nested.3mf", file, P1S)));
+    }
+
+    @Test
+    void refusesPlacedVerticesThatNoTriangleUses() {
+        // One triangle but 400 vertices: far below the triangle limit, yet every placement copies them all.
+        StringBuilder object = new StringBuilder("<object id=\"1\" type=\"model\"><mesh><vertices>");
+        for (int i = 0; i < 400; i++) {
+            object.append("<vertex x=\"").append(i % 2).append("\" y=\"").append(i % 3).append("\" z=\"0\"/>");
+        }
+        object.append("</vertices><triangles><triangle v1=\"0\" v2=\"1\" v3=\"2\"/></triangles></mesh></object>");
+        byte[] file = ThreeMfFiles.builder()
+                .entry("3D/3dmodel.model", model("millimeter", object.toString(), item(1, null).repeat(8))).build();
+
+        ModelTooDetailedException e = assertThrows(ModelTooDetailedException.class,
+                () -> read("vertices.3mf", file, P1S));
+        assertEquals("The model places more than 3000 vertices", e.getMessage());
     }
 
     @Test

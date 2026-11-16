@@ -14,7 +14,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class PrintRequestMapperTest {
+class RequestTotalsTest {
 
     private static RequestFileDto file(int quantity, Double grams, WeightKind weight, Long seconds, Boolean fits) {
         ModelInfoDto info = new ModelInfoDto(ModelInfoStatus.ANALYZED, ModelSource.MESH, 1.0, grams, weight, seconds,
@@ -29,7 +29,7 @@ class PrintRequestMapperTest {
 
     @Test
     void totalsMultiplyByQuantity() {
-        RequestTotalsDto totals = PrintRequestMapper.totals(List.of(
+        RequestTotalsDto totals = RequestTotals.of(List.of(
                 file(2, 10.25, WeightKind.EXACT, 600L, true),
                 file(3, 5.0, WeightKind.EXACT, 100L, true)));
 
@@ -44,7 +44,7 @@ class PrintRequestMapperTest {
 
     @Test
     void anyFileThatDoesNotFitMakesTheRequestNotFit() {
-        RequestTotalsDto totals = PrintRequestMapper.totals(List.of(
+        RequestTotalsDto totals = RequestTotals.of(List.of(
                 file(1, 1.0, WeightKind.EXACT, 1L, true),
                 file(1, 1.0, WeightKind.EXACT, 1L, null),
                 file(1, 1.0, WeightKind.EXACT, 1L, false)));
@@ -53,19 +53,19 @@ class PrintRequestMapperTest {
 
     @Test
     void mixedWeightsArePartlyEstimated() {
-        assertEquals(WeightKind.PARTLY_ESTIMATED, PrintRequestMapper.totals(List.of(
+        assertEquals(WeightKind.PARTLY_ESTIMATED, RequestTotals.of(List.of(
                 file(1, 1.0, WeightKind.EXACT, 1L, null),
                 file(1, 1.0, WeightKind.ESTIMATED, null, null))).weight());
-        assertEquals(WeightKind.PARTLY_ESTIMATED, PrintRequestMapper.totals(List.of(
+        assertEquals(WeightKind.PARTLY_ESTIMATED, RequestTotals.of(List.of(
                 file(1, 1.0, WeightKind.PARTLY_ESTIMATED, null, null))).weight());
-        assertEquals(WeightKind.ESTIMATED, PrintRequestMapper.totals(List.of(
+        assertEquals(WeightKind.ESTIMATED, RequestTotals.of(List.of(
                 file(1, 1.0, WeightKind.ESTIMATED, null, null),
                 file(1, 1.0, WeightKind.ESTIMATED, null, null))).weight());
     }
 
     @Test
     void unknownFilesDoNotCountAndMakeTheTimePartial() {
-        RequestTotalsDto totals = PrintRequestMapper.totals(List.of(file(2, 4.0, WeightKind.EXACT, 60L, null),
+        RequestTotalsDto totals = RequestTotals.of(List.of(file(2, 4.0, WeightKind.EXACT, 60L, null),
                 pending(5)));
 
         assertEquals(7, totals.copies());
@@ -77,7 +77,7 @@ class PrintRequestMapperTest {
 
     @Test
     void nothingKnownGivesEmptyTotals() {
-        RequestTotalsDto totals = PrintRequestMapper.totals(List.of(pending(1)));
+        RequestTotalsDto totals = RequestTotals.of(List.of(pending(1)));
         assertNull(totals.grams());
         assertNull(totals.weight());
         assertNull(totals.printSeconds());

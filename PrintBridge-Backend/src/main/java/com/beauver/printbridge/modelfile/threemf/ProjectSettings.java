@@ -37,21 +37,38 @@ public record ProjectSettings(
     /** Settings of the designer that stay when the project is sliced with another process profile. */
     public static final List<String> KEPT_SETTINGS = List.of("sparse_infill_density", "wall_loops", "enable_support");
 
+    private static final ObjectMapper JSON = new ObjectMapper();
+
     /** The settings of a 3MF project, if it has them; never throws for a broken file. */
     public static Optional<ProjectSettings> read(Path file) {
         try (ThreeMfPackage pkg = ThreeMfPackage.open(file, new ReadBudget())) {
-            Optional<InputStream> settings = pkg.openIfPresent(BambuProject.PROJECT_SETTINGS);
-            if (settings.isEmpty()) {
-                return Optional.empty();
-            }
-            try (InputStream in = settings.get()) {
-                return Optional.ofNullable(new ObjectMapper().readTree(in))
-                        .filter(JsonNode::isObject)
-                        .map(ProjectSettings::of);
-            }
+            return parse(pkg).flatMap(ProjectSettings::ofJson);
         } catch (IOException | RuntimeException e) {
             return Optional.empty();
         }
+    }
+
+    /**
+     * The project settings JSON of a package; empty when it has none. The part may unpack to at
+     * most {@link ReadBudget#MAX_SETTINGS_BYTES}, because all of it is kept in memory.
+     */
+    static Optional<JsonNode> parse(ThreeMfPackage pkg) throws IOException {
+        Optional<InputStream> settings = pkg.openIfPresent(BambuProject.PROJECT_SETTINGS,
+                ReadBudget.MAX_SETTINGS_BYTES);
+        if (settings.isEmpty()) {
+            return Optional.empty();
+        }
+        try (InputStream in = settings.get()) {
+            return Optional.ofNullable(JSON.readTree(in));
+        }
+    }
+
+    /** The settings in parsed JSON; empty when it isn't a JSON object. */
+    static Optional<ProjectSettings> ofJson(JsonNode json) {
+        if (!json.isObject()) {
+            return Optional.empty();
+        }
+        return Optional.of(of(json));
     }
 
     static ProjectSettings of(JsonNode json) {

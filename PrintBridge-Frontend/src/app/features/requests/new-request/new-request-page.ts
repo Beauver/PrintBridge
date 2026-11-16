@@ -1,4 +1,5 @@
-import { Component, computed, inject, OnInit, signal } from '@angular/core';
+import { Component, computed, DestroyRef, inject, OnInit, signal } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router, RouterLink } from '@angular/router';
 import { Observable } from 'rxjs';
@@ -12,7 +13,9 @@ import { fieldError } from '../../../shared/forms/field-error';
 import { ModelPreview } from '../../../shared/model-viewer/model-preview';
 import { formatBytes } from '../../../shared/format/print-request-display';
 import { ModelPreviewService } from '../model-preview.service';
+import { HasPendingUploads } from '../pending-uploads.guard';
 import { PrintRequestsService } from '../print-requests.service';
+import { RequestUploadService } from '../request-upload.service';
 import {
   checkFile,
   dotted,
@@ -50,12 +53,16 @@ export interface FileEntry {
   templateUrl: './new-request-page.html',
   styleUrl: './new-request-page.css',
 })
-export class NewRequestPage implements OnInit {
+export class NewRequestPage implements OnInit, HasPendingUploads {
   private readonly requestsService = inject(PrintRequestsService);
+  private readonly uploadService = inject(RequestUploadService);
+  private readonly destroyRef = inject(DestroyRef);
   private readonly previewService = inject(ModelPreviewService);
   private readonly router = inject(Router);
   private readonly fb = inject(FormBuilder);
   private nextKey = 1;
+  /** Set once the page is gone: its cancelled upload must not open the request page. */
+  private left = false;
 
   protected readonly form = this.fb.nonNullable.group({
     name: ['', [Validators.required, Validators.maxLength(100)]],
@@ -122,6 +129,12 @@ export class NewRequestPage implements OnInit {
   protected readonly formatBytes = formatBytes;
   protected readonly isValidQuantity = isValidQuantity;
 
+  constructor() {
+    this.destroyRef.onDestroy(() => {
+      this.left = true;
+    });
+  }
+
   ngOnInit(): void {
     this.requestsService.uploadConfig().subscribe({
       next: (config) => {
@@ -159,61 +172,60 @@ export class NewRequestPage implements OnInit {
     this.update(key, { quantity });
   }
 
+  /** Whether files are going up right now; leaving the page then asks first. */
+  hasPendingUploads(): boolean {
+    return this.uploading();
+  }
+
   protected submit(): void {
     this.form.markAllAsTouched();
     this.submitted.set(true);
     if (this.form.invalid || this.hasFileErrors()) {
       return;
     }
-    const [first] = this.entries();
+    const entries = this.entries();
     const { name, description } = this.form.getRawValue();
+    const failed: FailedUpload[] = [];
+    let requestId: number | null = null;
     this.uploading.set(true);
     this.error.set(null);
-    this.update(first.key, { status: 'uploading', progress: 0 });
-    this.requestsService
-      .create({ name, description, file: first.file, quantity: first.quantity })
+    this.uploadService
+      .createWithFiles(name, description, entries)
+      .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (event) => {
-          if (event.type === 'progress') {
-            this.update(first.key, { progress: event.percent });
+          const entry = entries[event.index];
+          if (event.type === 'started') {
+            this.update(entry.key, { status: 'uploading', progress: 0 });
+          } else if (event.type === 'progress') {
+            this.update(entry.key, { progress: event.percent });
+          } else if (event.type === 'uploaded') {
+            requestId = event.request.id;
+            this.update(entry.key, { status: 'done', progress: 100 });
           } else {
-            this.update(first.key, { status: 'done', progress: 100 });
-            this.uploadRest(event.request.id, 1, []);
+            // A full red bar, so "Failed" is readable.
+            this.update(entry.key, { status: 'failed', progress: 100 });
+            const reason = uploadErrorMessage(
+              event.error,
+              this.config(),
+              'Could not upload this file.',
+            );
+            failed.push({ filename: entry.file.name, reason });
           }
         },
         error: (err: unknown) => {
+          // The first file failed, so there is no request.
           this.uploading.set(false);
-          this.update(first.key, { status: 'waiting', progress: 0 });
+          this.update(entries[0].key, { status: 'waiting', progress: 0 });
           this.error.set(uploadErrorMessage(err, this.config(), 'Could not submit your request.'));
         },
+        complete: () => {
+          // Leaving the page also completes the stream; only a finished upload opens the request.
+          if (requestId !== null && !this.left) {
+            this.finish(requestId, failed);
+          }
+        },
       });
-  }
-
-  /** Adds the remaining files one at a time; a failure is remembered and the next one goes on. */
-  private uploadRest(requestId: number, index: number, failed: FailedUpload[]): void {
-    const entries = this.entries();
-    if (index >= entries.length) {
-      this.finish(requestId, failed);
-      return;
-    }
-    const entry = entries[index];
-    this.update(entry.key, { status: 'uploading', progress: 0 });
-    this.requestsService.addFile(requestId, entry.file, entry.quantity).subscribe({
-      next: (event) => {
-        if (event.type === 'progress') {
-          this.update(entry.key, { progress: event.percent });
-        } else {
-          this.update(entry.key, { status: 'done', progress: 100 });
-          this.uploadRest(requestId, index + 1, failed);
-        }
-      },
-      error: (err: unknown) => {
-        // A full red bar, so "Failed" is readable.
-        this.update(entry.key, { status: 'failed', progress: 100 });
-        const reason = uploadErrorMessage(err, this.config(), 'Could not upload this file.');
-        this.uploadRest(requestId, index + 1, [...failed, { filename: entry.file.name, reason }]);
-      },
-    });
   }
 
   /** Opens the new request; its page lists the files that didn't make it. */

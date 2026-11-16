@@ -53,24 +53,33 @@ final class ThreeMfPackage implements Closeable {
 
     /** Opens a part. Part names may start with a slash, as they do in relationships and {@code p:path}. */
     InputStream open(String name) throws IOException {
+        return open(name, Long.MAX_VALUE);
+    }
+
+    /** Opens a part that may unpack to at most {@code maxBytes}; reading past that fails. */
+    InputStream open(String name, long maxBytes) throws IOException {
         ZipEntry entry = entries.get(normalize(name));
         if (entry == null) {
             throw new ModelAnalysisException("Missing part in 3MF: " + name);
         }
-        return new LimitedInputStream(zip.getInputStream(entry), budget);
+        return new LimitedInputStream(zip.getInputStream(entry), budget, name, maxBytes);
     }
 
     Optional<InputStream> openIfPresent(String name) throws IOException {
+        return openIfPresent(name, Long.MAX_VALUE);
+    }
+
+    Optional<InputStream> openIfPresent(String name, long maxBytes) throws IOException {
         if (!has(name)) {
             return Optional.empty();
         }
-        return Optional.of(open(name));
+        return Optional.of(open(name, maxBytes));
     }
 
     /** The main model part, from the package relationships; the usual default if they don't say. */
     String rootModelPath() throws IOException {
         if (has(ROOT_RELS)) {
-            try (InputStream in = open(ROOT_RELS)) {
+            try (InputStream in = open(ROOT_RELS, ReadBudget.MAX_METADATA_BYTES)) {
                 String target = findModelTarget(in);
                 if (target != null && has(target)) {
                     return normalize(target);

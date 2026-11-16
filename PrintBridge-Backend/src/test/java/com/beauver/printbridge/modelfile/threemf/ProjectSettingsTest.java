@@ -1,5 +1,6 @@
 package com.beauver.printbridge.modelfile.threemf;
 
+import com.beauver.printbridge.modelfile.ReadBudget;
 import com.beauver.printbridge.support.ModelFiles;
 import com.beauver.printbridge.support.ThreeMfFiles;
 import org.junit.jupiter.api.Test;
@@ -64,6 +65,19 @@ class ProjectSettingsTest {
         assertTrue(read(null).isEmpty());
         assertTrue(read("").isEmpty());
         assertTrue(read("{broken").isEmpty());
+        assertTrue(read("[]").isEmpty());
+    }
+
+    @Test
+    void emptyWhenTheSettingsAreTooLargeToKeepInMemory() {
+        String start = "{\"printer_model\": \"Bambu Lab P1S\"";
+        assertEquals("Bambu Lab P1S", read(start + "}").orElseThrow().printerModel());
+
+        assertTrue(read(start + " ".repeat((int) ReadBudget.MAX_SETTINGS_BYTES) + "}").isEmpty());
+    }
+
+    @Test
+    void emptyForUnreadablePackages() {
         assertTrue(ProjectSettings.read(ModelFiles.write(dir, "x.3mf", new byte[]{1, 2, 3})).isEmpty());
     }
 }

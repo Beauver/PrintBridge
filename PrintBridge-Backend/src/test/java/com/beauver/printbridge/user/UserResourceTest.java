@@ -80,6 +80,27 @@ class UserResourceTest {
     }
 
     @Test
+    void passwordsLongerThanBcryptHashesAreRefused() {
+        User bob = data.user("bob");
+        // 18 emoji of 4 bytes each plus one letter: 37 characters but 73 bytes.
+        String tooLong = "\uD83D\uDE00".repeat(18) + "a";
+        String justFits = "\uD83D\uDE00".repeat(18);
+        String asciiLimit = "a".repeat(72);
+
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(Map.of("password", tooLong))
+                .put("/api/users/" + bob.id + "/password").then().statusCode(400)
+                .body(containsString("Password is too long"));
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(Map.of("username", "dave", "email", "dave@example.com", "password", "a".repeat(73)))
+                .post("/api/users").then().statusCode(400).body(containsString("Password is too long"));
+
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(Map.of("password", justFits))
+                .put("/api/users/" + bob.id + "/password").then().statusCode(204);
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(Map.of("password", asciiLimit))
+                .put("/api/users/" + bob.id + "/password").then().statusCode(204);
+    }
+
+    @Test
     void resetPasswordOfUnknownUserIsNotFound() {
         given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(Map.of("password", "brand-new-pw"))
                 .put("/api/users/9999/password").then().statusCode(404);

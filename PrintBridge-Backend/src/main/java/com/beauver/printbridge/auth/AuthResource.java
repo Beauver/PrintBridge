@@ -3,6 +3,8 @@ package com.beauver.printbridge.auth;
 import com.beauver.printbridge.auth.dto.AuthResponse;
 import com.beauver.printbridge.auth.dto.LoginRequest;
 import com.beauver.printbridge.auth.token.RefreshCookie;
+import com.beauver.printbridge.common.ratelimit.ClientAddress;
+import com.beauver.printbridge.common.ratelimit.RateLimit;
 import com.beauver.printbridge.user.UserService;
 import com.beauver.printbridge.user.dto.UserDto;
 import io.quarkus.security.Authenticated;
@@ -30,12 +32,16 @@ public class AuthResource {
     @Inject
     CurrentUser currentUser;
 
+    @Inject
+    ClientAddress clientAddress;
+
     @POST
     @Path("/login")
     @PermitAll
     @Consumes(MediaType.APPLICATION_JSON)
+    @RateLimit(limit = 10, windowSeconds = 60)
     public Response login(@Valid @NotNull LoginRequest request) {
-        return sessionResponse(authService.login(request.login(), request.password()));
+        return sessionResponse(authService.login(request.login(), request.password(), clientAddress.get()));
     }
 
     @POST

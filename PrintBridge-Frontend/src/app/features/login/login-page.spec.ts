@@ -49,4 +49,16 @@ describe('LoginPage', () => {
     expect(page['form'].controls.password.value).toBe('');
     expect(page['busy']()).toBe(false);
   });
+
+  it('shows how long to wait after too many attempts', () => {
+    const message = 'Too many attempts, try again in 42 seconds';
+    auth.login.mockReturnValue(
+      throwError(() => new HttpErrorResponse({ status: 429, error: { message } })),
+    );
+    page['form'].setValue({ login: 'alice', password: 'secret12' });
+    page['submit']();
+
+    expect(page['error']()).toBe(message);
+    expect(page['busy']()).toBe(false);
+  });
 });
