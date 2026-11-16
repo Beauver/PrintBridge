@@ -42,6 +42,7 @@ class RefreshTokenServiceTest {
         service.clock = Clock.fixed(NOW, ZoneOffset.UTC);
         user = new User();
         user.id = 7L;
+        lenient().when(config.refreshGrace()).thenReturn(Duration.ofSeconds(10));
     }
 
     private RefreshToken stored(Instant expiresAt, Instant revokedAt) {
@@ -67,6 +68,13 @@ class RefreshTokenServiceTest {
     }
 
     @Test
+    void issueDeletesTheExpiredTokensOfTheUser() {
+        when(config.refreshTokenTtl()).thenReturn(Duration.ofDays(14));
+        service.issue(user);
+        verify(tokens).deleteExpiredForUser(7L, NOW);
+    }
+
+    @Test
     void issueCreatesDifferentTokens() {
         when(config.refreshTokenTtl()).thenReturn(Duration.ofDays(14));
         assertNotEquals(service.issue(user), service.issue(user));
@@ -75,10 +83,42 @@ class RefreshTokenServiceTest {
     @Test
     void consumeRevokesAndReturnsUser() {
         RefreshToken token = stored(NOW.plusSeconds(60), null);
-        when(tokens.findByHash(RefreshTokenService.hash("raw"))).thenReturn(Optional.of(token));
+        when(tokens.findByHashForUpdate(RefreshTokenService.hash("raw"))).thenReturn(Optional.of(token));
 
         assertSame(user, service.consume("raw"));
         assertEquals(NOW, token.revokedAt);
+        assertEquals(NOW, token.rotatedAt);
+    }
+
+    @Test
+    void consumeAcceptsATokenThatWasJustReplaced() {
+        RefreshToken token = stored(NOW.plusSeconds(60), NOW.minusSeconds(10));
+        token.rotatedAt = NOW.minusSeconds(10);
+        when(tokens.findByHashForUpdate(anyString())).thenReturn(Optional.of(token));
+
+        assertSame(user, service.consume("raw"));
+        assertSame(user, service.consume("raw"));
+        verify(tokens, never()).revokeAllForUser(anyLong(), any());
+        assertEquals(NOW.minusSeconds(10), token.revokedAt);
+    }
+
+    @Test
+    void consumeTreatsAReplacedTokenAsStolenAfterTheGracePeriod() {
+        RefreshToken token = stored(NOW.plusSeconds(60), NOW.minusSeconds(11));
+        token.rotatedAt = NOW.minusSeconds(11);
+        when(tokens.findByHashForUpdate(anyString())).thenReturn(Optional.of(token));
+
+        assertThrows(InvalidCredentialsException.class, () -> service.consume("raw"));
+        verify(tokens).revokeAllForUser(7L, NOW);
+    }
+
+    @Test
+    void consumeRejectsAnExpiredTokenEvenWhenJustReplaced() {
+        RefreshToken token = stored(NOW.minusSeconds(1), NOW.minusSeconds(2));
+        token.rotatedAt = NOW.minusSeconds(2);
+        when(tokens.findByHashForUpdate(anyString())).thenReturn(Optional.of(token));
+
+        assertThrows(InvalidCredentialsException.class, () -> service.consume("raw"));
     }
 
     @Test
@@ -90,20 +130,20 @@ class RefreshTokenServiceTest {
 
     @Test
     void consumeRejectsUnknownToken() {
-        when(tokens.findByHash(anyString())).thenReturn(Optional.empty());
+        when(tokens.findByHashForUpdate(anyString())).thenReturn(Optional.empty());
         assertThrows(InvalidCredentialsException.class, () -> service.consume("raw"));
     }
 
     @Test
     void consumeRejectsExpiredToken() {
-        when(tokens.findByHash(anyString())).thenReturn(Optional.of(stored(NOW.minusSeconds(1), null)));
+        when(tokens.findByHashForUpdate(anyString())).thenReturn(Optional.of(stored(NOW.minusSeconds(1), null)));
         assertThrows(InvalidCredentialsException.class, () -> service.consume("raw"));
         verify(tokens, never()).revokeAllForUser(anyLong(), any());
     }
 
     @Test
     void reusingARevokedTokenRevokesAllTokensOfTheUser() {
-        when(tokens.findByHash(anyString())).thenReturn(Optional.of(stored(NOW.plusSeconds(60), NOW.minusSeconds(5))));
+        when(tokens.findByHashForUpdate(anyString())).thenReturn(Optional.of(stored(NOW.plusSeconds(60), NOW.minusSeconds(5))));
         assertThrows(InvalidCredentialsException.class, () -> service.consume("raw"));
         verify(tokens).revokeAllForUser(7L, NOW);
     }
@@ -114,6 +154,14 @@ class RefreshTokenServiceTest {
         when(tokens.findByHash(anyString())).thenReturn(Optional.of(token));
         service.revoke("raw");
         assertEquals(NOW, token.revokedAt);
+        verify(tokens).endGraceForUser(7L);
+    }
+
+    @Test
+    void revokeIgnoresUnknownToken() {
+        when(tokens.findByHash(anyString())).thenReturn(Optional.empty());
+        service.revoke("raw");
+        verify(tokens, never()).endGraceForUser(anyLong());
     }
 
     @Test

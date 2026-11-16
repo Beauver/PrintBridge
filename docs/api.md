@@ -37,7 +37,7 @@ Auth response: `{accessToken, expiresIn (seconds), user}`.
 
 User: `{id, username, email, role, createdAt}`.
 
-Validation: username 3–32 characters (`A-Z a-z 0-9 . _ -`), unique ignoring case; email valid, max 254, unique ignoring case; password 8–72 characters.
+Validation: username 3–32 characters (`A-Z a-z 0-9 . _ -`), unique ignoring case; email valid, max 254, unique ignoring case; password at least 8 characters and at most 72 bytes in UTF-8 (72 characters for plain ASCII).
 
 Non-admins get `403`, requests without a valid token `401`.
 
