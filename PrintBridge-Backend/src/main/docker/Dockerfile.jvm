@@ -94,6 +94,12 @@ COPY --chown=185 build/quarkus-app/*.jar /deployments/
 COPY --chown=185 build/quarkus-app/app/ /deployments/app/
 COPY --chown=185 build/quarkus-app/quarkus/ /deployments/quarkus/
 
+# Where uploads and the JWT keys go in a container (see deploy/docker-compose.yml). The upload
+# directory exists and belongs to the app's user, so a new volume mounted there is writable.
+USER root
+RUN mkdir -p /data/uploads /data/keys && chown -R 185:0 /data
+ENV STORAGE_PATH=/data/uploads
+
 EXPOSE 8080
 USER 185
 ENV JAVA_OPTS_APPEND="-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager"

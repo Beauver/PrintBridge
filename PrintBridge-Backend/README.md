@@ -9,5 +9,5 @@ The Quarkus API of PrintBridge. See the [root README](../README.md) for what the
 
 - JDK 21 or newer.
 - Coverage report after the tests: `build/reports/jacoco/test/html/index.html`.
-- Configuration: environment variables, see `src/main/resources/application.properties` and `../.env.example`.
+- Configuration: environment variables, see `src/main/resources/application.properties` and `.env.example` (copy it to `.env` here to change a setting).
 - Docker image: `./gradlew quarkusBuild`, then `docker build -f src/main/docker/Dockerfile.jvm -t printbridge-backend .`

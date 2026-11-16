@@ -66,4 +66,4 @@ Backend: `@RolesAllowed` on resources, ownership checks in services. Frontend: `
 
 ## Keys
 
-In dev and test Quarkus generates a throwaway key pair on startup (tokens don't survive a restart; the refresh cookie does, so users are silently logged back in). In production set `JWT_PRIVATE_KEY_PATH` and `JWT_PUBLIC_KEY_PATH`; see `local/README.md` for generating them.
+In dev and test Quarkus generates a throwaway key pair on startup (tokens don't survive a restart; the refresh cookie does, so users are silently logged back in). In production set `JWT_PRIVATE_KEY_PATH` and `JWT_PUBLIC_KEY_PATH`; see [deployment](deployment.md#jwt-keys) for how to create them.
