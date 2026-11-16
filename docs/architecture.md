@@ -27,11 +27,12 @@ Packages under `com.beauver.printbridge`, one per domain:
 | `slicing` | Server slicing: planner (which printer/nozzle/profiles), background worker. `result`: stored results, which are also the job queue. `client`: client for the slicer service |
 | `storage` | `FileStorage`: files on disk under `STORAGE_PATH` |
 | `common.error` | Domain exceptions and their HTTP mapping |
+| `common.ratelimit` | `@RateLimit` for REST endpoints and the in-memory `RateLimiter` behind it |
 | `common.transaction` | `AfterTransaction`: run disk side effects only after commit/rollback |
 
 Layering:
 - **Resource** (`*Resource`): HTTP only. Paths, status codes, `@RolesAllowed`/`@PermitAll`, Bean Validation on DTOs. No business logic.
-- **Service** (`*Service`): business rules, ownership checks, transactions. Throws domain exceptions (`InvalidInputException` → 400, `ConflictException` → 409, `ResourceNotFoundException` → 404, `InvalidCredentialsException` → 401), mapped in `ExceptionMappers`.
+- **Service** (`*Service`): business rules, ownership checks, transactions. Throws domain exceptions (`InvalidInputException` → 400, `ConflictException` → 409, `ResourceNotFoundException` → 404, `InvalidCredentialsException` → 401, `TooManyRequestsException` → 429), mapped in `ExceptionMappers`.
 - **Repository** (`*Repository`, Panache repository pattern): queries.
 - Entities never leave the backend: resources return DTO records built by mappers.
 - **Mapper** (`*Mapper`): only copies fields into DTOs. It injects no service or repository; what isn't on the entity is loaded or worked out by the service and handed in (`ModelDetailsCalculator` for model details, `RequestTotals` for a request's totals).
@@ -53,6 +54,7 @@ common, storage ◀─ modelfile ◀─ settings ◀─ modelinfo, slicing ◀�
 Conventions:
 - All endpoints live under `/api` (`quarkus.rest.path`).
 - Unannotated endpoints are denied (`quarkus.security.jaxrs.deny-unannotated-endpoints`); every resource states its access rule.
+- Rate limits: put `@RateLimit(limit = 10, windowSeconds = 60)` on a resource method (or class). `per = IP` (default) counts by client address, `per = USER` by logged-in user. Over the limit the endpoint answers `429` with `Retry-After` before it runs. Limits that depend on an outcome (failed logins) use `RateLimiter` from the service instead.
 - Schema changes only via Flyway (`src/main/resources/db/migration`). Hibernate validates the mapping against it in tests and never changes it.
 - Config via env vars, see `application.properties` and `/.env.example`.
 

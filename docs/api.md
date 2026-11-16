@@ -19,7 +19,7 @@ All endpoints are under `/api`. Errors handled by the app return `{"message": ".
 
 | Method | Path | Access | Body | Response |
 |---|---|---|---|---|
-| POST | `/auth/login` | public | `{login, password}` (`login` = username or email, case-insensitive) | `200` auth response + refresh cookie; `401 Invalid credentials` |
+| POST | `/auth/login` | public | `{login, password}` (`login` = username or email, case-insensitive) | `200` auth response + refresh cookie; `401 Invalid credentials`; `429` with `Retry-After` after too many attempts (see [auth](auth.md#login-throttling)) |
 | POST | `/auth/refresh` | refresh cookie | – | `200` auth response + new cookie; `401` |
 | POST | `/auth/logout` | public | – | `204`, cookie cleared |
 | GET | `/auth/me` | logged in | – | `200` user |
@@ -40,6 +40,8 @@ User: `{id, username, email, role, createdAt}`.
 Validation: username 3–32 characters (`A-Z a-z 0-9 . _ -`), unique ignoring case; email valid, max 254, unique ignoring case; password at least 8 characters and at most 72 bytes in UTF-8 (72 characters for plain ASCII).
 
 Non-admins get `403`, requests without a valid token `401`.
+
+An endpoint with a rate limit answers `429 Too Many Requests` once the limit is passed, with a `Retry-After` header (seconds) and `{"message": "Too many attempts, try again in N seconds"}`. Currently only login has one.
 
 Deleting a user also deletes their print requests and files.
 
