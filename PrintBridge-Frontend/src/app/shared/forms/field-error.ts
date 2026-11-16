@@ -12,6 +12,7 @@ export function fieldError(control: AbstractControl | null, label: string): stri
     return `${label} must be at least ${errors['minlength'].requiredLength} characters`;
   if (errors['maxlength'])
     return `${label} must be at most ${errors['maxlength'].requiredLength} characters`;
+  if (errors['maxbytes']) return `${label} is too long`;
   if (errors['pattern']) return `${label} may only contain letters, digits, '.', '_' and '-'`;
   return `${label} is not valid`;
 }
