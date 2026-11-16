@@ -40,6 +40,16 @@ public class RefreshToken extends PanacheEntityBase {
     @Column(name = "rotated_at")
     public Instant rotatedAt;
 
+    /**
+     * Marks the token as used up by a refresh that issues its successor. Two different fields:
+     * {@link #revokedAt} ends the token, {@link #rotatedAt} records that the reason was a
+     * rotation, which is what lets other tabs present it again for a moment.
+     */
+    public void replace(Instant now) {
+        revokedAt = now;
+        rotatedAt = now;
+    }
+
     public boolean isUsable(Instant now) {
         return revokedAt == null && expiresAt.isAfter(now);
     }

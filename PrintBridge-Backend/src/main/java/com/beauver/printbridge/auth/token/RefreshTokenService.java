@@ -90,8 +90,7 @@ public class RefreshTokenService {
         if (!token.isUsable(now)) {
             throw new InvalidCredentialsException(INVALID);
         }
-        token.revokedAt = now;
-        token.rotatedAt = now;
+        token.replace(now);
         return token.user;
     }
 
