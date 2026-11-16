@@ -3,9 +3,9 @@
 Code quality, security and best-practices audit of the whole repository (`PrintBridge-Backend`, `PrintBridge-Frontend`, `PrintBridge-Slicer`, `docs/`, config and CI), followed by a review of the file structure.
 
 - **Audited:** `main` at `f6c6086` (same content as `dev` at `cc50de4`).
-- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. After #31 (merged) the findings it fixed were removed too: N+1 queries on a request's files, mappers with business logic, `SlicerResource` without a service, and the upload flow in components. After #33 (merged) both High findings were removed: nested 3MF components and unbounded 3MF metadata JSON, which were closed with limits on placed geometry and metadata size. After #35 (merged) the refresh token findings were removed: rotation without concurrency control (now a row lock and a 10 second grace window) and tokens never being purged; the `.env.example` finding was cut down to what is left. Line numbers are from the audited commit and may have shifted.
+- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. After #31 (merged) the findings it fixed were removed too: N+1 queries on a request's files, mappers with business logic, `SlicerResource` without a service, and the upload flow in components. After #33 (merged) both High findings were removed: nested 3MF components and unbounded 3MF metadata JSON, which were closed with limits on placed geometry and metadata size. After #35 (merged) the refresh token findings were removed: rotation without concurrency control (now a row lock and a 10 second grace window) and tokens never being purged; the `.env.example` finding was cut down to what is left. After #37 (merged) the login throttling finding was removed: login is limited per address and per account and address, through a reusable `@RateLimit` annotation. Line numbers are from the audited commit and may have shifted.
 - **Method:** reading the code. No test suites were run and no code was changed. One finding (nested 3MF components, since fixed) was reproduced with a throwaway harness outside the repository; every other finding is from reading only and says so where it matters.
-- **Result:** no Critical findings, 2 High, 9 Medium, 14 Low / Nitpick at the time of the audit. Still open below: no High, 7 Medium, 10 Low / Nitpick.
+- **Result:** no Critical findings, 2 High, 9 Medium, 14 Low / Nitpick at the time of the audit. Still open below: no High, 6 Medium, 10 Low / Nitpick.
 
 Contents:
 
@@ -33,12 +33,6 @@ None open. Both High findings (nested 3MF components, unbounded 3MF metadata JSO
   - **Category:** State machine
   - **Issue:** `PRINTING → DECLINED` is allowed without looking at `paidAt`. Once declined, `allowsPayment()` is false, so the paid flag can no longer be cleared and the price is locked. The result is a final, declined request that shows as paid.
   - **Recommendation:** Refuse declining while `paidAt != null` ("mark as unpaid first"), or clear it explicitly as part of declining. Add a test for the transition.
-
-- **[MEDIUM] No login throttling**
-  - **Location:** `.../auth/AuthResource.java:36`, `AuthService.java:34`
-  - **Category:** Security
-  - **Issue:** `/api/auth/login` accepts unlimited attempts. Bcrypt slows guessing but also makes each attempt cost server CPU, so it is both a brute-force and a cheap DoS surface. `docs/features/setup-auth-users.md` lists this as out of scope, so it is known but has no issue.
-  - **Recommendation:** Add a per-account and per-IP attempt limit with backoff (a small table or an in-memory counter is enough for one instance), plus nginx `limit_req` on `/api/auth/`.
 
 - **[MEDIUM] Preview meshes are rebuilt in memory on every request, with no cache or concurrency limit**
   - **Location:** `.../preview/PreviewService.java:87` (`encode`), `PreviewResource.java:38` (`no-store`), `MeshEncoder.java:45`
