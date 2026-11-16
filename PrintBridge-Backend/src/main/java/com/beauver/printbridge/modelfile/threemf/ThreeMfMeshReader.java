@@ -10,7 +10,6 @@ import com.beauver.printbridge.modelfile.mesh.PreviewPart;
 import com.beauver.printbridge.modelfile.mesh.PreviewPlate;
 import com.beauver.printbridge.modelfile.threemf.ThreeMfGeometry.BuildItem;
 import com.beauver.printbridge.modelfile.threemf.ThreeMfGeometry.ComponentFilter;
-import com.beauver.printbridge.modelfile.threemf.ThreeMfGeometry.PlacedMesh;
 import java.io.IOException;
 import java.io.InputStream;
 import java.nio.file.Path;
@@ -31,6 +30,12 @@ public final class ThreeMfMeshReader {
     static final long MAX_THUMBNAIL_BYTES = 5L * 1024 * 1024;
     /** Bambu Studio leaves a fifth of the bed between plates. */
     private static final double PLATE_STRIDE = 1.2;
+    /**
+     * Placed vertices allowed per allowed triangle. A mesh can't use more than three vertices per
+     * triangle, so a model within the triangle limit stays within this one; vertices no triangle
+     * uses would only cost memory.
+     */
+    private static final long PLACED_VERTICES_PER_TRIANGLE = 3;
 
     private ThreeMfMeshReader() {
     }
@@ -50,8 +55,8 @@ public final class ThreeMfMeshReader {
 
     /** The parts of a 3MF, plate by plate for a Bambu Studio / OrcaSlicer project. */
     public static PreviewMesh read(Path file, PreviewBed bed, long maxTriangles) throws IOException {
-        Optional<ProjectSettings> settings = ProjectSettings.read(file);
-        try (ThreeMfPackage pkg = ThreeMfPackage.open(file, new ReadBudget())) {
+        ReadBudget budget = ReadBudget.placing(maxTriangles * PLACED_VERTICES_PER_TRIANGLE);
+        try (ThreeMfPackage pkg = ThreeMfPackage.open(file, budget)) {
             ThreeMfGeometry geometry = ThreeMfGeometry.loadWithTriangles(pkg);
             Counter counter = new Counter(maxTriangles);
             if (!BambuProject.isPresent(pkg)) {
@@ -61,7 +66,7 @@ public final class ThreeMfMeshReader {
             if (project.plates().isEmpty()) {
                 return singlePlate(geometry, project::isPrintedPart, project, bed, counter);
             }
-            return plates(geometry, project, settings, bed, counter);
+            return plates(geometry, project, bed, counter);
         }
     }
 
@@ -79,9 +84,9 @@ public final class ThreeMfMeshReader {
         return new PreviewMesh(bed, List.of(new PreviewPlate(1, null)), parts);
     }
 
-    private static PreviewMesh plates(ThreeMfGeometry geometry, BambuProject project,
-                                      Optional<ProjectSettings> settings, PreviewBed bed, Counter counter)
-            throws IOException {
+    private static PreviewMesh plates(ThreeMfGeometry geometry, BambuProject project, PreviewBed bed,
+                                      Counter counter) throws IOException {
+        Optional<ProjectSettings> settings = project.settings();
         Map<Integer, List<BuildItem>> itemsByObject = new HashMap<>();
         for (BuildItem item : geometry.buildItems()) {
             itemsByObject.computeIfAbsent(item.objectId(), id -> new ArrayList<>()).add(item);
@@ -126,9 +131,9 @@ public final class ThreeMfMeshReader {
     /** One part per placed mesh, with its vertices transformed into place. */
     private static void addParts(List<PreviewPart> parts, int plate, BuildItem item, ThreeMfGeometry geometry,
                                  ComponentFilter filter, BambuProject project, Counter counter) throws IOException {
-        for (PlacedMesh mesh : geometry.meshes(item, filter)) {
+        geometry.meshes(item, filter, mesh -> {
             if (mesh.triangleCount() == 0) {
-                continue;
+                return;
             }
             counter.add(mesh.triangleCount());
             float[] source = mesh.vertices();
@@ -147,7 +152,7 @@ public final class ThreeMfMeshReader {
                 color = project.colorOf(item.objectId(), mesh.part());
             }
             parts.add(new PreviewPart(plate, color, positions, indices));
-        }
+        });
     }
 
     /** Triangles placed so far; an object placed twice counts twice. */

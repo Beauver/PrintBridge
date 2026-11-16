@@ -4,6 +4,7 @@ import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.io.UncheckedIOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Arrays;
 import java.util.LinkedHashMap;
 import java.util.Locale;
 import java.util.Map;
@@ -91,6 +92,21 @@ public final class ThreeMfFiles {
             xml.append("/>");
         }
         return xml.append("</components></object>").toString();
+    }
+
+    /**
+     * A hostile model of a few hundred bytes: a cube (object 1) under {@code levels} objects that
+     * each hold {@code fanOut} components of the one below, so the build item of the top object
+     * places the cube {@code fanOut ^ levels} times.
+     */
+    public static String nestedComponents(int levels, int fanOut) {
+        StringBuilder resources = new StringBuilder(cube(1, 1));
+        for (int id = 2; id <= levels + 1; id++) {
+            String[][] components = new String[fanOut][];
+            Arrays.fill(components, new String[]{String.valueOf(id - 1), null, null});
+            resources.append(components(id, components));
+        }
+        return model("millimeter", resources.toString(), item(levels + 1, null));
     }
 
     public static String item(int objectId, String transform) {

@@ -4,6 +4,7 @@ import com.beauver.printbridge.modelfile.analysis.Dimensions;
 import com.beauver.printbridge.modelfile.analysis.FilamentUsage;
 import com.beauver.printbridge.modelfile.analysis.ModelAnalysis;
 import com.beauver.printbridge.modelfile.exception.ModelAnalysisException;
+import com.beauver.printbridge.modelfile.exception.ModelTooDetailedException;
 import com.beauver.printbridge.modelfile.ModelAnalyzer;
 import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelfile.analysis.ModelSource;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
+import java.time.Duration;
 import java.util.List;
 
 import static com.beauver.printbridge.support.ThreeMfFiles.*;
@@ -168,6 +170,58 @@ class ThreeMfAnalyzerTest {
         ModelAnalysisException e = assertThrows(ModelAnalysisException.class,
                 () -> analyze(file, new ReadBudget(ReadBudget.MAX_BYTES, 7)));
         assertEquals("The model has more than 7 vertices", e.getMessage());
+    }
+
+    @Test
+    void stopsAtNestedComponentsThatPlaceAMeshTooOften() {
+        // 30 ^ 8 placements: hours of work without the limit.
+        byte[] file = ThreeMfFiles.builder().entry("3D/3dmodel.model", nestedComponents(8, 30)).build();
+        assertTrue(file.length < 2000);
+
+        ModelTooDetailedException e = assertTimeoutPreemptively(Duration.ofSeconds(20),
+                () -> assertThrows(ModelTooDetailedException.class, () -> analyze(file)));
+        assertEquals("The model places more than 50000000 vertices", e.getMessage());
+    }
+
+    @Test
+    void stopsAtRepeatedBuildItems() throws Exception {
+        // A cube costs its 8 vertices plus 16 per placement.
+        byte[] four = plain("millimeter", cube(1, 1), item(1, null).repeat(4));
+        assertEquals(4, analyze(four, ReadBudget.placing(96)).volumeMm3(), 1e-9);
+
+        byte[] five = plain("millimeter", cube(1, 1), item(1, null).repeat(5));
+        ModelTooDetailedException e = assertThrows(ModelTooDetailedException.class,
+                () -> analyze(five, ReadBudget.placing(96)));
+        assertEquals("The model places more than 96 vertices", e.getMessage());
+    }
+
+    @Test
+    void chargesObjectsWithoutAMeshToo() {
+        String empty = "<object id=\"1\" type=\"model\"/>";
+        String[] component = {"1", null, null};
+        byte[] file = plain("millimeter", empty + components(2, component, component, component), item(2, null));
+
+        assertThrows(ModelTooDetailedException.class, () -> analyze(file, ReadBudget.placing(60)));
+    }
+
+    @Test
+    void stopsAtOversizedMetadata() {
+        String root = model("millimeter", cube(1, 1), item(1, null));
+        String padding = " ".repeat((int) ReadBudget.MAX_METADATA_BYTES);
+
+        assertFailure("Metadata/project_settings.config is larger than 2097152 bytes", ThreeMfFiles.builder()
+                .entry("3D/3dmodel.model", root).entry("Metadata/model_settings.config", "<config/>")
+                .entry("Metadata/project_settings.config", " ".repeat((int) ReadBudget.MAX_SETTINGS_BYTES) + "{}")
+                .build());
+        assertFailure("Metadata/model_settings.config is larger than 16777216 bytes", ThreeMfFiles.builder()
+                .entry("3D/3dmodel.model", root)
+                .entry("Metadata/model_settings.config", "<config>" + padding + "</config>").build());
+        assertFailure("Metadata/slice_info.config is larger than 16777216 bytes", ThreeMfFiles.builder()
+                .entry("3D/3dmodel.model", root).entry("Metadata/model_settings.config", "<config/>")
+                .entry("Metadata/slice_info.config", "<config>" + padding + "</config>").build());
+        assertFailure("_rels/.rels is larger than 16777216 bytes", ThreeMfFiles.builder()
+                .entry("3D/3dmodel.model", root)
+                .entry("_rels/.rels", "<Relationships>" + padding + "</Relationships>").build());
     }
 
     private void assertFailure(String message, byte[] file) {

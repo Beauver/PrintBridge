@@ -1,10 +1,10 @@
 package com.beauver.printbridge.modelfile.threemf;
 
+import com.beauver.printbridge.modelfile.ReadBudget;
 import com.beauver.printbridge.modelfile.analysis.FilamentUsage;
 import com.beauver.printbridge.modelfile.exception.ModelAnalysisException;
 import com.beauver.printbridge.modelfile.SlicerText;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.ObjectMapper;
 
 import javax.xml.stream.XMLStreamConstants;
 import javax.xml.stream.XMLStreamException;
@@ -53,6 +53,7 @@ final class BambuProject {
     private final Map<Integer, Map<Integer, String>> partTypes = new HashMap<>();
     private final Map<Integer, SlicedPlate> sliced = new HashMap<>();
     private List<Filament> filaments = List.of();
+    private Optional<ProjectSettings> settings = Optional.empty();
 
     private BambuProject() {
     }
@@ -63,22 +64,26 @@ final class BambuProject {
 
     static BambuProject read(ThreeMfPackage pkg) throws IOException {
         BambuProject project = new BambuProject();
-        try (InputStream in = pkg.open(MODEL_SETTINGS)) {
+        try (InputStream in = pkg.open(MODEL_SETTINGS, ReadBudget.MAX_METADATA_BYTES)) {
             project.readModelSettings(in);
         }
-        Optional<InputStream> settings = pkg.openIfPresent(PROJECT_SETTINGS);
+        Optional<JsonNode> settings = readSettings(pkg);
         if (settings.isPresent()) {
-            try (InputStream in = settings.get()) {
-                project.filaments = readFilaments(in);
-            }
+            project.filaments = filaments(settings.get());
+            project.settings = ProjectSettings.ofJson(settings.get());
         }
-        Optional<InputStream> sliceInfo = pkg.openIfPresent(SLICE_INFO);
+        Optional<InputStream> sliceInfo = pkg.openIfPresent(SLICE_INFO, ReadBudget.MAX_METADATA_BYTES);
         if (sliceInfo.isPresent()) {
             try (InputStream in = sliceInfo.get()) {
                 project.readSliceInfo(in);
             }
         }
         return project;
+    }
+
+    /** The print settings the project was saved with; read once, together with the filaments. */
+    Optional<ProjectSettings> settings() {
+        return settings;
     }
 
     List<Plate> plates() {
@@ -252,16 +257,15 @@ final class BambuProject {
         plates.add(plate);
     }
 
-    private static List<Filament> readFilaments(InputStream in) throws IOException {
-        JsonNode settings;
+    private static Optional<JsonNode> readSettings(ThreeMfPackage pkg) throws ModelAnalysisException {
         try {
-            settings = new ObjectMapper().readTree(in);
+            return ProjectSettings.parse(pkg);
         } catch (IOException e) {
             throw Xml.failure("Invalid " + PROJECT_SETTINGS, e);
         }
-        if (settings == null) {
-            return List.of();
-        }
+    }
+
+    private static List<Filament> filaments(JsonNode settings) {
         JsonNode types = settings.path("filament_type");
         JsonNode colors = settings.path("filament_colour");
         List<Filament> filaments = new ArrayList<>();
