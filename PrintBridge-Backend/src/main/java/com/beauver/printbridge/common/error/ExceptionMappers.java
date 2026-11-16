@@ -1,5 +1,6 @@
 package com.beauver.printbridge.common.error;
 
+import jakarta.ws.rs.core.HttpHeaders;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 import org.jboss.resteasy.reactive.server.ServerExceptionMapper;
@@ -36,6 +37,15 @@ public class ExceptionMappers {
     @ServerExceptionMapper
     public Response serviceUnavailable(ServiceUnavailableException e) {
         return error(Response.Status.SERVICE_UNAVAILABLE, e.getMessage());
+    }
+
+    @ServerExceptionMapper
+    public Response tooManyRequests(TooManyRequestsException e) {
+        return Response.status(Response.Status.TOO_MANY_REQUESTS)
+                .header(HttpHeaders.RETRY_AFTER, e.retryAfterSeconds())
+                .type(MediaType.APPLICATION_JSON)
+                .entity(new ApiError(e.getMessage()))
+                .build();
     }
 
     @ServerExceptionMapper

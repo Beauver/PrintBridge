@@ -38,6 +38,25 @@ Flow:
 
 bcrypt (Quarkus `BcryptUtil`). At least 8 characters and at most 72 bytes in UTF-8: bcrypt ignores everything after byte 72, so a longer password is refused ("Password is too long") instead of being cut off. Plain ASCII passwords can be 72 characters; accented letters take two bytes and emoji four. Login does not check the length, so a longer password set before this rule keeps working. A failed login with an unknown username still runs a bcrypt comparison, so response time doesn't reveal whether an account exists; the message is always "Invalid credentials".
 
+## Login throttling
+
+Two limits on `POST /api/auth/login`, both answered with `429`, a `Retry-After` header and "Too many attempts, try again in N seconds" (the login page shows that message):
+
+| Limit | Counted by | Counts |
+|---|---|---|
+| 10 per minute | client address (`@RateLimit` on the endpoint) | every login request, also successful and invalid ones |
+| 5 per 15 minutes | account and client address together (`AuthService`) | failed logins only; a successful login clears the count |
+
+- While an account and address are paused, the password isn't checked at all, so even the right one has to wait.
+- The account is counted by its id, so trying the username and the email address add up. A name without an account is counted the same way, so the answers don't reveal whether an account exists.
+- Counting the address as well means nobody can lock another person out by guessing at their username; the price is that an attacker with many addresses gets 5 guesses per address.
+- Counters are kept in memory: they reset when the backend restarts and are not shared between instances.
+- `RATE_LIMIT_ENABLED=false` switches both limits off.
+
+**Client address:** the frontend's nginx passes the client's address in `X-Forwarded-For` (set to `$remote_addr`, so a client can't choose it) and the backend trusts that header (`TRUST_PROXY_HEADERS`, default `true`). Two things to know:
+- If clients can reach the backend directly, set `TRUST_PROXY_HEADERS=false`, or they can pick their own address with the header.
+- With another reverse proxy in front of the frontend's nginx, nginx sees that proxy's address for everyone. The limits then apply to all users together until nginx is told to trust it (`set_real_ip_from`, `real_ip_header`).
+
 ## Roles
 
 - `USER`: own data only.
