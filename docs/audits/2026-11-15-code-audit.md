@@ -3,9 +3,9 @@
 Code quality, security and best-practices audit of the whole repository (`PrintBridge-Backend`, `PrintBridge-Frontend`, `PrintBridge-Slicer`, `docs/`, config and CI), followed by a review of the file structure.
 
 - **Audited:** `main` at `f6c6086` (same content as `dev` at `cc50de4`).
-- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. After #31 (merged) the findings it fixed were removed too: N+1 queries on a request's files, mappers with business logic, `SlicerResource` without a service, and the upload flow in components. Line numbers are from the audited commit and may have shifted.
-- **Method:** reading the code. No test suites were run and no code was changed. One finding (nested 3MF components) was reproduced with a throwaway harness outside the repository; every other finding is from reading only and says so where it matters.
-- **Result:** no Critical findings, 2 High, 9 Medium, 14 Low / Nitpick at the time of the audit. Still open below: 2 High, 8 Medium, 11 Low / Nitpick.
+- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. After #31 (merged) the findings it fixed were removed too: N+1 queries on a request's files, mappers with business logic, `SlicerResource` without a service, and the upload flow in components. After #33 (merged) both High findings were removed: nested 3MF components and unbounded 3MF metadata JSON, which were closed with limits on placed geometry and metadata size. Line numbers are from the audited commit and may have shifted.
+- **Method:** reading the code. No test suites were run and no code was changed. One finding (nested 3MF components, since fixed) was reproduced with a throwaway harness outside the repository; every other finding is from reading only and says so where it matters.
+- **Result:** no Critical findings, 2 High, 9 Medium, 14 Low / Nitpick at the time of the audit. Still open below: no High, 8 Medium, 11 Low / Nitpick.
 
 Contents:
 
@@ -18,17 +18,7 @@ Contents:
 
 ### High
 
-- **[HIGH] Nested 3MF components cause unbounded CPU and memory use**
-  - **Location:** `PrintBridge-Backend/src/main/java/com/beauver/printbridge/modelfile/threemf/ThreeMfGeometry.java` (`walk`), reached from `ThreeMfAnalyzer.singlePlate` / `bambu` and `ThreeMfMeshReader.addParts`
-  - **Category:** Security (DoS), file uploads
-  - **Issue:** `MAX_DEPTH = 8` limits how deep components nest but not how many components each object has, and nothing counts visits. Reproduced: a 487-byte 3MF with 10 components per level took 5.6 s to analyse (0.98 s at 8 per level), and the cost grows with the 8th power of the fan-out. At 30 per level that extrapolates to roughly ten hours for a file still under 5 KB. The walk runs on the request thread inside the upload transaction, so any logged-in user can pin cores and worker threads. On `POST /api/previews` the same walk allocates a `PlacedMesh` per visit, which exhausts the heap instead.
-  - **Recommendation:** Charge every `walk` visit and every placed vertex to `ReadBudget` (for example a few million placed vertices) and fail with `ModelTooDetailedException`. Add a regression test with a small nested file.
-
-- **[HIGH] 3MF metadata JSON is parsed into memory with only the 1 GiB budget**
-  - **Location:** `.../modelfile/threemf/ProjectSettings.java` (`read`), `BambuProject.java` (`readFilaments`), `.../modelfile/ReadBudget.java`
-  - **Category:** Security (DoS), file uploads
-  - **Issue:** `Metadata/project_settings.config` is read with `new ObjectMapper().readTree(in)` under the general 1 GiB uncompressed budget. JSON compresses extremely well, so a small upload can expand into a multi-gigabyte `JsonNode` tree. `OutOfMemoryError` is not caught by `catch (IOException | RuntimeException)` and affects the whole JVM. From reading only; not exercised.
-  - **Recommendation:** Give metadata parts their own small budget (a few MB), as `thumbnail` already does with `MAX_THUMBNAIL_BYTES`, or read only the handful of keys needed with a streaming parser.
+None open. Both High findings (nested 3MF components, unbounded 3MF metadata JSON) were fixed in #33.
 
 ### Medium
 
@@ -158,18 +148,20 @@ Already tracked elsewhere and not repeated here: #7 (bcrypt ignores bytes after 
 
 - **Access control:** `deny-unannotated-endpoints` is on, every resource declares its rule, and all request, file, preview and thumbnail access goes through `findVisible(caller)`. No IDOR found.
 - **Layering and ORM:** `@Transactional` is on services only, entities never leave the backend, every `@ManyToOne` is `LAZY`, list queries use `join fetch`, and Hibernate is `none` / `validate` with Flyway V1–V8 consistent.
-- **Uploads:** stored names are UUIDs under a normalised root, client filenames are sanitised, XXE is disabled and ZIP expansion is budgeted (apart from the two High findings).
+- **Uploads:** stored names are UUIDs under a normalised root, client filenames are sanitised, XXE is disabled and ZIP expansion is budgeted. Since #33 placed geometry and metadata parts are budgeted too.
 - **Slicing:** runs on a background thread outside transactions, with connect and request timeouts and a 503 mapping when the slicer is down.
 - **Frontend:** admin routes have `adminGuard`, token injection and the 401 refresh are in one interceptor, all 21 `@for` blocks have `track`, there is no `any`, and the TypeScript interfaces match the backend DTOs.
 - **Not applicable:** no user-supplied URL is fetched by the server, so there is no SSRF surface yet.
 
 ## Top 5 quick wins
 
-1. **Budget the component walk** in `ThreeMfGeometry`: a few lines close the reproduced DoS.
-2. **Cap the metadata JSON size** in `ProjectSettings` / `BambuProject`: one small `ReadBudget` per metadata part.
-3. **Block declining a paid request:** one check in `changeStatus` plus a test.
-4. **Add `takeUntilDestroyed`** to the subscriptions in the detail page, `ReviewPanel` and `ModelPreview`.
-5. **Bind the local slicer port to `127.0.0.1`** and correct the README feature list.
+The first two of the original list (budget the component walk, cap the metadata JSON size) were done in #33; the next two open findings took their place.
+
+1. **Block declining a paid request:** one check in `changeStatus` plus a test.
+2. **Add `takeUntilDestroyed`** to the subscriptions in the detail page, `ReviewPanel` and `ModelPreview`.
+3. **Bind the local slicer port to `127.0.0.1`** and correct the README feature list.
+4. **Lock the refresh token row** in `RefreshTokenService.consume`, with a short grace window for a just-rotated token.
+5. **Purge expired and revoked refresh tokens** with a scheduled delete.
 
 ## File structure
 
