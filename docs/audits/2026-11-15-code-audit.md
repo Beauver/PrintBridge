@@ -3,9 +3,9 @@
 Code quality, security and best-practices audit of the whole repository (`PrintBridge-Backend`, `PrintBridge-Frontend`, `PrintBridge-Slicer`, `docs/`, config and CI), followed by a review of the file structure.
 
 - **Audited:** `main` at `f6c6086` (same content as `dev` at `cc50de4`).
-- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. After #31 (merged) the findings it fixed were removed too: N+1 queries on a request's files, mappers with business logic, `SlicerResource` without a service, and the upload flow in components. After #33 (merged) both High findings were removed: nested 3MF components and unbounded 3MF metadata JSON, which were closed with limits on placed geometry and metadata size. After #35 (merged) the refresh token findings were removed: rotation without concurrency control (now a row lock and a 10 second grace window) and tokens never being purged; the `.env.example` finding was cut down to what is left. After #37 (merged) the login throttling finding was removed: login is limited per address and per account and address, through a reusable `@RateLimit` annotation. Line numbers are from the audited commit and may have shifted.
+- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. After #31 (merged) the findings it fixed were removed too: N+1 queries on a request's files, mappers with business logic, `SlicerResource` without a service, and the upload flow in components. After #33 (merged) both High findings were removed: nested 3MF components and unbounded 3MF metadata JSON, which were closed with limits on placed geometry and metadata size. After #35 (merged) the refresh token findings were removed: rotation without concurrency control (now a row lock and a 10 second grace window) and tokens never being purged; the `.env.example` finding was cut down to what is left. After #37 (merged) the login throttling finding was removed: login is limited per address and per account and address, through a reusable `@RateLimit` annotation. After #39 (merged) the upload transaction finding was removed: the file copy and the model analysis now run outside the transaction that inserts the file row. Line numbers are from the audited commit and may have shifted.
 - **Method:** reading the code. No test suites were run and no code was changed. One finding (nested 3MF components, since fixed) was reproduced with a throwaway harness outside the repository; every other finding is from reading only and says so where it matters.
-- **Result:** no Critical findings, 2 High, 9 Medium, 14 Low / Nitpick at the time of the audit. Still open below: no High, 6 Medium, 10 Low / Nitpick.
+- **Result:** no Critical findings, 2 High, 9 Medium, 14 Low / Nitpick at the time of the audit. Still open below: no High, 5 Medium, 10 Low / Nitpick.
 
 Contents:
 
@@ -21,12 +21,6 @@ Contents:
 None open. Both High findings (nested 3MF components, unbounded 3MF metadata JSON) were fixed in #33.
 
 ### Medium
-
-- **[MEDIUM] Model analysis and file copy run inside the upload transaction, holding a row lock**
-  - **Location:** `.../printrequest/PrintRequestService.java:118` (`addFile`), `:194` (`attach`); `.../modelinfo/ModelInfoService.java:50` (`analyze`)
-  - **Category:** Transactions, performance
-  - **Issue:** `addFile` takes a `PESSIMISTIC_WRITE` lock on the request, then validates, copies up to 100 MB and parses the model before committing. A large 3MF can exceed Quarkus' default 60 s transaction timeout, which rolls the upload back with a 500. Meanwhile an admin status change on the same request blocks, and a database connection is held throughout.
-  - **Recommendation:** Keep the transaction to "check the limit, insert the row". Run the analysis afterwards in its own transaction, or on the background worker like slicing; the frontend already handles `PENDING`.
 
 - **[MEDIUM] A paid request can be declined and then stays "paid" forever**
   - **Location:** `.../printrequest/PrintRequestService.java:254` (`changeStatus`), `:291` (`changePaid`); `RequestStatus.java:53`
