@@ -1,5 +1,6 @@
 package com.beauver.printbridge.modelinfo;
 
+import com.beauver.printbridge.common.transaction.Transactions;
 import com.beauver.printbridge.modelfile.analysis.ModelAnalysis;
 import com.beauver.printbridge.modelfile.ModelAnalyzer;
 import com.beauver.printbridge.modelfile.StoredModelFile;
@@ -20,6 +21,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 
 /**
  * Analyses model files and serves the result. Analysis never fails the caller: a file the
@@ -53,9 +55,42 @@ public class ModelInfoService {
     @Inject
     SlicingService slicing;
 
-    /** Analyses a stored file and saves the result. Runs inside the caller's transaction. */
-    @Transactional(Transactional.TxType.MANDATORY)
-    public void analyze(StoredModelFile file) {
+    @Inject
+    Transactions transactions;
+
+    /**
+     * Analyses a stored file that has no result yet and saves it (new uploads, startup backfill).
+     * Does nothing when the file is gone or already has a result.
+     * <p>
+     * Never part of a caller's transaction: reading a large model takes a while, so the file is
+     * looked up and the result saved in two short transactions with the analysis in between.
+     */
+    @Transactional(Transactional.TxType.NOT_SUPPORTED)
+    public void analyze(long fileId) {
+        Optional<StoredModelFile> file = transactions.call(() -> withoutInfo(fileId));
+        if (file.isEmpty()) {
+            return;
+        }
+        ModelInfo info = analysisOf(file.get());
+        transactions.run(() -> save(info));
+    }
+
+    private Optional<StoredModelFile> withoutInfo(long fileId) {
+        if (repository.findByIdOptional(fileId).isPresent()) {
+            return Optional.empty();
+        }
+        return files.find(fileId);
+    }
+
+    /** The file may have been deleted, or analysed by someone else, while this analysis ran. */
+    private void save(ModelInfo info) {
+        if (withoutInfo(info.fileId).isPresent()) {
+            repository.persist(info);
+        }
+    }
+
+    /** The analysis as it will be stored; FAILED when the file can't be read. Touches no database. */
+    private ModelInfo analysisOf(StoredModelFile file) {
         ModelInfo info = new ModelInfo();
         info.fileId = file.id();
         Path path = storage.resolve(file.storagePath());
@@ -73,15 +108,7 @@ public class ModelInfoService {
             Log.warnf("Could not analyse file %d (%s): %s", file.id(), file.storagePath(), e.getMessage());
             info.status = ModelInfoStatus.FAILED;
         }
-        repository.persist(info);
-    }
-
-    /** Analyses one stored file in its own transaction (startup backfill). */
-    @Transactional(Transactional.TxType.REQUIRES_NEW)
-    public void analyzeStored(long fileId) {
-        if (repository.findByIdOptional(fileId).isEmpty()) {
-            files.find(fileId).ifPresent(this::analyze);
-        }
+        return info;
     }
 
     /** Its own transaction: the backfill calls it from a background thread without one. */

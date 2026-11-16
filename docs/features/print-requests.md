@@ -68,6 +68,10 @@ The *Uploads* card on the admin settings page:
 
 - Files are stored under `STORAGE_PATH` as `<requestId>/<random-uuid>.<ext>`. The client's filename is never used in a path; it is only kept for display and as the download name.
 - In production, set `STORAGE_PATH` to an absolute path (e.g. `/data/uploads`) and mount a volume there. A relative path is resolved against the backend's working directory. The directory must not be served by a web server.
+- An upload is not one database transaction (#39), so a large file doesn't hold a connection or a row lock while it is copied and read:
+  1. The upload is checked. When adding a file, the request is looked at first, so an upload that will be refused isn't copied.
+  2. Adding a file: the file is copied into storage, then a short transaction locks the request, checks the rules and the file limit again and inserts the file row. Creating a request: the request, the copy and the file row are one short transaction, because the directory is named after the new request's id.
+  3. After the commit the model is analysed (see [model info](model-info.md)) and, with server slicing on, queued. A failure there never fails the upload.
 - Disk work follows the database transaction:
   - If creating a request or adding a file fails after the file was stored, the file is removed again.
   - A removed file, and the files of deleted requests or users, are removed after the commit. A failure there is logged and leaves an orphan file; the deletion still succeeds.

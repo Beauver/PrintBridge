@@ -5,6 +5,7 @@ import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
+import com.beauver.printbridge.common.transaction.Transactions;
 import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelfile.ModelFileValidator;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
@@ -79,6 +80,9 @@ public class PrintRequestService {
     @Inject
     SettingsService settings;
 
+    @Inject
+    Transactions transactions;
+
     public UploadConfigDto uploadConfig() {
         UploadLimits limits = settings.uploads();
         return new UploadConfigDto(limits.maxFileSizeBytes(), limits.maxFiles(),
@@ -102,11 +106,25 @@ public class PrintRequestService {
     /**
      * Validates the upload and creates the request with it in status SUBMITTED. The other files
      * of a multi-file request follow one by one through {@link #addFile}.
+     * <p>
+     * Not one transaction (#39): the upload is checked first, the request and its file are
+     * inserted in a short transaction, and the model is analysed after that has committed.
      */
-    @Transactional
+    @Transactional(Transactional.TxType.NOT_SUPPORTED)
     public PrintRequestDto create(long ownerId, NewPrintRequest input) {
-        checkUpload(input.file());
+        ModelFileType type = checkUpload(input.file());
+        PrintRequest request = transactions.call(() -> insertRequest(ownerId, input, type));
+        analyseAndQueue(newestFile(request));
+        // A fresh upload has no slicing errors yet, so nothing admin-only to show.
+        return transactions.call(() -> describe(request, false));
+    }
 
+    /**
+     * The request row and its first file. The file is copied inside this transaction, unlike in
+     * {@link #addFile}: its directory is named after the request id, which only exists once the
+     * row is inserted. Nobody else can see or lock the new request yet, so nothing waits on it.
+     */
+    private PrintRequest insertRequest(long ownerId, NewPrintRequest input, ModelFileType type) {
         PrintRequest request = new PrintRequest();
         request.owner = users.findByIdOptional(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -114,29 +132,79 @@ public class PrintRequestService {
         request.description = blankToNull(input.description());
         request.status = RequestStatus.SUBMITTED;
         requests.persist(request);
-        attach(request, input.file(), input.quantity());
-        // A fresh upload has no slicing errors yet, so nothing admin-only to show.
-        return describe(request, false);
+        String storagePath = storage.store(input.file().path(), directoryOf(request.id), type.extension());
+        afterTransaction.onRollback(() -> storage.deleteFile(storagePath));
+        attach(request, input.file(), type, storagePath, input.quantity());
+        return request;
     }
 
     /**
      * Adds a model file to a request (#23). The owner may while it is SUBMITTED, the admin
      * always. The file counts against the file limit and goes through the same checks as the
      * first one.
+     * <p>
+     * Not one transaction (#39), so the request's row lock is only held for the insert:
+     * <ol>
+     *   <li>a first look at the request, so an upload that will be refused isn't copied;</li>
+     *   <li>the upload is checked and copied into storage;</li>
+     *   <li>a short transaction locks the request, checks again and inserts the file row (the
+     *       copy is removed if this fails);</li>
+     *   <li>the model is analysed and queued for slicing.</li>
+     * </ol>
      */
-    @Transactional
+    @Transactional(Transactional.TxType.NOT_SUPPORTED)
     public PrintRequestDto addFile(long requestId, UploadedModel upload, int quantity, Caller caller) {
+        transactions.run(() -> checkMayAddFile(findVisible(requestId, caller), caller));
+        ModelFileType type = checkUpload(upload);
+        String storagePath = storage.store(upload.path(), directoryOf(requestId), type.extension());
+        PrintRequest request;
+        try {
+            request = transactions.call(() -> insertFile(requestId, upload, type, storagePath, quantity, caller));
+        } catch (RuntimeException e) {
+            storage.deleteFile(storagePath);
+            throw e;
+        }
+        analyseAndQueue(newestFile(request));
+        return transactions.call(() -> describe(request, caller.admin()));
+    }
+
+    /** Locks the request, so two uploads at once can't both pass the file limit. */
+    private PrintRequest insertFile(long requestId, UploadedModel upload, ModelFileType type, String storagePath,
+                                    int quantity, Caller caller) {
         PrintRequest request = requests.findLockedWithDetails(requestId)
                 .filter(r -> isVisible(r, caller))
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        checkMayAddFile(request, caller);
+        attach(request, upload, type, storagePath, quantity);
+        return request;
+    }
+
+    private void checkMayAddFile(PrintRequest request, Caller caller) {
         checkMayChangeFiles(request, caller);
         int maxFiles = settings.uploads().maxFiles();
         if (request.files.size() >= maxFiles) {
             throw new InvalidInputException("A request can hold at most " + maxFiles + " files");
         }
-        checkUpload(upload);
-        attach(request, upload, quantity);
-        return describe(request, caller.admin());
+    }
+
+    private static RequestFile newestFile(PrintRequest request) {
+        return request.files.getLast();
+    }
+
+    /**
+     * What happens to a file once its row is committed: the model is analysed and, when server
+     * slicing is on, queued. Neither may fail the upload: the file is stored, and a file without
+     * model details is picked up again by the startup backfill.
+     */
+    private void analyseAndQueue(RequestFile file) {
+        long fileId = file.id;
+        try {
+            modelInfo.analyze(fileId);
+            transactions.run(() -> slicing.enqueueIfEnabled(fileId));
+        } catch (RuntimeException e) {
+            // For example the file was removed again while it was being analysed.
+            Log.warnf(e, "Could not analyse or queue file %d after its upload", fileId);
+        }
     }
 
     /**
@@ -206,26 +274,17 @@ public class PrintRequestService {
         return mapper.toDto(request, files, RequestTotals.of(files));
     }
 
-    /**
-     * Stores an upload that passed {@link #checkUpload} and adds it to the request. If the
-     * transaction rolls back, the stored file is removed again. The file is analysed right away
-     * (an analysis that fails is recorded but doesn't stop the upload) and queued for server
-     * slicing when that is on.
-     */
-    private void attach(PrintRequest request, UploadedModel upload, int quantity) {
-        ModelFileType type = typeOf(sanitizeFilename(upload.filename()));
+    /** Adds the row of an upload that passed {@link #checkUpload} and is already in storage. */
+    private void attach(PrintRequest request, UploadedModel upload, ModelFileType type, String storagePath,
+                        int quantity) {
         RequestFile file = new RequestFile();
         file.originalFilename = sanitizeFilename(upload.filename());
         file.fileType = type;
         file.sizeBytes = upload.size();
         file.quantity = quantity;
-        file.storagePath = storage.store(upload.path(), directoryOf(request.id), type.extension());
-        String storagePath = file.storagePath;
-        afterTransaction.onRollback(() -> storage.deleteFile(storagePath));
+        file.storagePath = storagePath;
         request.addFile(file);
         requests.flush();
-        modelInfo.analyze(file.stored());
-        slicing.enqueueIfEnabled(file.id);
     }
 
     /** Owners change files only while the request is SUBMITTED; the admin always may. */
