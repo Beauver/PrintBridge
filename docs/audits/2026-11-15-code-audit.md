@@ -3,9 +3,9 @@
 Code quality, security and best-practices audit of the whole repository (`PrintBridge-Backend`, `PrintBridge-Frontend`, `PrintBridge-Slicer`, `docs/`, config and CI), followed by a review of the file structure.
 
 - **Audited:** `main` at `f6c6086` (same content as `dev` at `cc50de4`).
-- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. After #31 (merged) the findings it fixed were removed too: N+1 queries on a request's files, mappers with business logic, `SlicerResource` without a service, and the upload flow in components. After #33 (merged) both High findings were removed: nested 3MF components and unbounded 3MF metadata JSON, which were closed with limits on placed geometry and metadata size. After #35 (merged) the refresh token findings were removed: rotation without concurrency control (now a row lock and a 10 second grace window) and tokens never being purged; the `.env.example` finding was cut down to what is left. After #37 (merged) the login throttling finding was removed: login is limited per address and per account and address, through a reusable `@RateLimit` annotation. After #39 (merged) the upload transaction finding was removed: the file copy and the model analysis now run outside the transaction that inserts the file row. Line numbers are from the audited commit and may have shifted.
+- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. After #31 (merged) the findings it fixed were removed too: N+1 queries on a request's files, mappers with business logic, `SlicerResource` without a service, and the upload flow in components. After #33 (merged) both High findings were removed: nested 3MF components and unbounded 3MF metadata JSON, which were closed with limits on placed geometry and metadata size. After #35 (merged) the refresh token findings were removed: rotation without concurrency control (now a row lock and a 10 second grace window) and tokens never being purged; the `.env.example` finding was cut down to what is left. After #37 (merged) the login throttling finding was removed: login is limited per address and per account and address, through a reusable `@RateLimit` annotation. After #39 (merged) the upload transaction finding was removed: the file copy and the model analysis now run outside the transaction that inserts the file row. After #41 (merged) the deployment and configuration items were updated: `deploy/` and `docs/deployment.md` exist, the local slicer port is bound to localhost, Spoolman is out of the config, the backend's `.env.example` sits where Quarkus reads it and nginx's body limit follows `UPLOAD_MAX_SIZE_MB`. The slicer finding was removed with that; its optional shared secret was deliberately left out, because the slicer has no published port in `deploy/`. Line numbers are from the audited commit and may have shifted.
 - **Method:** reading the code. No test suites were run and no code was changed. One finding (nested 3MF components, since fixed) was reproduced with a throwaway harness outside the repository; every other finding is from reading only and says so where it matters.
-- **Result:** no Critical findings, 2 High, 9 Medium, 14 Low / Nitpick at the time of the audit. Still open below: no High, 5 Medium, 10 Low / Nitpick.
+- **Result:** no Critical findings, 2 High, 9 Medium, 14 Low / Nitpick at the time of the audit. Still open below: no High, 4 Medium, 9 Low / Nitpick.
 
 Contents:
 
@@ -44,17 +44,11 @@ None open. Both High findings (nested 3MF components, unbounded 3MF metadata JSO
     - The upload flows (new request page, "Add files") were fixed in #31.
   - **Recommendation:** Add `takeUntilDestroyed(destroyRef)` to these pipelines and use a `switchMap` on the loader in `ModelPreview`.
 
-- **[MEDIUM] README and config describe features that do not exist**
-  - **Location:** `README.md:3-15,24`; `.env.example:12-14`; `application.properties:47-48`; `local/docker-compose.yml:24`; `CLAUDE.md`
+- **[MEDIUM] README describes features that do not exist**
+  - **Location:** `README.md` (feature list and status flow); `CLAUDE.md`
   - **Category:** Documentation drift
-  - **Issue:** The README presents Spoolman filament selection, comments, a price indication behind `PricingStrategy` and admin editing of request details as features. None exist in code: there is no Spoolman client, no comment entity, no pricing class and no MakerWorld handling. The `SPOOLMAN_*` settings are read by nothing, yet the local stack starts `spoolman:latest`. The status flow omits `PRINTING`.
-  - **Recommendation:** Split the README into "available now" and "planned (#11 …)", fix the status flow, and drop or comment out the Spoolman config and container until #11 lands.
-
-- **[MEDIUM] Slicer service is unauthenticated and published on all host interfaces locally**
-  - **Location:** `PrintBridge-Slicer/slicer_service.py:487`; `local/docker-compose.yml:48`
-  - **Category:** Security, configuration
-  - **Issue:** The service binds `0.0.0.0` with no authentication, and compose publishes it as `18000:8000`, so anyone on the LAN can feed arbitrary files to OrcaSlicer or hold the single slicing slot. `docs/features/server-slicing.md` says to keep it internal, but the shipped compose file does not.
-  - **Recommendation:** Publish it as `127.0.0.1:${SLICER_PORT}:8000`, and add an optional shared-secret header checked by the service and sent by `SlicerClient`.
+  - **Issue:** The README presents Spoolman filament selection, comments, a price indication behind `PricingStrategy` and admin editing of request details as features. None exist in code: there is no Spoolman client, no comment entity, no pricing class and no MakerWorld handling. The status flow omits `PRINTING`. (The unused `SPOOLMAN_*` settings and the Spoolman container were removed in #41, which also corrected the setup steps.)
+  - **Recommendation:** Split the README into "available now" and "planned (#11 …)" and fix the status flow.
 
 ### Low / Nitpick
 
@@ -82,17 +76,11 @@ None open. Both High findings (nested 3MF components, unbounded 3MF metadata JSO
   - **Issue:** Domain errors return `{message}`, validation returns Quarkus' `violations`, and unexpected exceptions (for example `UncheckedIOException` on a full disk) and 413s fall through to the framework defaults. No stack traces leak in prod mode.
   - **Recommendation:** Add mappers for `ConstraintViolationException` and `Throwable` that log and return `{message}`.
 
-- **[LOW] nginx body limit is hardcoded and security headers are missing**
-  - **Location:** `PrintBridge-Frontend/docker/default.conf.template:12`
+- **[LOW] nginx sends no security headers, and the slicer has its own upload limit**
+  - **Location:** `PrintBridge-Frontend/docker/default.conf.template`; `PrintBridge-Slicer/slicer_service.py:32`
   - **Category:** Configuration
-  - **Issue:** `client_max_body_size 100m` ignores `UPLOAD_MAX_SIZE_MB`, so raising the ceiling fails with an HTML 413 from nginx; the slicer's `MAX_UPLOAD_MB=200` is a third separate limit. There is no CSP, `X-Content-Type-Options` or frame policy.
-  - **Recommendation:** Template the limit from an environment variable and add the standard headers.
-
-- **[LOW] `.env.example` leaves two settings undocumented**
-  - **Location:** `.env.example`
-  - **Category:** Documentation
-  - **Issue:** `MAX_UPLOAD_MB` and `printbridge.preview.max-triangles` can be set but are not in the example. (The other half of this finding, shipping `AUTH_COOKIE_SECURE=false`, was fixed in #35.)
-  - **Recommendation:** Add both, commented out with their defaults.
+  - **Issue:** There is no CSP, `X-Content-Type-Options` or frame policy. The slicer's `MAX_UPLOAD_MB=200` is a separate limit that follows neither `UPLOAD_MAX_SIZE_MB` nor any documented setting, so a ceiling above 200 MB uploads fine and then fails to slice. (The hardcoded `client_max_body_size 100m` was fixed in #41: it follows `UPLOAD_MAX_SIZE_MB` now.)
+  - **Recommendation:** Add the standard headers, and pass the upload ceiling to the slicer in `deploy/docker-compose.yml` or document `MAX_UPLOAD_MB`.
 
 - **[LOW] Slicer service: unhandled exceptions and a likely unit mismatch**
   - **Location:** `PrintBridge-Slicer/slicer_service.py:430-464`, `:357`
@@ -131,27 +119,23 @@ None open. Both High findings (nested 3MF components, unbounded 3MF metadata JSO
 
 ## Top 5 quick wins
 
-The first two of the original list (budget the component walk, cap the metadata JSON size) were done in #33, and the two refresh token items that replaced them in #35; open findings took their place.
+The first two of the original list (budget the component walk, cap the metadata JSON size) were done in #33, and the two refresh token items that replaced them in #35; open findings took their place. Binding the local slicer port to localhost (half of item 3) was done in #41.
 
 1. **Block declining a paid request:** one check in `changeStatus` plus a test.
 2. **Add `takeUntilDestroyed`** to the subscriptions in the detail page, `ReviewPanel` and `ModelPreview`.
-3. **Bind the local slicer port to `127.0.0.1`** and correct the README feature list.
+3. **Correct the README feature list** and its status flow.
 4. **Keep at least one file on a request:** lock the request when removing a file, so two removals at once can't empty it.
 5. **Add a catch-all exception mapper** so every error has the same `ApiError` shape.
 
 ## File structure
 
-Most of the file structure advice from this audit was carried out in #29: one-way package dependencies, a `modelfile` package, sub-packages by concern, wire-only `dto` packages, test fixtures in `src/testing/`, `shared/format/` and `shared/forms/`, short module READMEs and the unused Dockerfiles removed. `docs/architecture.md` describes the result. What is left:
+Most of the file structure advice from this audit was carried out in #29: one-way package dependencies, a `modelfile` package, sub-packages by concern, wire-only `dto` packages, test fixtures in `src/testing/`, `shared/format/` and `shared/forms/`, short module READMEs and the unused Dockerfiles removed. `docs/architecture.md` describes the result. #41 added `deploy/` and moved the backend's `.env.example` into `PrintBridge-Backend/`. What is left:
 
 ### Still open
 
-1. **Add a deployment example and its doc.**
-   `local/` only starts development dependencies. There is no compose file or document showing how the three published images run together. A `deploy/docker-compose.yml` (backend, frontend, Postgres, optional slicer on an internal network, volumes for uploads and JWT keys) with a `docs/deployment.md` would also be the natural home for the slicer isolation, the body-size limit and the cookie settings from the findings above.
+The deployment example with its doc and the two `.env.example` files were sorted out in #41. One item is left:
 
-2. **Sort out the two `.env.example` files.**
-   The root file is for the backend and `local/.env.example` is for compose, with the database password in both under different names. As far as I can tell Quarkus only reads a `.env` from its working directory, which is `PrintBridge-Backend/` when running `./gradlew quarkusDev`, so a `.env` at the repository root (README step 1) is not picked up unless it is exported by hand. Moving the backend example to `PrintBridge-Backend/.env.example` would make it work as the README describes.
-
-3. **Add a `SECURITY.md`.**
+1. **Add a `SECURITY.md`.**
    The repository is public and has no stated way to report a vulnerability privately.
 
 ### Smaller points
