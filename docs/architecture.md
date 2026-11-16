@@ -28,11 +28,11 @@ Packages under `com.beauver.printbridge`, one per domain:
 | `storage` | `FileStorage`: files on disk under `STORAGE_PATH` |
 | `common.error` | Domain exceptions and their HTTP mapping |
 | `common.ratelimit` | `@RateLimit` for REST endpoints and the in-memory `RateLimiter` behind it |
-| `common.transaction` | `AfterTransaction`: run disk side effects only after commit/rollback |
+| `common.transaction` | `AfterTransaction`: run disk side effects only after commit/rollback. `Transactions`: run one step of a longer flow in its own short transaction |
 
 Layering:
 - **Resource** (`*Resource`): HTTP only. Paths, status codes, `@RolesAllowed`/`@PermitAll`, Bean Validation on DTOs. No business logic.
-- **Service** (`*Service`): business rules, ownership checks, transactions. Throws domain exceptions (`InvalidInputException` → 400, `ConflictException` → 409, `ResourceNotFoundException` → 404, `InvalidCredentialsException` → 401, `TooManyRequestsException` → 429), mapped in `ExceptionMappers`.
+- **Service** (`*Service`): business rules, ownership checks, transactions. Slow work (copying an upload, reading a model, calling the slicer) stays outside transactions: such a method is `NOT_SUPPORTED` and wraps its database steps in `Transactions`. Throws domain exceptions (`InvalidInputException` → 400, `ConflictException` → 409, `ResourceNotFoundException` → 404, `InvalidCredentialsException` → 401, `TooManyRequestsException` → 429), mapped in `ExceptionMappers`.
 - **Repository** (`*Repository`, Panache repository pattern): queries.
 - Entities never leave the backend: resources return DTO records built by mappers.
 - **Mapper** (`*Mapper`): only copies fields into DTOs. It injects no service or repository; what isn't on the entity is loaded or worked out by the service and handed in (`ModelDetailsCalculator` for model details, `RequestTotals` for a request's totals).

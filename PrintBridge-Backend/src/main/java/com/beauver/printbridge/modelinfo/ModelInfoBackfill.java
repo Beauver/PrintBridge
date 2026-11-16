@@ -10,7 +10,8 @@ import java.util.List;
 
 /**
  * Analyses files uploaded before model info existed. Runs once per start in the background, so
- * the app is available right away; each file gets its own transaction.
+ * the app is available right away. Also picks up a file whose upload was cut short between
+ * storing it and analysing it.
  */
 @ApplicationScoped
 public class ModelInfoBackfill {
@@ -39,7 +40,7 @@ public class ModelInfoBackfill {
         int done = 0;
         for (long fileId : fileIds) {
             try {
-                service.analyzeStored(fileId);
+                service.analyze(fileId);
                 done++;
             } catch (RuntimeException e) {
                 Log.warnf(e, "Model info backfill failed for file %d", fileId);
