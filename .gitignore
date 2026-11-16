@@ -38,6 +38,7 @@ Thumbs.db
 # Local runtime data (uploads, db dumps, JWT keys)
 local/data/
 local/keys/
+deploy/keys/
 *.pem
 !**/*.pub.pem.example
 uploads/

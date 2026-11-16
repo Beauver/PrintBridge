@@ -1,0 +1,72 @@
+# PrintBridge for real use: the published images behind one port. See docs/deployment.md.
+# Usage: cd deploy && cp .env.example .env (edit it) && docker compose up -d
+# Not "printbridge": that is the development stack in local/, whose volumes this must not share.
+name: printbridge-app
+
+services:
+  # The only service with a published port: the web app, which also forwards /api to the backend.
+  frontend:
+    image: beauver/printbridge-frontend:${PRINTBRIDGE_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      - backend
+    environment:
+      BACKEND_URL: http://backend:8080
+      # nginx accepts request bodies up to this size; the same ceiling as the backend.
+      UPLOAD_MAX_SIZE_MB: ${UPLOAD_MAX_SIZE_MB:-100}
+    ports:
+      - "${HTTP_BIND:-127.0.0.1}:${HTTP_PORT:-8080}:80"
+
+  backend:
+    image: beauver/printbridge-backend:${PRINTBRIDGE_VERSION:-latest}
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      DB_URL: jdbc:postgresql://postgres:5432/${POSTGRES_DB:-printbridge}
+      DB_USER: ${POSTGRES_USER:-printbridge}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      JWT_PRIVATE_KEY_PATH: /data/keys/privateKey.pem
+      JWT_PUBLIC_KEY_PATH: /data/keys/publicKey.pem
+      STORAGE_PATH: /data/uploads
+      UPLOAD_MAX_SIZE_MB: ${UPLOAD_MAX_SIZE_MB:-100}
+      # Browsers send this origin with their requests; it has to be the address users open.
+      FRONTEND_ORIGIN: ${PUBLIC_URL:?Set PUBLIC_URL in .env}
+      AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
+      SLICER_URL: ${SLICER_URL:-}
+      SOURCE_URL: ${SOURCE_URL:-https://github.com/Beauver/PrintBridge}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - uploads:/data/uploads
+      - ./keys:/data/keys:ro
+
+  postgres:
+    image: postgres:17-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-printbridge}
+      POSTGRES_USER: ${POSTGRES_USER:-printbridge}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
+      TZ: ${TZ:-UTC}
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  # Optional: server slicing (OrcaSlicer, ~1.6 GB, x86_64 only). Start with
+  # `docker compose --profile slicer up -d` and set SLICER_URL=http://slicer:8000 in .env.
+  # It has no authentication, so it gets no published port: only the backend can reach it.
+  slicer:
+    profiles: [slicer]
+    image: beauver/printbridge-slicer:${PRINTBRIDGE_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+
+volumes:
+  postgres-data:
+  uploads:

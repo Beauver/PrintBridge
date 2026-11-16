@@ -12,8 +12,10 @@ LABEL org.opencontainers.image.title="PrintBridge frontend" \
       org.opencontainers.image.source="https://github.com/Beauver/PrintBridge"
 # Where nginx forwards /api to; override at runtime, e.g. -e BACKEND_URL=http://printbridge-backend:8080
 ENV BACKEND_URL=http://backend:8080
-# Only substitute our own variable, so nginx's $host, $uri etc. stay intact.
-ENV NGINX_ENVSUBST_FILTER=BACKEND_URL
+# Largest request body nginx passes on, in MB; keep it equal to the backend's UPLOAD_MAX_SIZE_MB.
+ENV UPLOAD_MAX_SIZE_MB=100
+# Only substitute our own variables, so nginx's $host, $uri etc. stay intact.
+ENV NGINX_ENVSUBST_FILTER="^(BACKEND_URL|UPLOAD_MAX_SIZE_MB)$"
 COPY docker/default.conf.template /etc/nginx/templates/default.conf.template
 COPY --from=build /app/dist/PrintBridge-Frontend/browser /usr/share/nginx/html
 # Licences of the bundled libraries, linked from the footer (#16).

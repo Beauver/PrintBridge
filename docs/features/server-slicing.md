@@ -53,7 +53,7 @@ A printer counts as owned when the project names the same model (case doesn't ma
 See [PrintBridge-Slicer/README.md](../../PrintBridge-Slicer/README.md): OrcaSlicer's command line behind a small HTTP API, about 1.6 GB, x86_64 only.
 
 - Local: `cd local && docker compose --profile slicer up -d`, with `SLICER_URL=http://localhost:18000` for the backend.
-- Production: run the `printbridge-slicer` image next to the backend and set `SLICER_URL` (e.g. `http://slicer:8000`). The service has no authentication: keep it on the internal network.
+- Production: `docker compose --profile slicer up -d` in `deploy/` and `SLICER_URL=http://slicer:8000` (see [deployment](../deployment.md#server-slicing-optional)). The service has no authentication: it gets no published port, only the backend reaches it.
 
 Projects saved by Bambu Studio 2.x can hold values OrcaSlicer rejects once a process profile is loaded over them (`raft_first_layer_expansion: -1`); the service fills in OrcaSlicer's default for those.
 

@@ -56,7 +56,7 @@ Conventions:
 - Unannotated endpoints are denied (`quarkus.security.jaxrs.deny-unannotated-endpoints`); every resource states its access rule.
 - Rate limits: put `@RateLimit(limit = 10, windowSeconds = 60)` on a resource method (or class). `per = IP` (default) counts by client address, `per = USER` by logged-in user. Over the limit the endpoint answers `429` with `Retry-After` before it runs. Limits that depend on an outcome (failed logins) use `RateLimiter` from the service instead.
 - Schema changes only via Flyway (`src/main/resources/db/migration`). Hibernate validates the mapping against it in tests and never changes it.
-- Config via env vars, see `application.properties` and `/.env.example`.
+- Config via env vars, see `application.properties` and `PrintBridge-Backend/.env.example` (running from source) or `deploy/.env.example` (running the images, see [deployment](deployment.md)).
 
 ## Slicer service (`PrintBridge-Slicer`)
 
