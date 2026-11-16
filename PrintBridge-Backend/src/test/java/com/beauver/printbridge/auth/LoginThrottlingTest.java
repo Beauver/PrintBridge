@@ -15,6 +15,7 @@ import java.util.Map;
 import static io.restassured.RestAssured.given;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.fail;
 
 /**
  * Login with rate limiting switched on (it is off for the other tests). Counters live for the
@@ -56,7 +57,14 @@ class LoginThrottlingTest {
         refused.then().statusCode(429)
                 .contentType(ContentType.JSON)
                 .body("message", matchesPattern("Too many attempts, try again in \\d+ seconds"));
-        int retryAfter = Integer.parseInt(refused.header("Retry-After"));
+        String retryAfterHeader = refused.header("Retry-After");
+        int retryAfter;
+        try {
+            retryAfter = Integer.parseInt(retryAfterHeader);
+        } catch (NumberFormatException e) {
+            fail("Retry-After header is not a valid integer: " + retryAfterHeader, e);
+            return;
+        }
         assertTrue(retryAfter >= 1 && retryAfter <= 60);
 
         // Counted by the forwarded address: another client is not affected.
