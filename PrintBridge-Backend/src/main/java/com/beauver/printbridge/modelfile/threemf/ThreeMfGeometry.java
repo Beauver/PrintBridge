@@ -49,6 +49,11 @@ final class ThreeMfGeometry {
     }
 
     @FunctionalInterface
+    interface PlacedMeshVisitor {
+        void visit(PlacedMesh mesh) throws ModelAnalysisException;
+    }
+
+    @FunctionalInterface
     private interface MeshVisitor {
         void visit(int part, Mesh mesh, Transform transform) throws ModelAnalysisException;
     }
@@ -120,15 +125,16 @@ final class ThreeMfGeometry {
         return new Placement(bounds, volume[0]);
     }
 
-    /** The meshes a build item places, with their triangles; needs {@link #loadWithTriangles}. */
-    List<PlacedMesh> meshes(BuildItem item, ComponentFilter filter) throws IOException {
+    /**
+     * Hands over the meshes a build item places, with their triangles, one at a time; needs
+     * {@link #loadWithTriangles}. Not a list: a hostile file can place a mesh millions of times.
+     */
+    void meshes(BuildItem item, ComponentFilter filter, PlacedMeshVisitor visitor) throws IOException {
         if (!keepTriangles) {
             throw new IllegalStateException("Triangles were not kept");
         }
-        List<PlacedMesh> meshes = new ArrayList<>();
-        walk(item, filter, (part, mesh, transform) -> meshes.add(new PlacedMesh(part, mesh.vertices,
+        walk(item, filter, (part, mesh, transform) -> visitor.visit(new PlacedMesh(part, mesh.vertices,
                 mesh.vertexCount, mesh.triangles, mesh.triangleCount, transform)));
-        return meshes;
     }
 
     private void walk(BuildItem item, ComponentFilter filter, MeshVisitor visitor) throws IOException {
@@ -145,7 +151,11 @@ final class ThreeMfGeometry {
         if (object == null) {
             throw new ModelAnalysisException("The 3MF refers to a missing object " + objectId);
         }
-        if (object.mesh != null) {
+        // Charged before the visitor runs, so nothing is computed or allocated for a placement over the limit.
+        if (object.mesh == null) {
+            pkg.budget().addPlacement(0);
+        } else {
+            pkg.budget().addPlacement(object.mesh.vertexCount);
             visitor.visit(part, object.mesh, transform);
         }
         for (Component component : object.components) {

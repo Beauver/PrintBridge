@@ -28,6 +28,7 @@ After choosing a file with an allowed extension and size, **Show 3D preview** se
 | Case | What the user sees |
 |---|---|
 | More than 2 million placed triangles (`printbridge.preview.max-triangles`; an object placed twice counts twice) | "This model is too detailed for a preview" |
+| More placed vertices than three times the triangle limit (each placement of an object costs its vertices plus 16, so nested components and vertices no triangle uses count too) | "This model is too detailed for a preview" |
 | More than 5 million vertices or triangles in the file, or anything the model reader refuses | "This model is too detailed for a preview" / "No preview available for this file" |
 | No WebGL in the browser, or the 3D code can't be downloaded | "Your browser can't show 3D (WebGL is off or not supported)." |
 | Preview before uploading with a wrong extension, empty, too big or not really an STL/3MF | the same message as the upload |

@@ -47,6 +47,8 @@ Issue: #12, extended by #15 ([server slicing](server-slicing.md)) and #23 (one c
 ## Limits and safety
 
 - A 3MF is a ZIP: everything read from it is counted, and the analysis stops above 1 GiB uncompressed (zip bombs) or 5 million vertices kept in memory (60 MB). XML is parsed streaming with DTDs and external entities disabled.
+- A 3MF can place one mesh any number of times, with build items or with components inside components, so a file of a few hundred bytes can ask for billions of placements. Every placement is counted (the object's vertices plus 16), and the analysis stops above 50 million with "too detailed". Normal projects are far below that.
+- The slicer metadata in a 3MF has its own limits on uncompressed size: 2 MB for `Metadata/project_settings.config` (JSON that is kept in memory; real ones are tens of kB) and 16 MB each for `Metadata/model_settings.config`, `Metadata/slice_info.config` and `_rels/.rels`. A larger part fails the analysis; for server slicing the project settings then count as absent.
 - Components nested more than 8 deep (or in a cycle) and more than 500 plates are refused.
 - Text and colours from the file are cleaned before storing: control characters removed, at most 100 characters, colours only as `#RRGGBB`.
 
