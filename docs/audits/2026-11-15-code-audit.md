@@ -3,9 +3,9 @@
 Code quality, security and best-practices audit of the whole repository (`PrintBridge-Backend`, `PrintBridge-Frontend`, `PrintBridge-Slicer`, `docs/`, config and CI), followed by a review of the file structure.
 
 - **Audited:** `main` at `f6c6086` (same content as `dev` at `cc50de4`).
-- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. After #31 (merged) the findings it fixed were removed too: N+1 queries on a request's files, mappers with business logic, `SlicerResource` without a service, and the upload flow in components. After #33 (merged) both High findings were removed: nested 3MF components and unbounded 3MF metadata JSON, which were closed with limits on placed geometry and metadata size. Line numbers are from the audited commit and may have shifted.
+- **Updated:** after the file structure cleanup (#29, merged) the paths below were corrected and the finished file structure advice was removed. After #31 (merged) the findings it fixed were removed too: N+1 queries on a request's files, mappers with business logic, `SlicerResource` without a service, and the upload flow in components. After #33 (merged) both High findings were removed: nested 3MF components and unbounded 3MF metadata JSON, which were closed with limits on placed geometry and metadata size. After #35 (merged) the refresh token findings were removed: rotation without concurrency control (now a row lock and a 10 second grace window) and tokens never being purged; the `.env.example` finding was cut down to what is left. Line numbers are from the audited commit and may have shifted.
 - **Method:** reading the code. No test suites were run and no code was changed. One finding (nested 3MF components, since fixed) was reproduced with a throwaway harness outside the repository; every other finding is from reading only and says so where it matters.
-- **Result:** no Critical findings, 2 High, 9 Medium, 14 Low / Nitpick at the time of the audit. Still open below: no High, 8 Medium, 11 Low / Nitpick.
+- **Result:** no Critical findings, 2 High, 9 Medium, 14 Low / Nitpick at the time of the audit. Still open below: no High, 7 Medium, 10 Low / Nitpick.
 
 Contents:
 
@@ -27,12 +27,6 @@ None open. Both High findings (nested 3MF components, unbounded 3MF metadata JSO
   - **Category:** Transactions, performance
   - **Issue:** `addFile` takes a `PESSIMISTIC_WRITE` lock on the request, then validates, copies up to 100 MB and parses the model before committing. A large 3MF can exceed Quarkus' default 60 s transaction timeout, which rolls the upload back with a 500. Meanwhile an admin status change on the same request blocks, and a database connection is held throughout.
   - **Recommendation:** Keep the transaction to "check the limit, insert the row". Run the analysis afterwards in its own transaction, or on the background worker like slicing; the frontend already handles `PENDING`.
-
-- **[MEDIUM] Refresh-token rotation has no concurrency control or grace window**
-  - **Location:** `.../auth/token/RefreshTokenService.java` (`consume`); `PrintBridge-Frontend/src/app/core/auth/auth.service.ts:53` (`restoreSession`)
-  - **Category:** Security, auth
-  - **Issue:** Every page load calls refresh. Two tabs loading together send the same cookie: either both read the token as unrevoked (no lock, two live chains), or the second sees it revoked and `revokeAllForUser` logs the user out everywhere. Reuse detection then fires on normal behaviour.
-  - **Recommendation:** Lock the token row in `consume` (`PESSIMISTIC_WRITE`) and accept a just-rotated token for a few seconds by returning its successor, before treating reuse as theft.
 
 - **[MEDIUM] A paid request can be declined and then stays "paid" forever**
   - **Location:** `.../printrequest/PrintRequestService.java:254` (`changeStatus`), `:291` (`changePaid`); `RequestStatus.java:53`
@@ -106,11 +100,11 @@ None open. Both High findings (nested 3MF components, unbounded 3MF metadata JSO
   - **Issue:** `client_max_body_size 100m` ignores `UPLOAD_MAX_SIZE_MB`, so raising the ceiling fails with an HTML 413 from nginx; the slicer's `MAX_UPLOAD_MB=200` is a third separate limit. There is no CSP, `X-Content-Type-Options` or frame policy.
   - **Recommendation:** Template the limit from an environment variable and add the standard headers.
 
-- **[LOW] `.env.example` ships `AUTH_COOKIE_SECURE=false`**
-  - **Location:** `.env.example:37`
-  - **Category:** Secrets hygiene
-  - **Issue:** Copying the example to production yields a refresh cookie without `Secure`. The code default is `true`, so the example weakens it.
-  - **Recommendation:** Leave it commented out with a note for plain-HTTP local runs. Also document `MAX_UPLOAD_MB` and `printbridge.preview.max-triangles`.
+- **[LOW] `.env.example` leaves two settings undocumented**
+  - **Location:** `.env.example`
+  - **Category:** Documentation
+  - **Issue:** `MAX_UPLOAD_MB` and `printbridge.preview.max-triangles` can be set but are not in the example. (The other half of this finding, shipping `AUTH_COOKIE_SECURE=false`, was fixed in #35.)
+  - **Recommendation:** Add both, commented out with their defaults.
 
 - **[LOW] Slicer service: unhandled exceptions and a likely unit mismatch**
   - **Location:** `PrintBridge-Slicer/slicer_service.py:430-464`, `:357`
@@ -124,12 +118,6 @@ None open. Both High findings (nested 3MF components, unbounded 3MF metadata JSO
   - **Issue:** Disposal is otherwise complete (observer, controls, geometries, materials, renderer, canvas). Each opened file preview creates its own renderer, though, and browsers cap live contexts at about 16; a request can have 50 files.
   - **Recommendation:** Call `renderer.forceContextLoss()` in `dispose`, and consider one shared viewer per page.
 
-- **[LOW] Refresh tokens are never purged**
-  - **Location:** `.../auth/token/RefreshTokenRepository.java`
-  - **Category:** Data hygiene
-  - **Issue:** Every page load adds a row; revoked and expired rows are kept forever.
-  - **Recommendation:** Delete rows that expired or were revoked more than a few days ago, on a schedule or at startup.
-
 - **[LOW] Smaller documentation and process drift**
   - **Location:** `docs/api.md:78` vs `:94`; `docs/auth.md:40`; `docs/architecture.md:33`; issue #23
   - **Category:** Documentation drift
@@ -142,7 +130,7 @@ None open. Both High findings (nested 3MF components, unbounded 3MF metadata JSO
   - **Issue:** `actions/*` are on tags while `docker/*` are pinned to SHAs (a known follow-up). `mavenLocal()` is a resolvable repository. CORS stays enabled in production with a `localhost:4200` default although the app is same-origin.
   - **Recommendation:** Pin the remaining actions, drop `mavenLocal()`, and disable CORS unless `FRONTEND_ORIGIN` is set.
 
-Already tracked elsewhere and not repeated here: #7 (bcrypt ignores bytes after 72).
+#7 (bcrypt ignores bytes after 72) was tracked separately and is fixed since #35.
 
 ## What held up
 
@@ -155,13 +143,13 @@ Already tracked elsewhere and not repeated here: #7 (bcrypt ignores bytes after 
 
 ## Top 5 quick wins
 
-The first two of the original list (budget the component walk, cap the metadata JSON size) were done in #33; the next two open findings took their place.
+The first two of the original list (budget the component walk, cap the metadata JSON size) were done in #33, and the two refresh token items that replaced them in #35; open findings took their place.
 
 1. **Block declining a paid request:** one check in `changeStatus` plus a test.
 2. **Add `takeUntilDestroyed`** to the subscriptions in the detail page, `ReviewPanel` and `ModelPreview`.
 3. **Bind the local slicer port to `127.0.0.1`** and correct the README feature list.
-4. **Lock the refresh token row** in `RefreshTokenService.consume`, with a short grace window for a just-rotated token.
-5. **Purge expired and revoked refresh tokens** with a scheduled delete.
+4. **Keep at least one file on a request:** lock the request when removing a file, so two removals at once can't empty it.
+5. **Add a catch-all exception mapper** so every error has the same `ApiError` shape.
 
 ## File structure
 
