@@ -8,7 +8,11 @@ import jakarta.persistence.*;
 
 import java.time.Instant;
 
-/** A model file belonging to a print request. The bytes live on disk under the storage root. */
+/**
+ * An entry of a print request: an uploaded model file, whose bytes live on disk under the storage
+ * root, or a link to a model elsewhere (#59). The file columns are only set for files, the link
+ * columns only for links; the database checks this.
+ */
 @Entity
 @Table(name = "request_files")
 public class RequestFile extends PanacheEntityBase {
@@ -25,19 +29,43 @@ public class RequestFile extends PanacheEntityBase {
     @JoinColumn(name = "request_id", nullable = false)
     public PrintRequest request;
 
-    @Column(name = "original_filename", nullable = false, length = 255)
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 8)
+    public RequestFileKind kind = RequestFileKind.FILE;
+
+    /** Files only. */
+    @Column(name = "original_filename", length = 255)
     public String originalFilename;
 
-    /** Path relative to the storage root. */
-    @Column(name = "storage_path", nullable = false, length = 255, unique = true)
+    /** Files only: path relative to the storage root. */
+    @Column(name = "storage_path", length = 255, unique = true)
     public String storagePath;
 
+    /** Files only. */
     @Enumerated(EnumType.STRING)
-    @Column(name = "file_type", nullable = false, length = 16)
+    @Column(name = "file_type", length = 16)
     public ModelFileType fileType;
 
-    @Column(name = "size_bytes", nullable = false)
-    public long sizeBytes;
+    /** Files only. */
+    @Column(name = "size_bytes")
+    public Long sizeBytes;
+
+    /** Links only: an http(s) URL; the server never fetches it. */
+    @Column(length = 2048)
+    public String url;
+
+    /** Links only, optional: what the requester called it. */
+    @Column(name = "link_name", length = 100)
+    public String linkName;
+
+    /** Where this item is (#61); new items start PENDING. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    public ItemStatus status = ItemStatus.PENDING;
+
+    /** Why the admin declined this item; optional, only while DECLINED. */
+    @Column(name = "decline_reason", length = 500)
+    public String declineReason;
 
     /** How many copies of this file to print. */
     @Column(nullable = false)
@@ -46,7 +74,15 @@ public class RequestFile extends PanacheEntityBase {
     @Column(name = "created_at", nullable = false)
     public Instant createdAt;
 
-    /** This file as the analysis and slicing code use it. */
+    public boolean isLink() {
+        return kind == RequestFileKind.LINK;
+    }
+
+    public boolean isDeclined() {
+        return status == ItemStatus.DECLINED;
+    }
+
+    /** This file as the analysis and slicing code use it. Only for files, not links. */
     public StoredModelFile stored() {
         return new StoredModelFile(id, storagePath, fileType);
     }

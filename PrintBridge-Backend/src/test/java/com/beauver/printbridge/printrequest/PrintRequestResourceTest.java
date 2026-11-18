@@ -282,7 +282,7 @@ class PrintRequestResourceTest {
 
         addFile(bobToken, r.id(), "a.stl", ModelFiles.binaryStl(1), null).statusCode(201);
         addFile(bobToken, r.id(), "b.stl", ModelFiles.binaryStl(1), null)
-                .statusCode(400).body("message", is("A request can hold at most 2 files"));
+                .statusCode(400).body("message", is("A request can hold at most 2 files and links"));
     }
 
     @Test
@@ -332,7 +332,7 @@ class PrintRequestResourceTest {
 
         given().auth().oauth2(bobToken).delete("/api/requests/" + r.id() + "/files/" + second)
                 .then().statusCode(409)
-                .body("message", is("A request needs at least one file; delete the request instead"));
+                .body("message", is("A request needs at least one file or link; delete the request instead"));
         assertEquals(1, storedFileCount());
     }
 
@@ -364,5 +364,145 @@ class PrintRequestResourceTest {
 
         given().auth().oauth2(adminToken).get(url).then().statusCode(200);
         given().auth().oauth2(eveToken).get(url).then().statusCode(404).contentType(ContentType.JSON);
+    }
+
+    // --- links (#59) ---
+
+    private ValidatableResponse createWithLink(String token, String url, String linkName) {
+        var spec = given().auth().oauth2(token).multiPart("name", "Dragon").multiPart("url", url);
+        if (linkName != null) {
+            spec = spec.multiPart("linkName", linkName);
+        }
+        return spec.post("/api/requests").then();
+    }
+
+    private ValidatableResponse addLink(String token, long requestId, Map<String, Object> body) {
+        return given().auth().oauth2(token).contentType(ContentType.JSON).body(body)
+                .post("/api/requests/" + requestId + "/links").then();
+    }
+
+    @Test
+    void createsRequestWithOnlyALink() throws IOException {
+        var created = createWithLink(bobToken, "https://www.patreon.com/posts/dragon-123", "Dragon (tier 2)")
+                .statusCode(201)
+                .body("files[0].kind", is("LINK"))
+                .body("files[0].url", is("https://www.patreon.com/posts/dragon-123"))
+                .body("files[0].linkName", is("Dragon (tier 2)"))
+                .body("files[0].originalFilename", nullValue())
+                .body("files[0].type", nullValue())
+                .body("files[0].sizeBytes", nullValue())
+                .body("files[0].modelInfo", nullValue())
+                .body("totals.files", is(0))
+                .body("totals.links", is(1))
+                .body("totals.copies", is(1))
+                .body("totals.grams", nullValue())
+                .extract().jsonPath();
+        assertEquals(0, storedFileCount());
+
+        String file = "/api/requests/" + created.getLong("id") + "/files/" + created.getLong("files[0].id");
+        given().auth().oauth2(bobToken).get(file).then().statusCode(404);
+        given().auth().oauth2(bobToken).get(file + "/preview").then().statusCode(404);
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(Map.of("printerId", 1, "nozzle", 0.4, "process", "0.20mm Standard", "filament", "PLA Basic"))
+                .post(file + "/reslice").then().statusCode(409);
+    }
+
+    @Test
+    void createNeedsExactlyAFileOrALink() throws IOException {
+        upload(bobToken, "Nothing", null, null).statusCode(400).body("message", is("Add a model file or a link"));
+        given().auth().oauth2(bobToken).multiPart("name", "Both")
+                .multiPart("url", "https://example.com/a")
+                .multiPart("file", "a.stl", ModelFiles.binaryStl(1), "application/octet-stream")
+                .post("/api/requests").then().statusCode(400).body("message", is("Add a model file or a link"));
+        createWithLink(bobToken, "ftp://example.com/a.stl", null).statusCode(400);
+        createWithLink(bobToken, "javascript:alert(1)", null).statusCode(400);
+        createWithLink(bobToken, "https://example.com/" + "a".repeat(2048), null).statusCode(400);
+        createWithLink(bobToken, "https://example.com/a", "n".repeat(101)).statusCode(400);
+        createWithLink(bobToken, "https:///nohost", null)
+                .statusCode(400).body("message", is("The link is not a valid web address"));
+
+        given().auth().oauth2(bobToken).get("/api/requests").then().body("$", empty());
+        assertEquals(0, storedFileCount());
+    }
+
+    @Test
+    void addsLinksNextToFilesAndTheyShareTheLimit() {
+        data.setUploadLimits(3, null);
+        PrintRequestDto r = data.printRequest(bob, RequestStatus.SUBMITTED);
+
+        addLink(bobToken, r.id(), Map.of("url", "https://www.printables.com/model/1", "quantity", 2))
+                .statusCode(201)
+                .body("files.kind", contains("FILE", "LINK"))
+                .body("files[1].linkName", nullValue())
+                .body("totals.files", is(1))
+                .body("totals.links", is(1))
+                .body("totals.copies", is(3))
+                .body("totals.weight", is("ESTIMATED"));
+        addFile(bobToken, r.id(), "lid.stl", ModelFiles.binaryStl(1), null).statusCode(201);
+        addLink(bobToken, r.id(), Map.of("url", "https://example.com/b"))
+                .statusCode(400).body("message", is("A request can hold at most 3 files and links"));
+    }
+
+    @Test
+    void refusesInvalidLinks() {
+        PrintRequestDto r = data.printRequest(bob, RequestStatus.SUBMITTED);
+        addLink(bobToken, r.id(), Map.of("url", "")).statusCode(400);
+        addLink(bobToken, r.id(), Map.of("name", "No url")).statusCode(400);
+        addLink(bobToken, r.id(), Map.of("url", "mailto:bob@example.com")).statusCode(400);
+        addLink(bobToken, r.id(), Map.of("url", "https://example.com", "name", "n".repeat(101))).statusCode(400);
+        addLink(bobToken, r.id(), Map.of("url", "https://example.com", "quantity", 0)).statusCode(400);
+        addLink(bobToken, r.id(), Map.of("url", "https://example.com", "quantity", 101)).statusCode(400);
+        addLink(eveToken, r.id(), Map.of("url", "https://example.com")).statusCode(404);
+        given().auth().oauth2(bobToken).get("/api/requests/" + r.id()).then().body("files", hasSize(1));
+    }
+
+    @Test
+    void ownerChangesLinksOnlyWhileSubmittedAdminAlways() {
+        PrintRequestDto r = data.printRequest(bob, RequestStatus.SUBMITTED);
+        long link = addLink(bobToken, r.id(), Map.of("url", "https://example.com/a"))
+                .extract().jsonPath().getLong("files[1].id");
+        changeQuantity(bobToken, r.id(), link, 4).statusCode(200).body("files[1].quantity", is(4));
+
+        data.setStatus(r.id(), RequestStatus.IN_REVIEW);
+        addLink(bobToken, r.id(), Map.of("url", "https://example.com/b")).statusCode(409);
+        given().auth().oauth2(bobToken).delete("/api/requests/" + r.id() + "/files/" + link).then().statusCode(409);
+
+        addLink(adminToken, r.id(), Map.of("url", "https://example.com/b")).statusCode(201);
+        given().auth().oauth2(adminToken).delete("/api/requests/" + r.id() + "/files/" + link)
+                .then().statusCode(200).body("files.kind", contains("FILE", "LINK"));
+    }
+
+    @Test
+    void theLastLinkStaysWhenTheFileIsRemoved() throws IOException {
+        var created = createWithLink(bobToken, "https://example.com/a", null).extract().jsonPath();
+        long id = created.getLong("id");
+        long link = created.getLong("files[0].id");
+        long file = addFile(bobToken, id, "lid.stl", ModelFiles.binaryStl(1), null)
+                .extract().jsonPath().getLong("files[1].id");
+
+        given().auth().oauth2(bobToken).delete("/api/requests/" + id + "/files/" + file).then().statusCode(200);
+        assertEquals(0, storedFileCount());
+        given().auth().oauth2(bobToken).delete("/api/requests/" + id + "/files/" + link).then().statusCode(409);
+    }
+
+    @Test
+    void zipHoldsTheLinksInATextFile() throws IOException {
+        PrintRequestDto r = data.printRequest(bob, "Box set", RequestStatus.SUBMITTED);
+        addLink(bobToken, r.id(), Map.of("url", "https://www.patreon.com/posts/dragon-123", "name", "Dragon",
+                "quantity", 2)).statusCode(201);
+
+        byte[] zip = given().auth().oauth2(bobToken).get("/api/requests/" + r.id() + "/files.zip")
+                .then().statusCode(200).extract().asByteArray();
+
+        Map<String, String> entries = new java.util.LinkedHashMap<>();
+        try (ZipInputStream in = new ZipInputStream(new java.io.ByteArrayInputStream(zip))) {
+            ZipEntry entry = in.getNextEntry();
+            while (entry != null) {
+                entries.put(entry.getName(), new String(in.readAllBytes(), java.nio.charset.StandardCharsets.UTF_8));
+                entry = in.getNextEntry();
+            }
+        }
+        assertEquals(List.of("benchy.stl", "links.txt"), List.copyOf(entries.keySet()));
+        assertTrue(entries.get("links.txt").contains("Dragon (quantity: 2)\nhttps://www.patreon.com/posts/dragon-123\n"));
     }
 }

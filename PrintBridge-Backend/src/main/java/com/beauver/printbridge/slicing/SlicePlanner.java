@@ -62,6 +62,52 @@ public class SlicePlanner {
         return withDefaults(fallback, platesToSlice, projectSettings, true, projectSettings.printerModel());
     }
 
+    /**
+     * The plan for the admin's choice (#21) instead of the rules above. The choice was checked
+     * when it was queued and again before the job runs.
+     * <ul>
+     *   <li>STL / plain 3MF / project without saved settings: the chosen printer, nozzle and
+     *       profiles, objects re-arranged.</li>
+     *   <li>Project with the project's own process (only on its own printer and nozzle): the
+     *       project's printer settings, with the chosen filament or the project's.</li>
+     *   <li>Project with a chosen process: that process with the designer's infill, walls and
+     *       supports on top; re-arranged when it is another printer than the project's.</li>
+     * </ul>
+     */
+    public SlicePlan planCustom(CustomSlice choice, ModelFileType type, ModelSource source, List<Integer> plates,
+                                Optional<ProjectSettings> project) {
+        if (type == ModelFileType.STL || source != ModelSource.BAMBU) {
+            return new SlicePlan(type.extension(), List.of(1), choice.printer(), choice.nozzle(), false,
+                    choice.process(), choice.filament(), 1, Map.of(), true, null, null);
+        }
+        List<Integer> platesToSlice = plates;
+        if (platesToSlice.isEmpty()) {
+            platesToSlice = List.of(1);
+        }
+        if (project.isEmpty()) {
+            return new SlicePlan("3mf", platesToSlice, choice.printer(), choice.nozzle(), false, choice.process(),
+                    choice.filament(), 1, Map.of(), true, null, null);
+        }
+        ProjectSettings projectSettings = project.get();
+        if (choice.process() == null) {
+            return new SlicePlan("3mf", platesToSlice, choice.printer(), choice.nozzle(), true, null,
+                    choice.filament(), projectSettings.filamentSlots(), Map.of(), false, null, null);
+        }
+        boolean ownPrinter = projectSettings.printerModel() != null
+                && choice.printer().equalsIgnoreCase(projectSettings.printerModel().trim());
+        String madeForPrinter = null;
+        if (!ownPrinter) {
+            madeForPrinter = projectSettings.printerModel();
+        }
+        BigDecimal madeForNozzle = projectSettings.nozzle();
+        if (madeForNozzle != null && madeForNozzle.compareTo(choice.nozzle()) == 0) {
+            madeForNozzle = null;
+        }
+        return new SlicePlan("3mf", platesToSlice, choice.printer(), choice.nozzle(), false, choice.process(),
+                choice.filament(), projectSettings.filamentSlots(), projectSettings.keptSettings(), !ownPrinter,
+                madeForNozzle, madeForPrinter);
+    }
+
     /** The printer's default nozzle and profiles, with the designer's kept settings on top. */
     private static SlicePlan withDefaults(PrinterSettings printer, List<Integer> plates, ProjectSettings project,
                                           boolean arrange, String madeForPrinter) {

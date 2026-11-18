@@ -1,4 +1,4 @@
-import { DatePipe, Location } from '@angular/common';
+import { DatePipe, Location, NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
@@ -12,6 +12,7 @@ import {
   viewChild,
 } from '@angular/core';
 import { Router, RouterLink } from '@angular/router';
+import { NgbModal } from '@ng-bootstrap/ng-bootstrap';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FileSaverService } from '../../../core/files/file-saver.service';
 import { errorMessage } from '../../../core/http/api-error';
@@ -20,31 +21,43 @@ import {
   FailedUploadsState,
   PrintRequest,
   RequestFile,
+  UploadedFile,
 } from '../../../core/models/print-request.model';
 import { formatDuration, formatGrams } from '../../../shared/format/model-info-display';
 import { PriceTag } from '../../../shared/price-tag/price-tag';
 import {
   allowsPayment,
   formatBytes,
-  statusBadgeClass,
-  statusLabel,
+  itemProgressText,
+  linkLabel,
 } from '../../../shared/format/print-request-display';
 import { HasPendingUploads } from '../pending-uploads.guard';
 import { PrintRequestsService } from '../print-requests.service';
 import { isValidQuantity, MAX_QUANTITY, MIN_QUANTITY } from '../upload-checks';
 import { AddFiles } from './add-files/add-files';
+import { ItemStatusControl } from './item-status/item-status';
+import { RequestStatusControl } from './request-status/request-status';
+import { LinkCard } from './link-card/link-card';
 import { ModelInfoCard } from './model-info-card/model-info-card';
+import { ResliceDialog } from './reslice-dialog/reslice-dialog';
 import { ReviewPanel } from './review-panel/review-panel';
 
-const FILE_TYPE_LABELS: Record<RequestFile['type'], string> = { STL: 'STL', THREE_MF: '3MF' };
+const FILE_TYPE_LABELS: Record<UploadedFile['type'], string> = { STL: 'STL', THREE_MF: '3MF' };
 
 /** How often the page reloads the request while one of its files is being sliced. */
 export const SLICING_POLL_MS = 3000;
 
 function isSlicing(request: PrintRequest): boolean {
-  return request.files.some((file) => {
+  return uploadedFiles(request).some((file) => {
     const status = file.modelInfo.slicing.status;
     return status === 'QUEUED' || status === 'RUNNING';
+  });
+}
+
+/** The uploaded files of a request, without its links (#59). */
+function uploadedFiles(request: PrintRequest): UploadedFile[] {
+  return request.files.filter((file): file is UploadedFile => {
+    return file.kind === 'FILE';
   });
 }
 
@@ -72,8 +85,10 @@ function filamentTotal(request: PrintRequest): { text: string; note: string | nu
       notes.push('estimate');
     }
   }
-  const unknown = request.files.filter((file) => {
-    return file.modelInfo.totalGrams === null;
+  // Links are already marked by the weight (partly estimated), like a plate that wasn't sliced;
+  // declined files (#61) aren't counted at all.
+  const unknown = uploadedFiles(request).filter((file) => {
+    return file.status !== 'DECLINED' && file.modelInfo.totalGrams === null;
   }).length;
   if (unknown > 0) {
     notes.push(`${counted(unknown, 'file', 'files')} without details not counted`);
@@ -103,7 +118,18 @@ function printTimeTotal(request: PrintRequest): { text: string; note: string | n
 /** One print request: details, its files (#23), delete and (admin) review. */
 @Component({
   selector: 'app-request-detail-page',
-  imports: [RouterLink, DatePipe, PriceTag, ReviewPanel, ModelInfoCard, AddFiles],
+  imports: [
+    RouterLink,
+    DatePipe,
+    NgTemplateOutlet,
+    PriceTag,
+    ReviewPanel,
+    ModelInfoCard,
+    LinkCard,
+    ItemStatusControl,
+    RequestStatusControl,
+    AddFiles,
+  ],
   templateUrl: './request-detail-page.html',
   styleUrl: './request-detail-page.css',
 })
@@ -113,6 +139,7 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
   private readonly location = inject(Location);
+  private readonly modalService = inject(NgbModal);
   protected readonly auth = inject(AuthService);
   private pollTimer: ReturnType<typeof setTimeout> | null = null;
 
@@ -129,8 +156,6 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
   protected readonly downloadingId = signal<number | null>(null);
   protected readonly confirmingDelete = signal(false);
   protected readonly deleting = signal(false);
-  /** The file a re-slice request is on its way for. */
-  protected readonly reslicingId = signal<number | null>(null);
   /** Files the new request form couldn't add, handed over when it opened this page. */
   protected readonly failedUploads = signal<FailedUpload[]>([]);
   protected readonly downloadingAll = signal(false);
@@ -159,20 +184,42 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
     return request.status === 'SUBMITTED';
   });
 
-  /** The last file can't be removed; that is deleting the request. */
+  /** The last file or link can't be removed; that is deleting the request. */
   protected readonly canRemoveFiles = computed(() => {
     const request = this.request();
     return this.canChangeFiles() && !!request && request.files.length > 1;
   });
 
-  /** "3 files · 7 copies", next to the Files heading. */
+  /**
+   * "3 files · 2 links · 9 copies · 1 declined · 2/4 completed" next to the Files heading; parts
+   * with nothing to say are left out (#59, #61).
+   */
   protected readonly fileCounts = computed(() => {
     const request = this.request();
     if (!request) {
       return null;
     }
     const totals = request.totals;
-    return `${counted(totals.files, 'file', 'files')} · ${counted(totals.copies, 'copy', 'copies')}`;
+    const parts: string[] = [];
+    if (totals.files > 0 || totals.links === 0) {
+      parts.push(counted(totals.files, 'file', 'files'));
+    }
+    if (totals.links > 0) {
+      parts.push(counted(totals.links, 'link', 'links'));
+    }
+    parts.push(counted(totals.copies, 'copy', 'copies'));
+    if (totals.declined > 0) {
+      parts.push(`${totals.declined} declined`);
+    }
+    const progress = itemProgressText(
+      request.status,
+      totals.completed,
+      totals.files + totals.links - totals.declined,
+    );
+    if (progress) {
+      parts.push(progress);
+    }
+    return parts.join(' · ');
   });
 
   /** Filament and print time of the whole request: every file times its quantity. */
@@ -210,8 +257,6 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
     return { link: '/', label: 'My requests' };
   });
 
-  protected readonly statusLabel = statusLabel;
-  protected readonly statusBadgeClass = statusBadgeClass;
   protected readonly formatBytes = formatBytes;
 
   constructor() {
@@ -255,20 +300,29 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
     this.show(updated);
   }
 
-  /** Admin: queue one file for server slicing again. */
-  protected onReslice(file: RequestFile): void {
-    this.reslicingId.set(file.id);
-    this.error.set(null);
-    this.requestsService.reslice(this.id(), file.id).subscribe({
-      next: (updated) => {
-        this.reslicingId.set(null);
+  /** Admin: an item's status changed (#61); the request comes back with new totals. */
+  protected onItemChanged(updated: PrintRequest): void {
+    this.show(updated);
+  }
+
+  /**
+   * Admin: "Re-slice with…" (#21) opens the dialog for one file; once it queued the file, the
+   * page shows the request it answered with (and polls while it slices).
+   */
+  protected onResliceWith(file: UploadedFile): void {
+    const modal = this.modalService.open(ResliceDialog);
+    const dialog = modal.componentInstance as ResliceDialog;
+    dialog.requestId = this.id();
+    dialog.fileId = file.id;
+    dialog.filename = file.originalFilename;
+    modal.result.then(
+      (updated: PrintRequest) => {
         this.show(updated);
       },
-      error: (err: unknown) => {
-        this.reslicingId.set(null);
-        this.error.set(errorMessage(err, 'Could not start slicing.'));
+      () => {
+        // Cancelled: nothing changes.
       },
-    });
+    );
   }
 
   private show(request: PrintRequest): void {
@@ -303,11 +357,19 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
     }
   }
 
-  protected fileTypeLabel(file: RequestFile): string {
+  protected fileTypeLabel(file: UploadedFile): string {
     return FILE_TYPE_LABELS[file.type];
   }
 
-  protected download(file: RequestFile): void {
+  /** The file name, or the link's name or host. */
+  protected entryName(file: RequestFile): string {
+    if (file.kind === 'LINK') {
+      return linkLabel(file.url, file.linkName);
+    }
+    return file.originalFilename;
+  }
+
+  protected download(file: UploadedFile): void {
     this.downloadingId.set(file.id);
     this.error.set(null);
     this.requestsService.downloadFile(this.id(), file.id).subscribe({
@@ -388,7 +450,7 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
       error: (err: unknown) => {
         this.removingId.set(null);
         this.confirmingRemoveId.set(null);
-        this.error.set(errorMessage(err, 'Could not remove the file.'));
+        this.error.set(errorMessage(err, 'Could not remove it.'));
       },
     });
   }

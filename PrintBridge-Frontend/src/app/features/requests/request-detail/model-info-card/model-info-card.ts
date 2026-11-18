@@ -23,8 +23,9 @@ import {
 /**
  * What the backend knows about the model file: size, plates, weight, time and filaments, from
  * server slicing, the file's own slice data or an estimate (see docs/features/server-slicing.md).
- * Collapsible (#23): the header keeps the file name, quantity, weight, time and badges; the body
- * starts with whatever the page projects into it (the file's actions).
+ * Collapsible (#23): the header keeps the file name, quantity, weight, time and badges, plus what
+ * the page projects with `cardStatus` (the item's status, #61); the body starts with whatever the
+ * page projects into it (the file's actions).
  */
 @Component({
   selector: 'app-model-info-card',
@@ -39,11 +40,10 @@ export class ModelInfoCard implements OnInit {
   /** The request and file this is about, for the 3D preview and plate images. */
   readonly requestId = input.required<number>();
   readonly fileId = input.required<number>();
-  /** The admin sees slicing errors, the plate size hint and the Re-slice button. */
+  /** The admin sees slicing errors, the plate size hint and the Re-slice with… button. */
   readonly isAdmin = input(false);
-  /** True while a re-slice request is on its way. */
-  readonly reslicing = input(false);
-  readonly reslice = output<void>();
+  /** "Re-slice with…" (#21): the page opens the dialog. */
+  readonly resliceWith = output<void>();
   /** Shown in the header; "Model" without one. */
   readonly filename = input<string | null>(null);
   /** Copies of this file, shown as "× 3". */
@@ -230,8 +230,8 @@ export class ModelInfoCard implements OnInit {
   });
 
   /**
-   * "Bambu Lab P1S · 0,4 mm nozzle", or what the project was made for when it was sliced on
-   * another printer or nozzle.
+   * What the numbers are for: "Bambu Lab P1S · 0,4 mm nozzle". After a custom re-slice (#21)
+   * also the chosen profiles: "… · 0.12mm Fine @BBL P1S · Bambu PLA Basic".
    */
   protected readonly slicedFor = computed(() => {
     const slicing = this.info().slicing;
@@ -242,18 +242,44 @@ export class ModelInfoCard implements OnInit {
     if (slicing.printer) {
       target = `${slicing.printer} · ${target}`;
     }
-    let madeFor: string | null = null;
-    if (slicing.madeForPrinter && slicing.madeForNozzle !== null) {
-      madeFor = `${slicing.madeForPrinter} · ${formatNozzle(slicing.madeForNozzle)} nozzle`;
-    } else if (slicing.madeForPrinter) {
-      madeFor = slicing.madeForPrinter;
-    } else if (slicing.madeForNozzle !== null) {
-      madeFor = `a ${formatNozzle(slicing.madeForNozzle)} nozzle`;
+    if (!slicing.custom) {
+      return target;
     }
-    if (madeFor) {
-      return `Made for ${madeFor}. Numbers are for your ${target}`;
+    let process = "project's settings";
+    if (slicing.process) {
+      process = slicing.process;
     }
-    return target;
+    let filament = "project's filaments";
+    if (slicing.filament) {
+      filament = slicing.filament;
+    }
+    return `${target} · ${process} · ${filament}`;
+  });
+
+  /**
+   * The printer and nozzle a project was made for, only when it was sliced on another printer or
+   * nozzle: "Bambu Lab A1 · 0,2 mm nozzle". The part that is the same comes from the slice.
+   */
+  protected readonly madeFor = computed(() => {
+    const slicing = this.info().slicing;
+    if (slicing.status !== 'DONE' || slicing.nozzle === null) {
+      return null;
+    }
+    if (!slicing.madeForPrinter && slicing.madeForNozzle === null) {
+      return null;
+    }
+    let nozzle = slicing.nozzle;
+    if (slicing.madeForNozzle !== null) {
+      nozzle = slicing.madeForNozzle;
+    }
+    let printer = slicing.printer;
+    if (slicing.madeForPrinter) {
+      printer = slicing.madeForPrinter;
+    }
+    if (!printer) {
+      return `${formatNozzle(nozzle)} nozzle`;
+    }
+    return `${printer} · ${formatNozzle(nozzle)} nozzle`;
   });
 
   /** Shown in the header, so a collapsed card still flags it; the reason stays in the body (admin). */
@@ -323,7 +349,7 @@ export class ModelInfoCard implements OnInit {
     return parts.join(' · ');
   }
 
-  protected requestReslice(): void {
-    this.reslice.emit();
+  protected requestResliceWith(): void {
+    this.resliceWith.emit();
   }
 }

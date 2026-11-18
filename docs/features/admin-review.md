@@ -9,14 +9,15 @@ Issue: #5 (part of #2); the Printing status is #22.
   - The status filter defaults to **Open** (Submitted, In review, Accepted, Printing). It also offers **All** and each single status, and changing it reloads straight away.
   - The search box matches the request name or the requester's username, ignoring case. It runs on the server after a short typing pause.
   - No paging (prototype).
-- **Review panel** (admin, on the request detail page, above the details; hidden once the request is final):
-  - **Status:** a Jira-style dropdown showing the current status and only the statuses it may move to.
-    - In review, Accepted and Printing are applied immediately.
-    - Declined and Completed are final, so they ask for confirmation first. Declining takes an optional reason (max 2000), which the user sees on the detail page.
-    - Completed is disabled until a price is set.
+- **Status** (admin, the status badge next to the request name; #65, like the [item statuses](#item-statuses)): the badge is a dropdown with only the statuses the request may move to. Users, and the admin on a final request, see a plain badge.
+  - In review, Accepted and Printing are applied immediately.
+  - Declined and Completed are final, so they ask for confirmation first, in a row under the name. Declining takes an optional reason (max 2000), which the user sees on the detail page.
+  - Completed is disabled ("set a price first") until a price is set.
+  - Errors from the server (e.g. someone else changed it first) appear under the name.
+- **Price & payment panel** (admin, on the request detail page, above the details; shown while the price or paid can still change):
   - **Final price (EUR):** €0 to € 99.999.999,99 with at most 2 decimals. *Save* (or Enter) sets or changes it; *Clear* returns it to "Price pending". Locked while the request is paid.
   - **Paid:** *Mark as paid* / *Mark as unpaid* on Accepted, Printing and Completed requests that have a price. This is the only thing that can still change on a Completed request.
-  - The page updates in place after every change. Errors from the server (e.g. someone else changed it first) appear in the panel, and the dropdown resets.
+  - The page updates in place after every change. Errors from the server appear in the panel.
 - The back link on the detail page goes to *All requests* for the admin and *My requests* for users.
 - Users see the price as soon as it is set (also while still in review), and the decline reason once declined.
 - Paid requests show the price crossed out with a green **Paid** badge, for users and the admin, in lists and on the detail page.
@@ -53,6 +54,33 @@ Issue: #5 (part of #2); the Printing status is #22.
 - **Owners:** can only delete while the request is Submitted (#4).
 - **Single source of truth:** the allowed moves live in `RequestStatus.nextStatuses()`. The API sends them along as `nextStatuses`, so the frontend never duplicates the rules (except the "Completed needs a price" hint).
 
+## Item statuses
+
+Issue: #61. Every file and link of a request has its own status, so the admin can accept, decline, print and complete items one by one.
+
+- **Statuses:** *Pending* (new items, also ones added later to an accepted request), *Accepted*, *Declined*, *Printing*, *Completed*, in the same colours as the request statuses.
+- **On each card** (Model card and link card), in the header: a status badge for everyone. For the admin it is a dropdown (ng-bootstrap) with the allowed next statuses; choosing one saves it right away.
+- **Declining an item** asks for confirmation with an optional reason (max 500). The reason shows in the card for the requester too: "Declined: <reason>". Any other status drops the reason.
+- **Flow** (`ItemStatus.nextStatuses()`, sent per item as `nextStatuses`):
+
+  | From | Allowed to |
+  |---|---|
+  | Pending | Accepted, Declined |
+  | Accepted | Printing, Completed, Declined |
+  | Printing | Completed, Accepted (failed print), Declined |
+  | Declined, Completed | Accepted (reopened) |
+
+  Items only change while the request isn't final; on a Declined or Completed request they are locked (`409`, no dropdown).
+- **The request moves its items along** (in the same transaction):
+  - accepting it (from Submitted or In review) accepts its Pending items;
+  - declining it declines every item that isn't Completed (no per-item reason; the request's reason covers them);
+  - completing it completes every item that isn't Declined, Pending included. Nothing blocks completing.
+  - Moving to Printing, back to Accepted or to In review leaves the items alone. Items never change the request's status.
+- **Declined items** count nowhere but in the numbers of files, links and declined items: not in the copies, filament or print time.
+- **Progress:** the Files heading adds "· 1 declined" and "· 2/3 completed"; the request lists show "2/3 completed" next to the status badge. Progress counts the items that aren't declined, and only shows from Accepted onwards and with more than one such item.
+- Owner rules (remove, quantity while Submitted), downloads and *Re-slice with…* work for items in any status.
+- Data: `request_files.status` and `decline_reason` (V12). Existing items got a status from their request: Submitted/In review → Pending, Accepted/Printing → Accepted, Completed → Completed, Declined → Declined.
+
 ## Not included
 
-Comments, editing request details, notifications (also when printing starts), per-status timestamps, Spoolman/price estimation, paging.
+Comments, editing request details, notifications (also when printing starts), per-status timestamps, Spoolman/price estimation, paging. Out of #61: per-item prices, items changing the request status, the requester changing item statuses.

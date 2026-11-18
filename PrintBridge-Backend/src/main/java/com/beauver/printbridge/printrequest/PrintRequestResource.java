@@ -1,11 +1,14 @@
 package com.beauver.printbridge.printrequest;
 
 import com.beauver.printbridge.auth.CurrentUser;
+import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.printrequest.file.FileBundle;
+import com.beauver.printbridge.printrequest.file.NewLink;
 import com.beauver.printbridge.printrequest.file.RequestFile;
 import com.beauver.printbridge.printrequest.file.StoredFile;
 import com.beauver.printbridge.printrequest.file.UploadedModel;
+import com.beauver.printbridge.slicing.dto.ResliceOptionsDto;
 import com.beauver.printbridge.user.Role;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -60,11 +63,23 @@ public class PrintRequestResource {
         return service.uploadConfig();
     }
 
+    /** Creates a request with its first entry: a model file, or a link ({@code url}, {@code linkName}; #59). */
     @POST
     @Consumes(MediaType.MULTIPART_FORM_DATA)
     public Response create(@Valid NewPrintRequestForm form) {
+        boolean hasLink = form.url != null && !form.url.isBlank();
+        if ((form.file != null) == hasLink) {
+            throw new InvalidInputException("Add a model file or a link");
+        }
+        UploadedModel file = null;
+        NewLink link = null;
+        if (form.file != null) {
+            file = upload(form.file);
+        } else {
+            link = new NewLink(form.url, form.linkName);
+        }
         PrintRequestDto created = service.create(currentUser.id(),
-                new NewPrintRequest(form.name, form.description, upload(form.file), quantityOrOne(form.quantity)));
+                new NewPrintRequest(form.name, form.description, file, link, quantityOrOne(form.quantity)));
         return Response.created(UriBuilder.fromPath("/api/requests/{id}").build(created.id()))
                 .entity(created)
                 .build();
@@ -86,6 +101,17 @@ public class PrintRequestResource {
         return Response.status(Response.Status.CREATED).entity(updated).build();
     }
 
+    /** Adds a link to the request (#59); answers with the whole request. */
+    @POST
+    @Path("/{id}/links")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public Response addLink(@PathParam("id") long id, @Valid @NotNull NewLinkRequest request) {
+        PrintRequestDto updated = service.addLink(id, new NewLink(request.url(), request.name()),
+                quantityOrOne(request.quantity()), currentUser.caller());
+        return Response.status(Response.Status.CREATED).entity(updated).build();
+    }
+
+    /** Removes a file or a link from the request. */
     @DELETE
     @Path("/{id}/files/{fileId}")
     public PrintRequestDto removeFile(@PathParam("id") long id, @PathParam("fileId") long fileId) {
@@ -100,7 +126,7 @@ public class PrintRequestResource {
         return service.changeQuantity(id, fileId, request.quantity(), currentUser.caller());
     }
 
-    /** Every file of the request in one ZIP, under its original name. */
+    /** Every file of the request in one ZIP, under its original name, plus its links in a text file (#59). */
     @GET
     @Path("/{id}/files.zip")
     @Produces({"application/zip", MediaType.APPLICATION_JSON})
@@ -112,6 +138,11 @@ public class PrintRequestResource {
                 for (StoredFile file : bundle.files()) {
                     out.putNextEntry(new ZipEntry(file.filename()));
                     Files.copy(file.path(), out);
+                    out.closeEntry();
+                }
+                if (bundle.linksText() != null) {
+                    out.putNextEntry(new ZipEntry(FileBundle.LINKS_FILENAME));
+                    out.write(bundle.linksText().getBytes(StandardCharsets.UTF_8));
                     out.closeEntry();
                 }
             }
@@ -132,12 +163,22 @@ public class PrintRequestResource {
                 .build();
     }
 
-    /** Slices one file of the request again on the server (admin). */
+    /** Slices one file of the request again with a chosen printer, nozzle and profiles (admin; #21). */
     @POST
     @Path("/{id}/files/{fileId}/reslice")
+    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed(Role.ADMIN_ROLE)
-    public PrintRequestDto reslice(@PathParam("id") long id, @PathParam("fileId") long fileId) {
-        return service.reslice(id, fileId);
+    public PrintRequestDto resliceWith(@PathParam("id") long id, @PathParam("fileId") long fileId,
+                                       @Valid @NotNull CustomResliceRequest choice) {
+        return service.resliceWith(id, fileId, choice);
+    }
+
+    /** What the "Re-slice with…" dialog of one file offers (admin; #21). */
+    @GET
+    @Path("/{id}/files/{fileId}/reslice")
+    @RolesAllowed(Role.ADMIN_ROLE)
+    public ResliceOptionsDto resliceOptions(@PathParam("id") long id, @PathParam("fileId") long fileId) {
+        return service.resliceOptions(id, fileId);
     }
 
     @PUT
@@ -146,6 +187,16 @@ public class PrintRequestResource {
     @RolesAllowed(Role.ADMIN_ROLE)
     public PrintRequestDto changeStatus(@PathParam("id") long id, @Valid @NotNull StatusChangeRequest request) {
         return service.changeStatus(id, request.status(), request.declineReason());
+    }
+
+    /** Moves one file or link of the request to another status (#61; admin). */
+    @PUT
+    @Path("/{id}/files/{fileId}/status")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed(Role.ADMIN_ROLE)
+    public PrintRequestDto changeItemStatus(@PathParam("id") long id, @PathParam("fileId") long fileId,
+                                            @Valid @NotNull ItemStatusChangeRequest request) {
+        return service.changeItemStatus(id, fileId, request.status(), request.declineReason());
     }
 
     @PUT

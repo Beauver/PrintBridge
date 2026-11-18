@@ -7,3 +7,8 @@
 .quantity {
   width: 5.5rem;
 }
+
+/* Lets a long link URL shorten with an ellipsis instead of pushing the quantity and Remove away. */
+.link-target {
+  min-width: 0;
+}

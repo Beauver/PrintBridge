@@ -2,6 +2,10 @@ import {
   allowsPayment,
   formatBytes,
   isFinalStatus,
+  itemProgressText,
+  itemStatusBadgeClass,
+  itemStatusLabel,
+  linkLabel,
   statusBadgeClass,
   statusLabel,
 } from './print-request-display';
@@ -36,5 +40,30 @@ describe('print request display helpers', () => {
     expect(formatBytes(1536)).toBe('1.5 KB');
     expect(formatBytes(100 * 1024 * 1024)).toBe('100.0 MB');
     expect(formatBytes(3 * 1024 ** 4)).toBe('3072.0 GB');
+  });
+
+  it('labels a link by its name, else its host, else the URL', () => {
+    expect(linkLabel('https://www.patreon.com/posts/1', ' Dragon ')).toBe('Dragon');
+    expect(linkLabel('https://www.patreon.com/posts/1', null)).toBe('www.patreon.com');
+    expect(linkLabel('https://www.patreon.com/posts/1', '  ')).toBe('www.patreon.com');
+    expect(linkLabel('not a url', null)).toBe('not a url');
+  });
+
+  it('labels and colours item statuses like request statuses (#61)', () => {
+    expect(itemStatusLabel('PENDING')).toBe('Pending');
+    expect(itemStatusLabel('COMPLETED')).toBe('Completed');
+    expect(itemStatusBadgeClass('ACCEPTED')).toBe(statusBadgeClass('ACCEPTED'));
+    expect(itemStatusBadgeClass('PRINTING')).toBe(statusBadgeClass('PRINTING'));
+    expect(itemStatusBadgeClass('DECLINED')).toBe(statusBadgeClass('DECLINED'));
+    expect(itemStatusBadgeClass('PENDING')).toBe('text-bg-secondary');
+  });
+
+  it('shows item progress only from Accepted on and with more than one item', () => {
+    expect(itemProgressText('ACCEPTED', 0, 3)).toBe('0/3 completed');
+    expect(itemProgressText('PRINTING', 1, 2)).toBe('1/2 completed');
+    expect(itemProgressText('COMPLETED', 4, 4)).toBe('4/4 completed');
+    expect(itemProgressText('SUBMITTED', 0, 3)).toBeNull();
+    expect(itemProgressText('DECLINED', 0, 3)).toBeNull();
+    expect(itemProgressText('ACCEPTED', 1, 1)).toBeNull();
   });
 });

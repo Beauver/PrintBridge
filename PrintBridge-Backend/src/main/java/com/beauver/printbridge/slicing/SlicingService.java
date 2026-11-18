@@ -15,6 +15,7 @@ import com.beauver.printbridge.modelinfo.ModelInfoStatus;
 import com.beauver.printbridge.settings.SettingsService.SlicingToggled;
 import com.beauver.printbridge.settings.SettingsService;
 import com.beauver.printbridge.settings.SlicingSettings;
+import com.beauver.printbridge.settings.printer.PrinterSettings;
 import com.beauver.printbridge.slicing.client.SliceResponse;
 import com.beauver.printbridge.slicing.result.SliceResult;
 import com.beauver.printbridge.slicing.result.SliceResultRepository;
@@ -74,23 +75,47 @@ public class SlicingService {
     @Transactional(Transactional.TxType.MANDATORY)
     public void enqueueIfEnabled(long fileId) {
         if (settings.slicing().enabled()) {
-            queue(fileId);
+            queue(fileId, null);
         }
     }
 
-    /** Slices these files again (admin). Refused while slicing is off or a file is already in the queue. */
+    /**
+     * Slices one file again with the admin's choice (#21), which {@link CustomResliceService}
+     * checked. Refused while slicing is off or the file is already in the queue.
+     */
     @Transactional(Transactional.TxType.MANDATORY)
-    public void reslice(Collection<Long> fileIds) {
+    public void resliceWith(long fileId, CustomSlice choice) {
+        checkMayReslice(fileId);
+        queue(fileId, choice);
+    }
+
+    /** Refused (409) while slicing is off or the file is queued or running. */
+    public void checkMayReslice(long fileId) {
         if (!settings.slicing().enabled()) {
             throw new ConflictException("Server slicing is off");
         }
-        for (long fileId : fileIds) {
-            Optional<SliceResult> existing = results.findByIdOptional(fileId);
-            if (existing.isPresent() && existing.get().status.isPending()) {
-                throw new ConflictException("This file is already being sliced");
-            }
+        Optional<SliceResult> existing = results.findByIdOptional(fileId);
+        if (existing.isPresent() && existing.get().status.isPending()) {
+            throw new ConflictException("This file is already being sliced");
         }
-        fileIds.forEach(this::queue);
+    }
+
+    /**
+     * The saved settings of a Bambu Studio / OrcaSlicer project, read from the file; empty for
+     * other files, files without them, and files that are gone or not analysed yet.
+     */
+    public Optional<ProjectSettings> projectSettings(long fileId) {
+        Optional<StoredModelFile> file = files.find(fileId);
+        ModelInfo info = modelInfos.findById(fileId);
+        if (file.isEmpty() || info == null || info.status != ModelInfoStatus.ANALYZED
+                || info.source != ModelSource.BAMBU) {
+            return Optional.empty();
+        }
+        Path path = storage.resolve(file.get().storagePath());
+        if (!Files.isRegularFile(path)) {
+            return Optional.empty();
+        }
+        return ProjectSettings.read(path);
     }
 
     public Optional<SliceResult> find(long fileId) {
@@ -171,8 +196,32 @@ public class SlicingService {
         if (source == ModelSource.BAMBU) {
             project = ProjectSettings.read(path);
         }
-        SlicePlan plan = planner.plan(slicing, file.type(), source, plates, project);
+        Optional<CustomSlice> choice = result.choice();
+        if (choice.isEmpty()) {
+            SlicePlan plan = planner.plan(slicing, file.type(), source, plates, project);
+            return Optional.of(new SliceJob(file.id(), path, plan, slicing.timeout()));
+        }
+        // The printer or its nozzle may have been removed since the admin chose them.
+        String gone = missingChoice(choice.get(), slicing);
+        if (gone != null) {
+            markFailed(result, gone);
+            return Optional.empty();
+        }
+        SlicePlan plan = planner.planCustom(choice.get(), file.type(), source, plates, project);
         return Optional.of(new SliceJob(file.id(), path, plan, slicing.timeout()));
+    }
+
+    /** Why the chosen printer or nozzle can't be used any more; {@code null} when they still can. */
+    static String missingChoice(CustomSlice choice, SlicingSettings slicing) {
+        Optional<PrinterSettings> printer = slicing.printer(choice.printer());
+        if (printer.isEmpty()) {
+            return "The chosen printer " + choice.printer() + " isn't one of your printers any more";
+        }
+        if (!printer.get().owns(choice.nozzle())) {
+            return "The chosen " + choice.nozzle().stripTrailingZeros().toPlainString() + " mm nozzle isn't owned on "
+                    + choice.printer() + " any more";
+        }
+        return null;
     }
 
     /** Stores what the slicer returned. Ignored when the file was deleted in the meantime. */
@@ -195,11 +244,23 @@ public class SlicingService {
         results.findByIdOptional(fileId).ifPresent(result -> markFailed(result, message));
     }
 
-    private void queue(long fileId) {
+    /** @param choice the admin's choice (#21); {@code null} for the automatic rules */
+    private void queue(long fileId, CustomSlice choice) {
         SliceResult result = results.findById(fileId);
         if (result == null) {
             result = new SliceResult();
             result.fileId = fileId;
+        }
+        result.custom = choice != null;
+        result.chosenPrinter = null;
+        result.chosenNozzle = null;
+        result.chosenProcess = null;
+        result.chosenFilament = null;
+        if (choice != null) {
+            result.chosenPrinter = choice.printer();
+            result.chosenNozzle = choice.nozzle();
+            result.chosenProcess = choice.process();
+            result.chosenFilament = choice.filament();
         }
         result.status = SliceStatus.QUEUED;
         result.printer = null;

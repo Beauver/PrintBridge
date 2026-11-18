@@ -48,7 +48,7 @@ common, storage ◀─ modelfile ◀─ settings ◀─ modelinfo, slicing ◀�
 ```
 
 - `auth` and `user` belong together and use each other; everything may use them.
-- `modelinfo` and `slicing` work on files by id and find them through `modelfile.StoredModelFiles`, which `printrequest` implements (`RequestFileLookup`).
+- `modelinfo` and `slicing` work on files by id and find them through `modelfile.StoredModelFiles`, which `printrequest` implements (`RequestFileLookup`). Links (#59) live in the same table but are never found there, so they are never analysed or sliced.
 - Deleting a user fires `UserDeleted`; `printrequest` listens and removes the user's files, so `user` doesn't know about print requests.
 
 Conventions:
@@ -75,7 +75,7 @@ Test fixtures shared by the specs are in `src/testing/`, outside the app build.
 
 Layering: template → component → service → backend API. Components never use `HttpClient` directly. A flow over several calls belongs in a service too: `RequestUploadService` uploads the files of a request one at a time for both the new request page and "Add files".
 
-Angular style: standalone components, signals for state, `inject()`, lazy-loaded routes, reactive forms. UI is Bootstrap 5 (CSS only, no Bootstrap JS); dark theme by default with a floating toggle bottom-right (`ThemeService`, `layout/theme-toggle`). Interactive elements carry `data-cy` attributes for future Cypress tests.
+Angular style: standalone components, signals for state, `inject()`, lazy-loaded routes, reactive forms. UI is Bootstrap 5 (CSS, no Bootstrap JS) with ng-bootstrap for dialogs (`NgbModal`, #21; it needs the `@angular/localize/init` polyfill); dark theme by default with a floating toggle bottom-right (`ThemeService`, `layout/theme-toggle`). Interactive elements carry `data-cy` attributes for future Cypress tests.
 
 ## Testing
 

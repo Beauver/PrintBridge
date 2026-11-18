@@ -32,6 +32,7 @@ public class ModelInfoMapper {
 
     private static SlicingInfoDto toDto(SlicingDetails slicing) {
         return new SlicingInfoDto(slicing.enabled(), slicing.status(), slicing.printer(), slicing.nozzle(),
-                slicing.madeForPrinter(), slicing.madeForNozzle(), slicing.error());
+                slicing.madeForPrinter(), slicing.madeForNozzle(), slicing.custom(), slicing.process(),
+                slicing.filament(), slicing.error());
     }
 }

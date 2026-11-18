@@ -1,0 +1,13 @@
+/* Same toggle as the Model card: the arrow turns down while the card is open. */
+.chevron {
+  display: inline-block;
+  transition: transform 0.15s ease-in-out;
+}
+
+.chevron.open {
+  transform: rotate(90deg);
+}
+
+.toggle {
+  min-width: 0;
+}

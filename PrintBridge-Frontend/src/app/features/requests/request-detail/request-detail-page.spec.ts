@@ -4,14 +4,16 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { of, Subject, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FileSaverService } from '../../../core/files/file-saver.service';
-import { PrintRequest, RequestFile } from '../../../core/models/print-request.model';
-import { NO_SLICING, REQUEST, STL_INFO } from '../../../../testing/fixtures';
+import { PrintRequest, RequestFile, UploadedFile } from '../../../core/models/print-request.model';
+import { LINK, NO_SLICING, REQUEST, STL_INFO, UPLOADED_FILE } from '../../../../testing/fixtures';
 import { SliceStatus } from '../../../core/models/model-info.model';
 import { PrintRequestsService, UploadEvent } from '../print-requests.service';
 import { AddFiles } from './add-files/add-files';
+import { ResliceDialog } from './reslice-dialog/reslice-dialog';
 import { RequestDetailPage, SLICING_POLL_MS } from './request-detail-page';
 
 describe('RequestDetailPage', () => {
@@ -19,7 +21,6 @@ describe('RequestDetailPage', () => {
     get: vi.fn(),
     downloadFile: vi.fn(),
     delete: vi.fn(),
-    reslice: vi.fn(),
     uploadConfig: vi.fn(),
     addFile: vi.fn(),
     removeFile: vi.fn(),
@@ -30,6 +31,7 @@ describe('RequestDetailPage', () => {
   const isAdmin = signal(false);
   let router: Router;
   let fixture: ComponentFixture<RequestDetailPage>;
+  let modalService: NgbModal;
 
   function httpError(status: number, message?: string) {
     let error: { message: string } | null = null;
@@ -67,6 +69,7 @@ describe('RequestDetailPage', () => {
     });
     router = TestBed.inject(Router);
     vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    modalService = TestBed.inject(NgbModal);
     requestsService.uploadConfig.mockReturnValue(
       of({ maxSizeBytes: 1024, maxFiles: 10, allowedExtensions: ['stl'] }),
     );
@@ -78,7 +81,7 @@ describe('RequestDetailPage', () => {
       expect(requestsService.get).toHaveBeenCalledWith(4);
       expect(page['request']()).toEqual(REQUEST);
       expect(page['loading']()).toBe(false);
-      expect(page['fileTypeLabel'](REQUEST.files[0])).toBe('STL');
+      expect(page['fileTypeLabel'](UPLOADED_FILE)).toBe('STL');
     });
 
     it('marks unknown or foreign requests as not found', () => {
@@ -147,33 +150,42 @@ describe('RequestDetailPage', () => {
   describe('server slicing', () => {
     function withSlicing(status: SliceStatus | null): PrintRequest {
       const modelInfo = { ...STL_INFO, slicing: { ...NO_SLICING, enabled: true, status } };
-      return { ...REQUEST, files: [{ ...REQUEST.files[0], modelInfo }] };
+      return { ...REQUEST, files: [{ ...UPLOADED_FILE, modelInfo }] };
     }
 
     afterEach(() => {
       vi.useRealTimers();
     });
 
-    it('re-slices and shows the queued request', () => {
+    it('opens the Re-slice with… dialog for a file and shows the request it queued', async () => {
       const page = create();
       const queued = withSlicing('QUEUED');
-      requestsService.reslice.mockReturnValue(of(queued));
+      const dialog = { requestId: 0, fileId: 0, filename: '' };
+      vi.spyOn(modalService, 'open').mockReturnValue({
+        componentInstance: dialog,
+        result: Promise.resolve(queued),
+      } as unknown as NgbModalRef);
 
-      page['onReslice'](REQUEST.files[0]);
+      page['onResliceWith'](UPLOADED_FILE);
+      await Promise.resolve();
 
-      expect(requestsService.reslice).toHaveBeenCalledWith(4, 7);
+      expect(modalService.open).toHaveBeenCalledWith(ResliceDialog);
+      expect(dialog).toEqual({ requestId: 4, fileId: 7, filename: 'benchy.stl' });
       expect(page['request']()).toEqual(queued);
-      expect(page['reslicingId']()).toBeNull();
     });
 
-    it('shows a re-slice error', () => {
+    it('changes nothing when the dialog is cancelled', async () => {
       const page = create();
-      requestsService.reslice.mockReturnValue(httpError(409, 'This file is already being sliced'));
+      vi.spyOn(modalService, 'open').mockReturnValue({
+        componentInstance: {},
+        result: Promise.reject(new Error('dismissed')),
+      } as unknown as NgbModalRef);
 
-      page['onReslice'](REQUEST.files[0]);
+      page['onResliceWith'](UPLOADED_FILE);
+      await Promise.resolve();
+      await Promise.resolve();
 
-      expect(page['error']()).toBe('This file is already being sliced');
-      expect(page['reslicingId']()).toBeNull();
+      expect(page['request']()).toEqual(REQUEST);
     });
 
     /** Lets Angular run its first change detection now, so only the polling counts below. */
@@ -227,7 +239,7 @@ describe('RequestDetailPage', () => {
       const blob = new Blob(['x']);
       requestsService.downloadFile.mockReturnValue(of(blob));
       const page = create();
-      page['download'](REQUEST.files[0]);
+      page['download'](UPLOADED_FILE);
       expect(requestsService.downloadFile).toHaveBeenCalledWith(4, 7);
       expect(fileSaver.save).toHaveBeenCalledWith(blob, 'benchy.stl');
       expect(page['downloadingId']()).toBeNull();
@@ -236,7 +248,7 @@ describe('RequestDetailPage', () => {
     it('shows a download error', () => {
       requestsService.downloadFile.mockReturnValue(httpError(404, 'File not found'));
       const page = create();
-      page['download'](REQUEST.files[0]);
+      page['download'](UPLOADED_FILE);
       expect(page['error']()).toBe('File not found');
       expect(page['downloadingId']()).toBeNull();
       expect(fileSaver.save).not.toHaveBeenCalled();
@@ -277,13 +289,13 @@ describe('RequestDetailPage', () => {
   });
 
   describe('files (#23)', () => {
-    const LID: RequestFile = {
-      ...REQUEST.files[0],
+    const LID: UploadedFile = {
+      ...UPLOADED_FILE,
       id: 8,
       originalFilename: 'lid.stl',
       quantity: 3,
     };
-    const TWO_FILES: PrintRequest = { ...REQUEST, files: [REQUEST.files[0], LID] };
+    const TWO_FILES: PrintRequest = { ...REQUEST, files: [UPLOADED_FILE, LID] };
 
     function quantityInput(value: string): HTMLInputElement {
       const input = document.createElement('input');
@@ -335,6 +347,9 @@ describe('RequestDetailPage', () => {
     describe('totals and issues', () => {
       const TOTALS: PrintRequest['totals'] = {
         files: 2,
+        links: 0,
+        declined: 0,
+        completed: 0,
         copies: 4,
         grams: 65.25,
         weight: 'EXACT',
@@ -365,7 +380,7 @@ describe('RequestDetailPage', () => {
         const request: PrintRequest = {
           ...TWO_FILES,
           files: [
-            { ...REQUEST.files[0], modelInfo: STL_INFO },
+            { ...UPLOADED_FILE, modelInfo: STL_INFO },
             { ...LID, modelInfo: { ...STL_INFO, status: 'PENDING', totalGrams: null } },
           ],
           totals: {
@@ -388,6 +403,108 @@ describe('RequestDetailPage', () => {
         expect(create(partly)['summary']()?.filament?.note).toBe(
           '(partly estimated; 1 file without details not counted)',
         );
+      });
+
+      it('counts links separately and leaves out what there is none of', () => {
+        const mixed: PrintRequest = {
+          ...REQUEST,
+          files: [UPLOADED_FILE, LINK],
+          totals: { ...TOTALS, files: 1, links: 1, copies: 3 },
+        };
+        expect(create(mixed)['fileCounts']()).toBe('1 file · 1 link · 3 copies');
+        const onlyLinks: PrintRequest = {
+          ...REQUEST,
+          files: [LINK, { ...LINK, id: 10 }],
+          totals: { ...TOTALS, files: 0, links: 2, copies: 4 },
+        };
+        expect(create(onlyLinks)['fileCounts']()).toBe('2 links · 4 copies');
+      });
+
+      it('marks the totals of a request with links like a failed plate, without a link note', () => {
+        const request: PrintRequest = {
+          ...REQUEST,
+          files: [{ ...UPLOADED_FILE, modelInfo: STL_INFO }, LINK],
+          totals: {
+            ...TOTALS,
+            files: 1,
+            links: 1,
+            weight: 'PARTLY_ESTIMATED',
+            printTimePartial: true,
+          },
+        };
+        expect(create(request)['summary']()).toEqual({
+          filament: { text: '~65 g', note: '(partly estimated)' },
+          printTime: { text: '~18 h 20 min', note: '(partial time)' },
+        });
+      });
+    });
+
+    describe('item statuses (#61)', () => {
+      it('counts declined items and shows the progress from Accepted on', () => {
+        const request: PrintRequest = {
+          ...REQUEST,
+          status: 'ACCEPTED',
+          files: [UPLOADED_FILE, LINK, { ...LINK, id: 10 }],
+          totals: { ...REQUEST.totals, files: 1, links: 2, declined: 1, completed: 1, copies: 3 },
+        };
+        expect(create(request)['fileCounts']()).toBe(
+          '1 file · 2 links · 3 copies · 1 declined · 1/2 completed',
+        );
+        expect(create({ ...request, status: 'IN_REVIEW' })['fileCounts']()).toBe(
+          '1 file · 2 links · 3 copies · 1 declined',
+        );
+      });
+
+      it('does not count a declined file without details as left out', () => {
+        const request: PrintRequest = {
+          ...TWO_FILES,
+          files: [
+            { ...UPLOADED_FILE, modelInfo: STL_INFO },
+            {
+              ...LID,
+              status: 'DECLINED',
+              modelInfo: { ...STL_INFO, status: 'PENDING', totalGrams: null },
+            },
+          ],
+          totals: { ...REQUEST.totals, grams: 411.6, weight: 'ESTIMATED' },
+        };
+        expect(create(request)['summary']()?.filament?.note).toBe('(estimate)');
+      });
+
+      it('shows the request an item change answered with', () => {
+        const page = create();
+        const updated = { ...REQUEST, files: [{ ...UPLOADED_FILE, status: 'ACCEPTED' as const }] };
+        page['onItemChanged'](updated);
+        expect(page['request']()).toEqual(updated);
+      });
+    });
+
+    describe('links (#59)', () => {
+      const WITH_LINK: PrintRequest = { ...REQUEST, files: [UPLOADED_FILE, LINK] };
+
+      it('names an entry by its file name, link name or host', () => {
+        const page = create(WITH_LINK);
+        expect(page['entryName'](UPLOADED_FILE)).toBe('benchy.stl');
+        expect(page['entryName'](LINK)).toBe('www.printables.com');
+        expect(page['entryName']({ ...LINK, linkName: 'Lid' })).toBe('Lid');
+      });
+
+      it('does not poll for a link', () => {
+        vi.useFakeTimers();
+        try {
+          create({ ...REQUEST, files: [LINK] });
+          fixture.detectChanges();
+          requestsService.get.mockClear();
+          vi.advanceTimersByTime(SLICING_POLL_MS * 2);
+          expect(requestsService.get).not.toHaveBeenCalled();
+        } finally {
+          vi.useRealTimers();
+        }
+      });
+
+      it('may remove a link next to a file', () => {
+        const page = create(WITH_LINK);
+        expect(page['canRemoveFiles']()).toBe(true);
       });
     });
 
@@ -432,7 +549,7 @@ describe('RequestDetailPage', () => {
     });
 
     it('saves a changed quantity', () => {
-      const updated = { ...TWO_FILES, files: [REQUEST.files[0], { ...LID, quantity: 5 }] };
+      const updated = { ...TWO_FILES, files: [UPLOADED_FILE, { ...LID, quantity: 5 }] };
       requestsService.changeQuantity.mockReturnValue(of(updated));
       const page = create(TWO_FILES);
 

@@ -11,13 +11,18 @@ import com.beauver.printbridge.modelfile.ModelFileValidator;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.printrequest.file.FileBundle;
+import com.beauver.printbridge.printrequest.file.ItemStatus;
+import com.beauver.printbridge.printrequest.file.NewLink;
 import com.beauver.printbridge.printrequest.file.RequestFile;
+import com.beauver.printbridge.printrequest.file.RequestFileKind;
 import com.beauver.printbridge.printrequest.file.StoredFile;
 import com.beauver.printbridge.printrequest.file.UploadedModel;
 import com.beauver.printbridge.settings.SettingsService;
 import com.beauver.printbridge.settings.UploadConfig;
 import com.beauver.printbridge.settings.UploadLimits;
+import com.beauver.printbridge.slicing.CustomResliceService;
 import com.beauver.printbridge.slicing.SlicingService;
+import com.beauver.printbridge.slicing.dto.ResliceOptionsDto;
 import com.beauver.printbridge.storage.FileStorage;
 import com.beauver.printbridge.user.UserDeleted;
 import com.beauver.printbridge.user.UserRepository;
@@ -28,6 +33,8 @@ import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
 import java.math.BigDecimal;
+import java.net.URI;
+import java.net.URISyntaxException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
@@ -35,6 +42,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -83,6 +91,9 @@ public class PrintRequestService {
     @Inject
     Transactions transactions;
 
+    @Inject
+    CustomResliceService customReslice;
+
     public UploadConfigDto uploadConfig() {
         UploadLimits limits = settings.uploads();
         return new UploadConfigDto(limits.maxFileSizeBytes(), limits.maxFiles(),
@@ -91,12 +102,20 @@ public class PrintRequestService {
 
     /** The caller's own requests, newest first. */
     public List<PrintRequestSummaryDto> listOwn(long ownerId) {
-        return requests.listOwnNewestFirst(ownerId).stream().map(mapper::toSummary).toList();
+        return summaries(requests.listOwnNewestFirst(ownerId));
     }
 
     /** Admin overview: everyone's requests in the given statuses, optionally searched, newest first. */
     public List<PrintRequestSummaryDto> listAll(Set<RequestStatus> statuses, String search) {
-        return requests.searchNewestFirst(statuses, search).stream().map(mapper::toSummary).toList();
+        return summaries(requests.searchNewestFirst(statuses, search));
+    }
+
+    /** List rows with the progress of their items (#61), loaded in one query. */
+    private List<PrintRequestSummaryDto> summaries(List<PrintRequest> found) {
+        Map<Long, ItemProgress> progress = requests.itemProgress(found.stream().map(r -> r.id).toList());
+        return found.stream()
+                .map(r -> mapper.toSummary(r, progress.getOrDefault(r.id, ItemProgress.NONE)))
+                .toList();
     }
 
     public PrintRequestDto get(long id, Caller caller) {
@@ -104,14 +123,21 @@ public class PrintRequestService {
     }
 
     /**
-     * Validates the upload and creates the request with it in status SUBMITTED. The other files
-     * of a multi-file request follow one by one through {@link #addFile}.
+     * Validates the first entry, a model file or a link (#59), and creates the request with it in
+     * status SUBMITTED. The other files and links of the request follow one by one through
+     * {@link #addFile} and {@link #addLink}.
      * <p>
      * Not one transaction (#39): the upload is checked first, the request and its file are
-     * inserted in a short transaction, and the model is analysed after that has committed.
+     * inserted in a short transaction, and the model is analysed after that has committed. A
+     * link has nothing to copy or analyse.
      */
     @Transactional(Transactional.TxType.NOT_SUPPORTED)
     public PrintRequestDto create(long ownerId, NewPrintRequest input) {
+        if (input.link() != null) {
+            NewLink link = checkLink(input.link());
+            PrintRequest request = transactions.call(() -> insertRequestWithLink(ownerId, input, link));
+            return transactions.call(() -> describe(request, false));
+        }
         ModelFileType type = checkUpload(input.file());
         PrintRequest request = transactions.call(() -> insertRequest(ownerId, input, type));
         analyseAndQueue(newestFile(request));
@@ -125,6 +151,21 @@ public class PrintRequestService {
      * row is inserted. Nobody else can see or lock the new request yet, so nothing waits on it.
      */
     private PrintRequest insertRequest(long ownerId, NewPrintRequest input, ModelFileType type) {
+        PrintRequest request = insertRequestRow(ownerId, input);
+        String storagePath = storage.store(input.file().path(), directoryOf(request.id), type.extension());
+        afterTransaction.onRollback(() -> storage.deleteFile(storagePath));
+        attach(request, input.file(), type, storagePath, input.quantity());
+        return request;
+    }
+
+    /** The request row and its first entry, a link (#59). */
+    private PrintRequest insertRequestWithLink(long ownerId, NewPrintRequest input, NewLink link) {
+        PrintRequest request = insertRequestRow(ownerId, input);
+        attachLink(request, link, input.quantity());
+        return request;
+    }
+
+    private PrintRequest insertRequestRow(long ownerId, NewPrintRequest input) {
         PrintRequest request = new PrintRequest();
         request.owner = users.findByIdOptional(ownerId)
                 .orElseThrow(() -> new ResourceNotFoundException("User not found"));
@@ -132,9 +173,6 @@ public class PrintRequestService {
         request.description = blankToNull(input.description());
         request.status = RequestStatus.SUBMITTED;
         requests.persist(request);
-        String storagePath = storage.store(input.file().path(), directoryOf(request.id), type.extension());
-        afterTransaction.onRollback(() -> storage.deleteFile(storagePath));
-        attach(request, input.file(), type, storagePath, input.quantity());
         return request;
     }
 
@@ -179,11 +217,27 @@ public class PrintRequestService {
         return request;
     }
 
+    /**
+     * Adds a link to a request (#59), under the same rules as {@link #addFile}: the owner while it
+     * is SUBMITTED, the admin always, and it counts against the file limit. The server never
+     * fetches the link. The request is locked, so two additions at once can't both pass the limit.
+     */
+    @Transactional
+    public PrintRequestDto addLink(long requestId, NewLink input, int quantity, Caller caller) {
+        NewLink link = checkLink(input);
+        PrintRequest request = requests.findLockedWithDetails(requestId)
+                .filter(r -> isVisible(r, caller))
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        checkMayAddFile(request, caller);
+        attachLink(request, link, quantity);
+        return describe(request, caller.admin());
+    }
+
     private void checkMayAddFile(PrintRequest request, Caller caller) {
         checkMayChangeFiles(request, caller);
         int maxFiles = settings.uploads().maxFiles();
         if (request.files.size() >= maxFiles) {
-            throw new InvalidInputException("A request can hold at most " + maxFiles + " files");
+            throw new InvalidInputException("A request can hold at most " + maxFiles + " files and links");
         }
     }
 
@@ -208,9 +262,9 @@ public class PrintRequestService {
     }
 
     /**
-     * Removes one file of a request (#23): the owner while it is SUBMITTED, the admin always. The
-     * last file can't go; that is deleting the request. The file leaves the disk after the commit;
-     * its model details and slicing result go with the row.
+     * Removes one file or link of a request (#23, #59): the owner while it is SUBMITTED, the admin
+     * always. The last one can't go; that is deleting the request. A file leaves the disk after
+     * the commit; its model details and slicing result go with the row.
      */
     @Transactional
     public PrintRequestDto removeFile(long requestId, long fileId, Caller caller) {
@@ -218,12 +272,14 @@ public class PrintRequestService {
         checkMayChangeFiles(request, caller);
         RequestFile file = fileOf(request, fileId);
         if (request.files.size() == 1) {
-            throw new ConflictException("A request needs at least one file; delete the request instead");
+            throw new ConflictException("A request needs at least one file or link; delete the request instead");
         }
         request.files.remove(file);
         requests.flush();
         String storagePath = file.storagePath;
-        afterTransaction.onCommit(() -> storage.deleteFile(storagePath));
+        if (storagePath != null) {
+            afterTransaction.onCommit(() -> storage.deleteFile(storagePath));
+        }
         return describe(request, caller.admin());
     }
 
@@ -248,18 +304,48 @@ public class PrintRequestService {
 
     /**
      * Every file of a request for one ZIP download, under its original name. Duplicate names
-     * get a number ({@code part (2).stl}).
+     * get a number ({@code part (2).stl}). Links (#59) are listed in a text file.
      */
     public FileBundle files(long requestId, Caller caller) {
         PrintRequest request = findVisible(requestId, caller);
-        List<String> names = uniqueNames(request.files.stream().map(file -> file.originalFilename).toList());
+        List<RequestFile> stored = request.files.stream().filter(file -> !file.isLink()).toList();
+        List<RequestFile> links = request.files.stream().filter(RequestFile::isLink).toList();
+        List<String> names = uniqueNames(stored.stream().map(file -> file.originalFilename).toList());
         List<StoredFile> files = new ArrayList<>();
-        for (int i = 0; i < request.files.size(); i++) {
-            RequestFile file = request.files.get(i);
+        for (int i = 0; i < stored.size(); i++) {
+            RequestFile file = stored.get(i);
             files.add(new StoredFile(pathOnDisk(file), names.get(i), file.fileType.contentType(), file.sizeBytes));
         }
+        String linksText = null;
+        if (!links.isEmpty()) {
+            linksText = linksText(links);
+        }
         // The name is only used for the download, but keep slashes out of it anyway.
-        return new FileBundle(request.name.replaceAll("[\\\\/\\p{Cntrl}]", "_") + ".zip", files);
+        return new FileBundle(request.name.replaceAll("[\\\\/\\p{Cntrl}]", "_") + ".zip", files, linksText);
+    }
+
+    /** One block per link: its name (or host) with the quantity, then the URL. */
+    static String linksText(List<RequestFile> links) {
+        StringBuilder text = new StringBuilder("Links in this request; download these models yourself.\n");
+        for (RequestFile link : links) {
+            text.append('\n')
+                    .append(linkLabel(link.linkName, link.url))
+                    .append(" (quantity: ").append(link.quantity).append(")\n")
+                    .append(link.url).append('\n');
+        }
+        return text.toString();
+    }
+
+    /** The link's name, or else the URL's host, as the frontend shows it. */
+    static String linkLabel(String name, String url) {
+        if (name != null) {
+            return name;
+        }
+        String host = URI.create(url).getHost();
+        if (host == null) {
+            return url;
+        }
+        return host;
     }
 
     /**
@@ -269,7 +355,8 @@ public class PrintRequestService {
      * @param admin whether the caller is the admin (sees slicing errors)
      */
     private PrintRequestDto describe(PrintRequest request, boolean admin) {
-        List<Long> fileIds = request.files.stream().map(file -> file.id).toList();
+        // Links have no model details (#59).
+        List<Long> fileIds = request.files.stream().filter(file -> !file.isLink()).map(file -> file.id).toList();
         List<RequestFileDto> files = mapper.toFileDtos(request.files, modelInfo.describe(fileIds, admin));
         return mapper.toDto(request, files, RequestTotals.of(files));
     }
@@ -285,6 +372,56 @@ public class PrintRequestService {
         file.storagePath = storagePath;
         request.addFile(file);
         requests.flush();
+    }
+
+    /** Adds the row of a link that passed {@link #checkLink}. */
+    private void attachLink(PrintRequest request, NewLink link, int quantity) {
+        RequestFile file = new RequestFile();
+        file.kind = RequestFileKind.LINK;
+        file.url = link.url();
+        file.linkName = link.name();
+        file.quantity = quantity;
+        request.addFile(file);
+        requests.flush();
+    }
+
+    /**
+     * The checks every link goes through (#59): an absolute http(s) URL with a host, at most 2048
+     * characters, and a name of at most 100 characters. Returns it trimmed, with a blank name as
+     * {@code null}. The form checks most of this too; this also covers callers without one.
+     */
+    static NewLink checkLink(NewLink link) {
+        String url = "";
+        if (link.url() != null) {
+            url = link.url().trim();
+        }
+        if (url.isEmpty()) {
+            throw new InvalidInputException("A link is required");
+        }
+        if (url.length() > LinkFields.MAX_URL_LENGTH) {
+            throw new InvalidInputException("The link must be at most " + LinkFields.MAX_URL_LENGTH + " characters");
+        }
+        URI uri;
+        try {
+            uri = new URI(url);
+        } catch (URISyntaxException e) {
+            throw new InvalidInputException("The link is not a valid web address");
+        }
+        String scheme = uri.getScheme();
+        if (scheme == null || !(scheme.equalsIgnoreCase("http") || scheme.equalsIgnoreCase("https"))) {
+            throw new InvalidInputException("The link must start with http:// or https://");
+        }
+        if (uri.getHost() == null || uri.getHost().isBlank()) {
+            throw new InvalidInputException("The link is not a valid web address");
+        }
+        String name = null;
+        if (link.name() != null) {
+            name = blankToNull(link.name().replaceAll("\\p{Cntrl}", ""));
+        }
+        if (name != null && name.length() > LinkFields.MAX_NAME_LENGTH) {
+            throw new InvalidInputException("The link name must be at most " + LinkFields.MAX_NAME_LENGTH + " characters");
+        }
+        return new NewLink(url, name);
     }
 
     /** Owners change files only while the request is SUBMITTED; the admin always may. */
@@ -340,12 +477,63 @@ public class PrintRequestService {
         if (target == RequestStatus.COMPLETED && request.finalPrice == null) {
             throw new ConflictException("Set a final price before completing the request");
         }
+        RequestStatus from = request.status;
         request.status = target;
         if (target == RequestStatus.DECLINED) {
             request.declineReason = blankToNull(declineReason);
         }
+        moveItemsAlong(request, from, target);
         requests.flush();
         return describe(request, true);
+    }
+
+    /**
+     * The request moves its items along (#61): accepting it accepts the pending ones, declining
+     * it declines all but the completed ones, completing it completes all but the declined ones.
+     * Other moves (to PRINTING, back to ACCEPTED, IN_REVIEW) leave the items alone.
+     */
+    static void moveItemsAlong(PrintRequest request, RequestStatus from, RequestStatus to) {
+        // Back from PRINTING to ACCEPTED is a failed print, not an acceptance.
+        boolean accepting = to == RequestStatus.ACCEPTED && from != RequestStatus.PRINTING;
+        for (RequestFile item : request.files) {
+            if (accepting && item.status == ItemStatus.PENDING) {
+                setItemStatus(item, ItemStatus.ACCEPTED, null);
+            } else if (to == RequestStatus.DECLINED && item.status != ItemStatus.COMPLETED) {
+                setItemStatus(item, ItemStatus.DECLINED, null);
+            } else if (to == RequestStatus.COMPLETED && item.status != ItemStatus.DECLINED) {
+                setItemStatus(item, ItemStatus.COMPLETED, null);
+            }
+        }
+    }
+
+    /**
+     * Moves one file or link of a request along its own flow (#61; admin). Refused on a final
+     * request and for a move outside {@link ItemStatus#nextStatuses()}. Declining keeps the
+     * optional reason; any other status drops it.
+     */
+    @Transactional
+    public PrintRequestDto changeItemStatus(long id, long fileId, ItemStatus target, String declineReason) {
+        PrintRequest request = requests.findWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        RequestFile item = fileOf(request, fileId);
+        if (request.status.isFinal()) {
+            throw new ConflictException("This request is " + request.status + " and its items can no longer change");
+        }
+        if (!item.status.canMoveTo(target)) {
+            throw new ConflictException("Cannot change the item's status from " + item.status + " to " + target);
+        }
+        String reason = null;
+        if (target == ItemStatus.DECLINED) {
+            reason = blankToNull(declineReason);
+        }
+        setItemStatus(item, target, reason);
+        requests.flush();
+        return describe(request, true);
+    }
+
+    private static void setItemStatus(RequestFile item, ItemStatus status, String declineReason) {
+        item.status = status;
+        item.declineReason = declineReason;
     }
 
     /**
@@ -386,21 +574,41 @@ public class PrintRequestService {
     }
 
     /**
-     * Queues one file of a request for server slicing again (admin), e.g. after changing the
-     * profiles. The other files are left alone. Refused while slicing is off or the file is
-     * already queued or running.
+     * Queues one file of a request for server slicing with the admin's choice of printer, nozzle
+     * and profiles (#21); the other files are left alone. The choice is checked by
+     * {@link CustomResliceService}.
      */
     @Transactional
-    public PrintRequestDto reslice(long id, long fileId) {
+    public PrintRequestDto resliceWith(long id, long fileId, CustomResliceRequest choice) {
         PrintRequest request = requests.findWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
-        slicing.reslice(List.of(fileOf(request, fileId).id));
+        RequestFile file = sliceableFile(request, fileId);
+        customReslice.reslice(file.id, choice.printerId(), choice.nozzle(), choice.process(), choice.filament());
         return describe(request, true);
     }
 
-    /** The file of a request, for download by the owner or the admin. */
+    /** What the "Re-slice with…" dialog of one file offers (#21; admin). */
+    @Transactional
+    public ResliceOptionsDto resliceOptions(long id, long fileId) {
+        PrintRequest request = requests.findWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        return customReslice.options(sliceableFile(request, fileId).id);
+    }
+
+    private static RequestFile sliceableFile(PrintRequest request, long fileId) {
+        RequestFile file = fileOf(request, fileId);
+        if (file.isLink()) {
+            throw new ConflictException("Links can't be sliced");
+        }
+        return file;
+    }
+
+    /** The file of a request, for download by the owner or the admin. A link (#59) has no file. */
     public StoredFile file(long requestId, long fileId, Caller caller) {
         RequestFile file = fileOf(findVisible(requestId, caller), fileId);
+        if (file.isLink()) {
+            throw new ResourceNotFoundException(FILE_NOT_FOUND);
+        }
         return new StoredFile(pathOnDisk(file), file.originalFilename, file.fileType.contentType(), file.sizeBytes);
     }
 

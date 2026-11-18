@@ -20,6 +20,7 @@
         }}</span>
       }
     </button>
+    <ng-content select="[cardStatus]" />
     @if (slicingPending()) {
       <span class="badge text-bg-info" data-cy="model-info-slicing">
         <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Slicing…
@@ -35,11 +36,10 @@
       <button
         type="button"
         class="btn btn-sm btn-outline-secondary"
-        [disabled]="reslicing()"
-        (click)="requestReslice()"
-        data-cy="model-info-reslice"
+        (click)="requestResliceWith()"
+        data-cy="model-info-reslice-with"
       >
-        {{ reslicing() ? 'Queuing…' : 'Re-slice' }}
+        Re-slice with…
       </button>
     }
   </div>
@@ -88,6 +88,10 @@
             @if (printTime()) {
               <dt class="col-sm-3">Print time</dt>
               <dd class="col-sm-9" data-cy="model-info-time">{{ printTime() }}</dd>
+            }
+            @if (madeFor()) {
+              <dt class="col-sm-3">Made for</dt>
+              <dd class="col-sm-9" data-cy="model-info-made-for">{{ madeFor() }}</dd>
             }
             @if (slicedFor()) {
               <dt class="col-sm-3">Sliced for</dt>

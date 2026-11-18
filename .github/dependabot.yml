@@ -8,6 +8,14 @@ updates:
     directory: /PrintBridge-Frontend
     schedule: { interval: weekly }
     target-branch: dev
+    groups:
+      # Angular packages must all be on the exact same version; separate PRs can't install (#57).
+      angular:
+        patterns: ["@angular/*"]
+    ignore:
+      # @angular/build pins the supported TypeScript range; let Angular updates bring TypeScript majors (#57).
+      - dependency-name: typescript
+        update-types: ["version-update:semver-major"]
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }

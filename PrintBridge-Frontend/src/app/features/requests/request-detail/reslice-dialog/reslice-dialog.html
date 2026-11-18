@@ -1,0 +1,148 @@
+<div class="modal-header">
+  <h2 class="modal-title h5 text-break" data-cy="reslice-dialog-title">Re-slice {{ filename }}</h2>
+  <button type="button" class="btn-close" aria-label="Close" (click)="cancel()"></button>
+</div>
+
+<div class="modal-body" data-cy="reslice-dialog">
+  @if (loading()) {
+    <div class="text-body-secondary" data-cy="reslice-dialog-loading">
+      <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading…
+    </div>
+  } @else if (loadError()) {
+    <div class="alert alert-warning mb-0" data-cy="reslice-dialog-load-error">
+      {{ loadError() }}
+    </div>
+  } @else if (options(); as options) {
+    <div class="mb-3">
+      <label class="form-label" for="reslice-printer">Printer</label>
+      <select
+        id="reslice-printer"
+        class="form-select"
+        [disabled]="saving()"
+        (change)="onPrinterChange($event)"
+        data-cy="reslice-dialog-printer"
+      >
+        @for (printer of options.printers; track printer.id) {
+          <option [value]="printer.id" [selected]="printer.id === printerId()">
+            {{ printer.model }}
+          </option>
+        }
+      </select>
+    </div>
+
+    <div class="mb-3">
+      <label class="form-label" for="reslice-nozzle">Nozzle</label>
+      <select
+        id="reslice-nozzle"
+        class="form-select"
+        [disabled]="saving()"
+        (change)="onNozzleChange($event)"
+        data-cy="reslice-dialog-nozzle"
+      >
+        @for (size of printer()?.ownedNozzles ?? []; track size) {
+          <option [value]="size" [selected]="size === nozzle()">{{ formatNozzle(size) }}</option>
+        }
+      </select>
+    </div>
+
+    @if (profilesLoading()) {
+      <div class="text-body-secondary mb-3" data-cy="reslice-dialog-profiles-loading">
+        <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading
+        profiles…
+      </div>
+    } @else if (profilesError()) {
+      <div class="alert alert-warning" data-cy="reslice-dialog-profiles-error">
+        {{ profilesError() }}
+      </div>
+    } @else if (profiles(); as profiles) {
+      <div class="mb-3">
+        <label class="form-label" for="reslice-process">Process profile</label>
+        <select
+          id="reslice-process"
+          class="form-select"
+          [disabled]="saving()"
+          (change)="onProcessChange($event)"
+          data-cy="reslice-dialog-process"
+        >
+          @if (ownSettingsPossible()) {
+            <option [value]="projectOwn" [selected]="process() === projectOwn">
+              Project's own settings
+            </option>
+          }
+          @for (name of profiles.processes; track name) {
+            <option [value]="name" [selected]="name === process()">{{ name }}</option>
+          }
+        </select>
+        @if (options.project && !ownSettingsPossible()) {
+          <div class="form-text">
+            The project's own settings are only offered on the printer and nozzle it was made for
+            ({{ options.projectPrinter ?? 'unknown printer' }}
+            @if (options.projectNozzle !== null) {
+              · {{ formatNozzle(options.projectNozzle) }}
+            }
+            ). The designer's infill, walls and supports are kept on top of the chosen profile.
+          </div>
+        }
+      </div>
+
+      <div class="mb-0">
+        <label class="form-label" for="reslice-filament">Filament profile</label>
+        <input
+          id="reslice-filament"
+          class="form-control"
+          list="reslice-filaments"
+          placeholder="Type to search…"
+          autocomplete="off"
+          [value]="filament()"
+          [disabled]="saving()"
+          [class.is-invalid]="filamentError()"
+          (input)="onFilamentInput($event)"
+          data-cy="reslice-dialog-filament"
+        />
+        <datalist id="reslice-filaments">
+          @if (projectFilamentsPossible()) {
+            <option [value]="projectFilaments"></option>
+          }
+          @for (name of profiles.filaments; track name) {
+            <option [value]="name"></option>
+          }
+        </datalist>
+        @if (filamentError()) {
+          <div class="invalid-feedback" data-cy="reslice-dialog-filament-error">
+            {{ filamentError() }}
+          </div>
+        }
+      </div>
+    }
+
+    @if (saveError()) {
+      <div class="alert alert-danger py-2 mt-3 mb-0" role="alert" data-cy="reslice-dialog-error">
+        {{ saveError() }}
+      </div>
+    }
+  }
+</div>
+
+<div class="modal-footer">
+  <button
+    type="button"
+    class="btn btn-outline-secondary"
+    (click)="cancel()"
+    data-cy="reslice-dialog-cancel"
+  >
+    Cancel
+  </button>
+  <button
+    type="button"
+    class="btn btn-primary"
+    [disabled]="!canSlice()"
+    (click)="slice()"
+    data-cy="reslice-dialog-slice"
+  >
+    @if (saving()) {
+      <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Queuing…
+    } @else {
+      Slice
+    }
+  </button>
+</div>

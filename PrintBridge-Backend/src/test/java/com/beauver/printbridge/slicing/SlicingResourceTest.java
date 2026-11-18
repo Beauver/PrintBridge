@@ -100,12 +100,22 @@ class SlicingResourceTest {
         return reslice(token, id, fileId);
     }
 
+    /** Re-slices on the first printer, 0.4 mm, with profiles {@link FakeSlicerClient} offers (#21). */
     private ValidatableResponse reslice(String token, int id, int fileId) {
-        return given().auth().oauth2(token).post("/api/requests/" + id + "/files/" + fileId + "/reslice").then();
+        List<Integer> printerIds = given().auth().oauth2(adminToken).get("/api/settings").then()
+                .extract().path("printers.id");
+        int printerId = 1;
+        if (!printerIds.isEmpty()) {
+            printerId = printerIds.getFirst();
+        }
+        Map<String, Object> choice = Map.of("printerId", printerId, "nozzle", 0.4, "process", "0.20mm Standard",
+                "filament", "PLA Basic");
+        return given().auth().oauth2(token).contentType(ContentType.JSON).body(choice)
+                .post("/api/requests/" + id + "/files/" + fileId + "/reslice").then();
     }
 
     /** A one-plate Bambu project saved for this nozzle and printer, with 2 filament slots. */
-    private static byte[] project(String nozzle, String printer) {
+    static byte[] project(String nozzle, String printer) {
         String modelSettings = "<config><object id=\"1\"><metadata key=\"extruder\" value=\"1\"/></object>"
                 + "<plate><metadata key=\"plater_id\" value=\"1\"/>"
                 + "<model_instance><metadata key=\"object_id\" value=\"1\"/></model_instance></plate></config>";

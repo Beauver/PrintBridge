@@ -1,0 +1,89 @@
+@if (editable()) {
+  <div ngbDropdown placement="bottom-end" class="d-inline-block" data-cy="request-status">
+    <button
+      type="button"
+      class="badge fs-6 border-0"
+      [class]="badgeClass(request().status)"
+      [disabled]="saving()"
+      ngbDropdownToggle
+      data-cy="request-status-toggle"
+    >
+      {{ label(request().status) }}
+    </button>
+    <div ngbDropdownMenu>
+      @for (status of request().nextStatuses; track status) {
+        <button
+          type="button"
+          ngbDropdownItem
+          [disabled]="isDisabled(status)"
+          (click)="choose(status)"
+          [attr.data-cy]="'request-status-' + status"
+        >
+          {{ label(status) }}
+          @if (isDisabled(status)) {
+            <span class="small">(set a price first)</span>
+          }
+        </button>
+      }
+    </div>
+  </div>
+} @else {
+  <span class="badge fs-6" [class]="badgeClass(request().status)" data-cy="request-status">{{
+    label(request().status)
+  }}</span>
+}
+
+@if (pendingStatus(); as pending) {
+  <div class="w-100 alert alert-warning mb-0" data-cy="request-status-confirm">
+    <p class="mb-2">
+      Mark this request as <strong>{{ label(pending) }}</strong>? This is final: status and price
+      can't be changed afterwards.
+    </p>
+    @if (pending === 'DECLINED') {
+      <label class="form-label" for="request-decline-reason"
+        >Reason <span class="text-body-secondary small">(optional, shown to the user)</span></label
+      >
+      <textarea
+        id="request-decline-reason"
+        class="form-control mb-2"
+        rows="3"
+        [attr.maxlength]="maxReason"
+        [value]="reason()"
+        [disabled]="saving()"
+        (input)="setReason($event)"
+        data-cy="request-decline-reason"
+      ></textarea>
+    }
+    <div class="d-flex gap-2">
+      <button
+        type="button"
+        class="btn btn-sm btn-warning"
+        [disabled]="saving()"
+        (click)="confirm()"
+        data-cy="request-status-confirm-yes"
+      >
+        {{ label(pending) }}
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        [disabled]="saving()"
+        (click)="cancel()"
+        data-cy="request-status-confirm-no"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+}
+
+@if (error()) {
+  <div
+    class="w-100 alert alert-danger alert-dismissible py-2 mb-0"
+    role="alert"
+    data-cy="request-status-error"
+  >
+    {{ error() }}
+    <button type="button" class="btn-close" aria-label="Close" (click)="dismissError()"></button>
+  </div>
+}

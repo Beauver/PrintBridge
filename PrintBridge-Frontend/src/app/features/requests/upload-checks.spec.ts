@@ -2,6 +2,7 @@ import { HttpErrorResponse } from '@angular/common/http';
 import { UploadConfig } from '../../core/models/print-request.model';
 import {
   checkFile,
+  checkLink,
   extensionOf,
   FALLBACK_CONFIG,
   isValidQuantity,
@@ -50,5 +51,32 @@ describe('upload checks', () => {
     expect(uploadErrorMessage(tooLarge, FALLBACK_CONFIG, 'Failed')).toBe('The file is too large');
     const refused = new HttpErrorResponse({ status: 400, error: { message: 'Not an STL' } });
     expect(uploadErrorMessage(refused, CONFIG, 'Failed')).toBe('Not an STL');
+  });
+
+  describe('checkLink (#59)', () => {
+    function check(url: string, name = ''): string | null {
+      return checkLink({ url, name });
+    }
+
+    it('accepts http and https links with a host', () => {
+      expect(check('https://www.patreon.com/posts/dragon-123')).toBeNull();
+      expect(check('  HTTP://example.com  ', 'Lid')).toBeNull();
+      expect(check('https://example.com:8080/a?b=c#d')).toBeNull();
+    });
+
+    it('refuses what the backend refuses', () => {
+      expect(check('  ')).toBe('A link is required');
+      expect(check('ftp://example.com/a.stl')).toBe('The link must start with http:// or https://');
+      expect(check('javascript:alert(1)')).toBe('The link must start with http:// or https://');
+      expect(check('www.example.com')).toBe('The link must start with http:// or https://');
+      expect(check('https:///no-host')).toBe('The link is not a valid web address');
+      expect(check('https://exa mple.com')).toBe('The link is not a valid web address');
+      expect(check('https://example.com/' + 'a'.repeat(2048))).toBe(
+        'The link must be at most 2048 characters',
+      );
+      expect(check('https://example.com', 'n'.repeat(101))).toBe(
+        'The link name must be at most 100 characters',
+      );
+    });
   });
 });

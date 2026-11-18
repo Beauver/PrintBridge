@@ -7,7 +7,7 @@ import { PrintRequestsService, UploadEvent } from '../../print-requests.service'
 import { AddFiles } from './add-files';
 
 describe('AddFiles', () => {
-  const requestsService = { uploadConfig: vi.fn(), addFile: vi.fn() };
+  const requestsService = { uploadConfig: vi.fn(), addFile: vi.fn(), addLink: vi.fn() };
   let card: AddFiles;
   let added: PrintRequest[];
   let uploads: Subject<UploadEvent>[];
@@ -103,11 +103,11 @@ describe('AddFiles', () => {
     expect(card['failed']()).toEqual([
       { filename: 'a.obj', reason: 'Only .stl files are allowed' },
       { filename: 'empty.stl', reason: 'The file is empty' },
-      { filename: 'd.stl', reason: 'A request can hold at most 3 files' },
+      { filename: 'd.stl', reason: 'A request can hold at most 3 files and links' },
     ]);
     expect(
       card['queue']().map((upload) => {
-        return upload.file.name;
+        return upload.name;
       }),
     ).toEqual(['b.stl', 'c.stl']);
   });
@@ -145,5 +145,49 @@ describe('AddFiles', () => {
     uploads[0].next({ type: 'done', request: REQUEST });
     expect(requestsService.addFile).toHaveBeenCalledTimes(1);
     expect(added).toEqual([]);
+  });
+
+  describe('links (#59)', () => {
+    const LINK = { url: 'https://www.printables.com/model/1', name: '' };
+
+    it('opens and closes the link form', () => {
+      card['openLinkForm']();
+      expect(card['addingLink']()).toBe(true);
+      card['closeLinkForm']();
+      expect(card['addingLink']()).toBe(false);
+    });
+
+    it('adds a link right away with one copy', () => {
+      const answer = new Subject<PrintRequest>();
+      requestsService.addLink.mockReturnValue(answer);
+
+      card['onLinkAdded'](LINK);
+
+      expect(requestsService.addLink).toHaveBeenCalledWith(4, LINK, 1);
+      expect(card['busy']()).toBe(true);
+      expect(card['queue']()[0].name).toBe('www.printables.com');
+      answer.next(REQUEST);
+      expect(added).toEqual([REQUEST]);
+      expect(card['busy']()).toBe(false);
+    });
+
+    it('lists a link the server refused under its name', () => {
+      requestsService.addLink.mockReturnValue(
+        throwError(() => {
+          return new HttpErrorResponse({ status: 409, error: { message: 'Not any more' } });
+        }),
+      );
+      card['onLinkAdded']({ url: LINK.url, name: 'Lid' });
+      expect(card['failed']()).toEqual([{ filename: 'Lid', reason: 'Not any more' }]);
+    });
+
+    it('refuses a link when the request is full', () => {
+      card = create(3);
+      card['onLinkAdded'](LINK);
+      expect(requestsService.addLink).not.toHaveBeenCalled();
+      expect(card['failed']()).toEqual([
+        { filename: 'www.printables.com', reason: 'A request can hold at most 3 files and links' },
+      ]);
+    });
   });
 });

@@ -83,9 +83,29 @@ describe('PrintRequestsService', () => {
     const paid = http.expectOne({ method: 'PUT', url: '/api/requests/4/paid' });
     expect(paid.request.body).toEqual({ paid: true });
     paid.flush(REQUEST);
+  });
 
-    service.reslice(4, 7).subscribe();
-    http.expectOne({ method: 'POST', url: '/api/requests/4/files/7/reslice' }).flush(REQUEST);
+  it('changes the status of one item (#61)', () => {
+    service.changeItemStatus(4, 7, 'DECLINED', 'Too big').subscribe();
+    const declined = http.expectOne({ method: 'PUT', url: '/api/requests/4/files/7/status' });
+    expect(declined.request.body).toEqual({ status: 'DECLINED', declineReason: 'Too big' });
+    declined.flush(REQUEST);
+
+    service.changeItemStatus(4, 7, 'ACCEPTED').subscribe();
+    const accepted = http.expectOne('/api/requests/4/files/7/status');
+    expect(accepted.request.body).toEqual({ status: 'ACCEPTED', declineReason: null });
+    accepted.flush(REQUEST);
+  });
+
+  it('re-slices a file with a chosen setup and loads what the dialog offers (#21)', () => {
+    const choice = { printerId: 1, nozzle: 0.2, process: '0.12mm Fine', filament: null };
+    service.resliceWith(4, 7, choice).subscribe();
+    const custom = http.expectOne({ method: 'POST', url: '/api/requests/4/files/7/reslice' });
+    expect(custom.request.body).toEqual(choice);
+    custom.flush(REQUEST);
+
+    service.resliceOptions(4, 7).subscribe();
+    http.expectOne({ method: 'GET', url: '/api/requests/4/files/7/reslice' }).flush({});
   });
 
   it('downloads a file as a blob', () => {
@@ -100,9 +120,11 @@ describe('PrintRequestsService', () => {
   it('uploads as multipart and reports progress then the created request', () => {
     const file = new File(['solid'], 'cube.stl');
     const events: UploadEvent[] = [];
-    service.create({ name: 'Cube', description: 'Small', file, quantity: 3 }).subscribe((event) => {
-      events.push(event);
-    });
+    service
+      .create({ name: 'Cube', description: 'Small', first: { kind: 'file', file, quantity: 3 } })
+      .subscribe((event) => {
+        events.push(event);
+      });
 
     const req = http.expectOne({ method: 'POST', url: '/api/requests' });
     const body = req.request.body as FormData;
@@ -124,10 +146,57 @@ describe('PrintRequestsService', () => {
     ]);
   });
 
+  it('creates a request with a link instead of a file', () => {
+    const link = { url: ' https://www.patreon.com/posts/1 ', name: ' Dragon ' };
+    service
+      .create({ name: 'Dragon', description: '', first: { kind: 'link', link, quantity: 2 } })
+      .subscribe();
+
+    const req = http.expectOne({ method: 'POST', url: '/api/requests' });
+    const body = req.request.body as FormData;
+    expect(body.get('url')).toBe('https://www.patreon.com/posts/1');
+    expect(body.get('linkName')).toBe('Dragon');
+    expect(body.get('quantity')).toBe('2');
+    expect(body.get('file')).toBeNull();
+    req.flush(REQUEST);
+  });
+
+  it('leaves out an empty link name', () => {
+    const link = { url: 'https://example.com/a', name: '  ' };
+    service
+      .create({ name: 'A', description: '', first: { kind: 'link', link, quantity: 1 } })
+      .subscribe();
+    const req = http.expectOne('/api/requests');
+    expect((req.request.body as FormData).has('linkName')).toBe(false);
+    req.flush(REQUEST);
+  });
+
+  it('adds a link as JSON', () => {
+    service
+      .addLink(4, { url: ' https://example.com/a ', name: ' Lid ' }, 3)
+      .subscribe((request) => {
+        expect(request).toEqual(REQUEST);
+      });
+    const req = http.expectOne({ method: 'POST', url: '/api/requests/4/links' });
+    expect(req.request.body).toEqual({ url: 'https://example.com/a', name: 'Lid', quantity: 3 });
+    req.flush(REQUEST);
+  });
+
+  it('sends no name for a link without one', () => {
+    service.addLink(4, { url: 'https://example.com/a', name: '' }, 1).subscribe();
+    const req = http.expectOne('/api/requests/4/links');
+    expect(req.request.body).toEqual({ url: 'https://example.com/a', name: null, quantity: 1 });
+    req.flush(REQUEST);
+  });
+
   it('reports 0% when the total size is unknown', () => {
     const events: UploadEvent[] = [];
     service
-      .create({ name: 'Empty', description: '', file: new File([], 'a.stl'), quantity: 1 })
+      .create({
+        name: 'Empty',
+        description: '',
+        first: { kind: 'file', file: new File([], 'a.stl'), quantity: 1 },
+      })
       .subscribe((event) => {
         events.push(event);
       });

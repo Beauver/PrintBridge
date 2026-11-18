@@ -32,7 +32,7 @@ jobs:
             file: PrintBridge-Slicer/Dockerfile
             platforms: linux/amd64
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Compute tags
         id: tags
@@ -53,7 +53,7 @@ jobs:
           echo "tags=$tags" >> "$GITHUB_OUTPUT"
           echo "Tags: $tags"
 
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v6
         if: matrix.image == 'printbridge-backend'
         with:
           distribution: temurin
@@ -65,7 +65,7 @@ jobs:
         working-directory: PrintBridge-Backend
         run: chmod +x gradlew && ./gradlew quarkusBuild -x test --no-daemon
 
-      - uses: docker/setup-qemu-action@c7c53464625b32c7a7e944ae62b3e17d2b600130 # v3
+      - uses: docker/setup-qemu-action@99012661954931238ded8c8b007157a8430204e1 # v4.4.0
       - uses: docker/setup-buildx-action@8d2750c68a42422c14e847fe6c8ac0403b4cbd6f # v3
       - uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3
         with:
@@ -89,7 +89,7 @@ jobs:
     permissions:
       contents: write
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - name: Upload the source of the OrcaSlicer version in the slicer image
         env:
           GH_TOKEN: ${{ github.token }}

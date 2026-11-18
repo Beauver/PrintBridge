@@ -110,20 +110,37 @@ describe('ModelInfoCard', () => {
   });
 
   it('says what a project was made for when it was sliced on something else', () => {
-    function slicedFor(slicing: Partial<SlicingInfo>): string | null {
-      return create({ ...BAMBU, slicing: { ...SLICED, ...slicing } })['slicedFor']();
+    function card(slicing: Partial<SlicingInfo>): ModelInfoCard {
+      return create({ ...BAMBU, slicing: { ...SLICED, ...slicing } });
     }
 
-    expect(slicedFor({ madeForNozzle: 0.8 })).toBe(
-      'Made for a 0,8 mm nozzle. Numbers are for your Bambu Lab P1S · 0,4 mm nozzle',
+    expect(card({ madeForNozzle: 0.8 })['madeFor']()).toBe('Bambu Lab P1S · 0,8 mm nozzle');
+    expect(card({ madeForPrinter: 'Bambu Lab X1 Carbon' })['madeFor']()).toBe(
+      'Bambu Lab X1 Carbon · 0,4 mm nozzle',
     );
-    expect(slicedFor({ madeForPrinter: 'Bambu Lab X1 Carbon' })).toBe(
-      'Made for Bambu Lab X1 Carbon. Numbers are for your Bambu Lab P1S · 0,4 mm nozzle',
+    expect(card({ madeForPrinter: 'Bambu Lab A1', madeForNozzle: 0.2 })['madeFor']()).toBe(
+      'Bambu Lab A1 · 0,2 mm nozzle',
     );
-    expect(slicedFor({ madeForPrinter: 'Bambu Lab A1', madeForNozzle: 0.2 })).toBe(
-      'Made for Bambu Lab A1 · 0,2 mm nozzle. Numbers are for your Bambu Lab P1S · 0,4 mm nozzle',
+    expect(card({ printer: null, madeForNozzle: 0.2 })['madeFor']()).toBe('0,2 mm nozzle');
+    expect(card({ madeForPrinter: 'Bambu Lab A1' })['slicedFor']()).toBe(
+      'Bambu Lab P1S · 0,4 mm nozzle',
     );
-    expect(slicedFor({ printer: null })).toBe('0,4 mm nozzle');
+    expect(card({})['madeFor']()).toBeNull();
+    expect(card({ status: 'QUEUED', madeForNozzle: 0.2 })['madeFor']()).toBeNull();
+    expect(card({ printer: null })['slicedFor']()).toBe('0,4 mm nozzle');
+  });
+
+  it('shows the profiles of a custom re-slice', () => {
+    function slicedFor(slicing: Partial<SlicingInfo>): string | null {
+      return create({ ...BAMBU, slicing: { ...SLICED, custom: true, ...slicing } })['slicedFor']();
+    }
+
+    expect(slicedFor({ process: '0.12mm Fine @BBL P1S', filament: 'Bambu PLA Basic' })).toBe(
+      'Bambu Lab P1S · 0,4 mm nozzle · 0.12mm Fine @BBL P1S · Bambu PLA Basic',
+    );
+    expect(slicedFor({ process: null, filament: null })).toBe(
+      "Bambu Lab P1S · 0,4 mm nozzle · project's settings · project's filaments",
+    );
   });
 
   it('says a model is too big even without knowing the printer', () => {
@@ -198,14 +215,13 @@ describe('ModelInfoCard', () => {
       expect(queued['canReslice']()).toBe(false);
     });
 
-    it('lets the admin re-slice while slicing is on', () => {
+    it('lets the admin re-slice with chosen settings while slicing is on', () => {
       const card = create(BAMBU, true);
-      const emitted = vi.fn();
-      card.reslice.subscribe(emitted);
-
       expect(card['canReslice']()).toBe(true);
-      card['requestReslice']();
-      expect(emitted).toHaveBeenCalled();
+      const withEmitted = vi.fn();
+      card.resliceWith.subscribe(withEmitted);
+      card['requestResliceWith']();
+      expect(withEmitted).toHaveBeenCalled();
       expect(create(BAMBU, false)['canReslice']()).toBe(false);
       expect(create(STL_INFO, true)['canReslice']()).toBe(false);
     });
