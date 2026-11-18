@@ -2,6 +2,7 @@ import {
   allowsPayment,
   formatBytes,
   isFinalStatus,
+  linkLabel,
   statusBadgeClass,
   statusLabel,
 } from './print-request-display';
@@ -36,5 +37,12 @@ describe('print request display helpers', () => {
     expect(formatBytes(1536)).toBe('1.5 KB');
     expect(formatBytes(100 * 1024 * 1024)).toBe('100.0 MB');
     expect(formatBytes(3 * 1024 ** 4)).toBe('3072.0 GB');
+  });
+
+  it('labels a link by its name, else its host, else the URL', () => {
+    expect(linkLabel('https://www.patreon.com/posts/1', ' Dragon ')).toBe('Dragon');
+    expect(linkLabel('https://www.patreon.com/posts/1', null)).toBe('www.patreon.com');
+    expect(linkLabel('https://www.patreon.com/posts/1', '  ')).toBe('www.patreon.com');
+    expect(linkLabel('not a url', null)).toBe('not a url');
   });
 });

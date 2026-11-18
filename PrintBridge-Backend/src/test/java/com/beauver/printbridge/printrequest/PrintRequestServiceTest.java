@@ -13,7 +13,9 @@ import com.beauver.printbridge.modelinfo.ModelInfoStatus;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.printrequest.file.FileBundle;
+import com.beauver.printbridge.printrequest.file.NewLink;
 import com.beauver.printbridge.printrequest.file.RequestFile;
+import com.beauver.printbridge.printrequest.file.RequestFileKind;
 import com.beauver.printbridge.printrequest.file.StoredFile;
 import com.beauver.printbridge.printrequest.file.UploadedModel;
 import com.beauver.printbridge.settings.SettingsService;
@@ -152,14 +154,14 @@ class PrintRequestServiceTest {
         f.originalFilename = "model.stl";
         f.storagePath = id + "/abc.stl";
         f.fileType = ModelFileType.STL;
-        f.sizeBytes = 134;
+        f.sizeBytes = 134L;
         r.addFile(f);
         tracked.add(r);
         return r;
     }
 
     private NewPrintRequest input(String filename, long size) {
-        return new NewPrintRequest(" Benchy ", "  ", new UploadedModel(filename, dir.resolve("upload"), size), 1);
+        return new NewPrintRequest(" Benchy ", "  ", new UploadedModel(filename, dir.resolve("upload"), size), null, 1);
     }
 
     private Runnable captured(boolean commit) {
@@ -231,7 +233,7 @@ class PrintRequestServiceTest {
         when(storage.store(any(), any(), eq("3mf"))).thenReturn("1/uuid.3mf");
 
         PrintRequestDto dto = service.create(2,
-                new NewPrintRequest("Box", " A box ", new UploadedModel("box.3mf", dir.resolve("upload"), 10), 4));
+                new NewPrintRequest("Box", " A box ", new UploadedModel("box.3mf", dir.resolve("upload"), 10), null, 4));
 
         assertEquals("A box", dto.description());
         assertEquals(4, dto.files().getFirst().quantity());
@@ -608,7 +610,7 @@ class PrintRequestServiceTest {
         f.originalFilename = name;
         f.storagePath = r.id + "/" + id + ".stl";
         f.fileType = ModelFileType.STL;
-        f.sizeBytes = 10;
+        f.sizeBytes = 10L;
         r.addFile(f);
         return f;
     }
@@ -749,7 +751,7 @@ class PrintRequestServiceTest {
         extraFile(r, 201, "a.stl");
         extraFile(r, 202, "b.stl");
         var e = assertThrows(InvalidInputException.class, () -> service.addFile(4, upload("lid.stl"), 1, BOB));
-        assertEquals("A request can hold at most 3 files", e.getMessage());
+        assertEquals("A request can hold at most 3 files and links", e.getMessage());
         verifyNoInteractions(storage);
     }
 
@@ -788,7 +790,7 @@ class PrintRequestServiceTest {
     void lastFileCannotBeRemoved() {
         when(requests.findWithDetails(4)).thenReturn(Optional.of(request(4, user(2, "bob"), RequestStatus.SUBMITTED)));
         var e = assertThrows(ConflictException.class, () -> service.removeFile(4, 104, ADMIN));
-        assertEquals("A request needs at least one file; delete the request instead", e.getMessage());
+        assertEquals("A request needs at least one file or link; delete the request instead", e.getMessage());
         verifyNoInteractions(afterTransaction);
     }
 
@@ -911,6 +913,239 @@ class PrintRequestServiceTest {
         assertThrows(ResourceNotFoundException.class, () -> service.reslice(4, 999));
         when(requests.findWithDetails(5)).thenReturn(Optional.empty());
         assertThrows(ResourceNotFoundException.class, () -> service.reslice(5, 105));
+        verifyNoInteractions(slicing);
+    }
+
+    // --- links (#59) ---
+
+    private static RequestFile extraLink(PrintRequest r, long id, String url, String name, int quantity) {
+        RequestFile link = new RequestFile();
+        link.id = id;
+        link.kind = RequestFileKind.LINK;
+        link.url = url;
+        link.linkName = name;
+        link.quantity = quantity;
+        r.addFile(link);
+        return link;
+    }
+
+    @Test
+    void createWithALinkStoresNothingAndAnalysesNothing() {
+        when(users.findByIdOptional(2L)).thenReturn(Optional.of(user(2, "bob")));
+        doAnswer(inv -> {
+            PrintRequest created = inv.getArgument(0);
+            created.id = 9L;
+            tracked.add(created);
+            return null;
+        }).when(requests).persist(any(PrintRequest.class));
+
+        PrintRequestDto dto = service.create(2, new NewPrintRequest("Dragon", null, null,
+                new NewLink("  https://www.patreon.com/posts/dragon-123  ", "  Dragon (tier 2) "), 3));
+
+        RequestFileDto link = dto.files().getFirst();
+        assertEquals(RequestFileKind.LINK, link.kind());
+        assertEquals("https://www.patreon.com/posts/dragon-123", link.url());
+        assertEquals("Dragon (tier 2)", link.linkName());
+        assertEquals(3, link.quantity());
+        assertNull(link.originalFilename());
+        assertNull(link.type());
+        assertNull(link.sizeBytes());
+        assertNull(link.modelInfo());
+        assertEquals(1, dto.totals().links());
+        assertEquals(0, dto.totals().files());
+        verifyNoInteractions(storage, validator, slicing, afterTransaction);
+        verify(modelInfo, never()).analyze(anyLong());
+        verify(modelInfo).describe(List.of(), false);
+    }
+
+    @Test
+    void createWithAnInvalidLinkCreatesNothing() {
+        var e = assertThrows(InvalidInputException.class, () -> service.create(2,
+                new NewPrintRequest("Dragon", null, null, new NewLink("ftp://example.com/a.stl", null), 1)));
+        assertEquals("The link must start with http:// or https://", e.getMessage());
+        verifyNoInteractions(requests, users);
+    }
+
+    @Test
+    void checkLinkAcceptsHttpAndHttpsAndCleansTheName() {
+        assertEquals(new NewLink("HTTP://example.com/a", null),
+                PrintRequestService.checkLink(new NewLink(" HTTP://example.com/a ", "   ")));
+        assertEquals(new NewLink("https://example.com/a?b=c#d", "Lid"),
+                PrintRequestService.checkLink(new NewLink("https://example.com/a?b=c#d", "Li\u0000d")));
+    }
+
+    @Test
+    void checkLinkRefusesWhatIsNotAWebAddress() {
+        assertLinkRefused(null, "A link is required");
+        assertLinkRefused("   ", "A link is required");
+        assertLinkRefused("javascript:alert(1)", "The link must start with http:// or https://");
+        assertLinkRefused("www.example.com", "The link must start with http:// or https://");
+        assertLinkRefused("https://exa mple.com", "The link is not a valid web address");
+        assertLinkRefused("https:///path-only", "The link is not a valid web address");
+        assertLinkRefused("https://example.com/" + "a".repeat(2048), "The link must be at most 2048 characters");
+        var e = assertThrows(InvalidInputException.class,
+                () -> PrintRequestService.checkLink(new NewLink("https://example.com", "n".repeat(101))));
+        assertEquals("The link name must be at most 100 characters", e.getMessage());
+    }
+
+    private static void assertLinkRefused(String url, String message) {
+        var e = assertThrows(InvalidInputException.class, () -> PrintRequestService.checkLink(new NewLink(url, null)));
+        assertEquals(message, e.getMessage());
+    }
+
+    @Test
+    void ownerAddsLinkWhileSubmitted() {
+        locked(RequestStatus.SUBMITTED);
+
+        PrintRequestDto dto = service.addLink(4, new NewLink("https://www.printables.com/model/1", null), 2, BOB);
+
+        assertEquals(2, dto.files().size());
+        RequestFileDto link = dto.files().getLast();
+        assertEquals(RequestFileKind.LINK, link.kind());
+        assertEquals(2, link.quantity());
+        assertNull(link.linkName());
+        assertEquals(1, dto.totals().links());
+        assertEquals(3, dto.totals().copies());
+        verify(requests).findLockedWithDetails(4);
+        verifyNoInteractions(storage, slicing);
+        verify(modelInfo, never()).analyze(anyLong());
+        verify(modelInfo).describe(List.of(104L), false);
+    }
+
+    @Test
+    void addLinkRefusedAtTheFileLimit() {
+        PrintRequest r = locked(RequestStatus.SUBMITTED);
+        extraFile(r, 201, "a.stl");
+        extraLink(r, 202, "https://example.com/b", null, 1);
+        var e = assertThrows(InvalidInputException.class,
+                () -> service.addLink(4, new NewLink("https://example.com/c", null), 1, BOB));
+        assertEquals("A request can hold at most 3 files and links", e.getMessage());
+        assertEquals(3, r.files.size());
+    }
+
+    @Test
+    void ownerCannotAddLinkOnceInReviewButTheAdminCan() {
+        locked(RequestStatus.IN_REVIEW);
+        NewLink link = new NewLink("https://example.com/c", null);
+        assertThrows(ConflictException.class, () -> service.addLink(4, link, 1, BOB));
+        assertEquals(2, service.addLink(4, link, 1, ADMIN).files().size());
+    }
+
+    @Test
+    void otherUserCannotAddLink() {
+        locked(RequestStatus.SUBMITTED);
+        NewLink link = new NewLink("https://example.com/c", null);
+        assertThrows(ResourceNotFoundException.class, () -> service.addLink(4, link, 1, EVE));
+        when(requests.findLockedWithDetails(5)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> service.addLink(5, link, 1, ADMIN));
+    }
+
+    @Test
+    void addLinkChecksTheLinkBeforeLookingAtTheRequest() {
+        assertThrows(InvalidInputException.class,
+                () -> service.addLink(4, new NewLink("mailto:bob@example.com", null), 1, BOB));
+        verifyNoInteractions(requests);
+    }
+
+    @Test
+    void removingALinkTouchesNoDisk() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
+        extraLink(r, 201, "https://example.com/a", null, 1);
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+
+        PrintRequestDto dto = service.removeFile(4, 201, BOB);
+
+        assertEquals(List.of(104L), dto.files().stream().map(RequestFileDto::id).toList());
+        verifyNoInteractions(afterTransaction, storage);
+    }
+
+    @Test
+    void theLastLinkCannotBeRemoved() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
+        r.files.clear();
+        extraLink(r, 201, "https://example.com/a", null, 1);
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+        assertThrows(ConflictException.class, () -> service.removeFile(4, 201, BOB));
+    }
+
+    @Test
+    void ownerChangesTheQuantityOfALink() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
+        extraLink(r, 201, "https://example.com/a", null, 1);
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+
+        PrintRequestDto dto = service.changeQuantity(4, 201, 5, BOB);
+
+        assertEquals(5, dto.files().getLast().quantity());
+    }
+
+    @Test
+    void filesBundleListsTheLinksInATextFile() throws IOException {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
+        extraLink(r, 201, "https://www.patreon.com/posts/dragon-123", "Dragon", 2);
+        extraLink(r, 202, "https://www.printables.com/model/1", null, 1);
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+        when(storage.resolve(any())).thenReturn(Files.writeString(dir.resolve("on-disk.stl"), "x"));
+
+        FileBundle bundle = service.files(4, BOB);
+
+        assertEquals(List.of("model.stl"), bundle.files().stream().map(StoredFile::filename).toList());
+        assertEquals("""
+                Links in this request; download these models yourself.
+
+                Dragon (quantity: 2)
+                https://www.patreon.com/posts/dragon-123
+
+                www.printables.com (quantity: 1)
+                https://www.printables.com/model/1
+                """, bundle.linksText());
+    }
+
+    @Test
+    void filesBundleOfOnlyLinksHasNoFiles() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
+        r.files.clear();
+        extraLink(r, 201, "https://example.com/a", null, 1);
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+
+        FileBundle bundle = service.files(4, BOB);
+
+        assertEquals(List.of(), bundle.files());
+        assertTrue(bundle.linksText().contains("https://example.com/a"));
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void filesBundleWithoutLinksHasNoText() throws IOException {
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(request(4, user(2, "bob"), RequestStatus.SUBMITTED)));
+        when(storage.resolve(any())).thenReturn(Files.writeString(dir.resolve("on-disk.stl"), "x"));
+        assertNull(service.files(4, BOB).linksText());
+    }
+
+    @Test
+    void linkLabelIsTheNameOrTheHost() {
+        assertEquals("Lid", PrintRequestService.linkLabel("Lid", "https://example.com/a"));
+        assertEquals("example.com", PrintRequestService.linkLabel(null, "https://example.com/a"));
+        assertEquals("https:/a", PrintRequestService.linkLabel(null, "https:/a"));
+    }
+
+    @Test
+    void aLinkCannotBeDownloadedAsAFile() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.SUBMITTED);
+        extraLink(r, 201, "https://example.com/a", null, 1);
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+        var e = assertThrows(ResourceNotFoundException.class, () -> service.file(4, 201, BOB));
+        assertEquals("File not found", e.getMessage());
+        verifyNoInteractions(storage);
+    }
+
+    @Test
+    void aLinkCannotBeResliced() {
+        PrintRequest r = request(4, user(2, "bob"), RequestStatus.ACCEPTED);
+        extraLink(r, 201, "https://example.com/a", null, 1);
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+        var e = assertThrows(ConflictException.class, () -> service.reslice(4, 201));
+        assertEquals("Links can't be sliced", e.getMessage());
         verifyNoInteractions(slicing);
     }
 }

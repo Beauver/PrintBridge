@@ -74,7 +74,8 @@ public class TestData {
             Path upload = Files.createTempFile("upload", ".stl");
             Files.write(upload, ModelFiles.binaryStl(1));
             PrintRequestDto created = printRequestService.create(owner.id,
-                    new NewPrintRequest(name, null, new UploadedModel("benchy.stl", upload, Files.size(upload)), 1));
+                    new NewPrintRequest(name, null, new UploadedModel("benchy.stl", upload, Files.size(upload)), null,
+                            1));
             Files.delete(upload);
             setStatus(created.id(), status);
             return created;

@@ -1,0 +1,58 @@
+<div class="border rounded p-2" data-cy="link-form">
+  <div class="row g-2 align-items-end">
+    <div class="col-md-6">
+      <label class="form-label small mb-1" [for]="'link-url-' + formId">Link</label>
+      <input
+        [id]="'link-url-' + formId"
+        type="url"
+        class="form-control form-control-sm"
+        placeholder="https://www.patreon.com/posts/…"
+        [attr.maxlength]="maxUrlLength"
+        [value]="url()"
+        [disabled]="disabled()"
+        [class.is-invalid]="error()"
+        (input)="setUrl($event)"
+        (keydown.enter)="onEnter($event)"
+        data-cy="link-form-url"
+      />
+    </div>
+    <div class="col-md-4">
+      <label class="form-label small mb-1" [for]="'link-name-' + formId"
+        >Name <span class="text-body-secondary">(optional)</span></label
+      >
+      <input
+        [id]="'link-name-' + formId"
+        class="form-control form-control-sm"
+        placeholder="Dragon (tier 2)"
+        [attr.maxlength]="maxNameLength"
+        [value]="name()"
+        [disabled]="disabled()"
+        (input)="setName($event)"
+        (keydown.enter)="onEnter($event)"
+        data-cy="link-form-name"
+      />
+    </div>
+    <div class="col-md-2 d-flex gap-2">
+      <button
+        type="button"
+        class="btn btn-sm btn-primary"
+        [disabled]="disabled()"
+        (click)="add()"
+        data-cy="link-form-add"
+      >
+        Add
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        (click)="cancel()"
+        data-cy="link-form-cancel"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+  @if (error()) {
+    <div class="small text-danger mt-1" data-cy="link-form-error">{{ error() }}</div>
+  }
+</div>

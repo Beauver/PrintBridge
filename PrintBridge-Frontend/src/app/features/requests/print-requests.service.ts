@@ -2,6 +2,7 @@ import { HttpClient, HttpEventType, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { filter, map, Observable } from 'rxjs';
 import {
+  NewLink,
   NewPrintRequest,
   PrintRequest,
   PrintRequestSummary,
@@ -54,14 +55,25 @@ export class PrintRequestsService {
     return this.http.get<UploadConfig>('/api/requests/upload-config');
   }
 
-  /** Creates the request with its first file; add the others with `addFile`. */
+  /**
+   * Creates the request with its first file or link (#59); add the others with `addFile` and
+   * `addLink`.
+   */
   create(request: NewPrintRequest): Observable<UploadEvent> {
+    const first = request.first;
     const body = new FormData();
     body.append('name', request.name);
     body.append('description', request.description);
-    body.append('quantity', String(request.quantity));
-    body.append('file', request.file, request.file.name);
-    return this.upload('/api/requests', body, request.file);
+    body.append('quantity', String(first.quantity));
+    if (first.kind === 'file') {
+      body.append('file', first.file, first.file.name);
+      return this.upload('/api/requests', body, first.file.size);
+    }
+    body.append('url', first.link.url.trim());
+    if (first.link.name.trim()) {
+      body.append('linkName', first.link.name.trim());
+    }
+    return this.upload('/api/requests', body, 0);
   }
 
   /** Adds a model file to a request; answers with the whole request. */
@@ -69,7 +81,20 @@ export class PrintRequestsService {
     const body = new FormData();
     body.append('quantity', String(quantity));
     body.append('file', file, file.name);
-    return this.upload(`/api/requests/${requestId}/files`, body, file);
+    return this.upload(`/api/requests/${requestId}/files`, body, file.size);
+  }
+
+  /** Adds a link to a request (#59); answers with the whole request. */
+  addLink(requestId: number, link: NewLink, quantity: number): Observable<PrintRequest> {
+    let name: string | null = null;
+    if (link.name.trim()) {
+      name = link.name.trim();
+    }
+    return this.http.post<PrintRequest>(`/api/requests/${requestId}/links`, {
+      url: link.url.trim(),
+      name,
+      quantity,
+    });
   }
 
   removeFile(requestId: number, fileId: number): Observable<PrintRequest> {
@@ -82,19 +107,22 @@ export class PrintRequestsService {
     });
   }
 
-  /** Every file of the request in one ZIP. */
+  /** Every file of the request in one ZIP, with its links in `links.txt`. */
   downloadAll(requestId: number): Observable<Blob> {
     return this.http.get(`/api/requests/${requestId}/files.zip`, { responseType: 'blob' });
   }
 
-  /** Posts a multipart upload and reports its progress, then the request it answers with. */
-  private upload(url: string, body: FormData, file: File): Observable<UploadEvent> {
+  /**
+   * Posts a multipart upload and reports its progress, then the request it answers with.
+   * `size` is used when the browser doesn't know the total.
+   */
+  private upload(url: string, body: FormData, size: number): Observable<UploadEvent> {
     return this.http
       .post<PrintRequest>(url, body, { reportProgress: true, observe: 'events' })
       .pipe(
         map((event): UploadEvent | null => {
           if (event.type === HttpEventType.UploadProgress) {
-            const total = event.total ?? file.size;
+            const total = event.total ?? size;
             let percent = 0;
             if (total > 0) {
               percent = Math.round((100 * event.loaded) / total);

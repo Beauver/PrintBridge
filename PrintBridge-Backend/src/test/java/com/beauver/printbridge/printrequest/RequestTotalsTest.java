@@ -7,6 +7,7 @@ import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.modelinfo.WeightKind;
 import com.beauver.printbridge.printrequest.dto.RequestFileDto;
 import com.beauver.printbridge.printrequest.dto.RequestTotalsDto;
+import com.beauver.printbridge.printrequest.file.RequestFileKind;
 import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
@@ -19,12 +20,19 @@ class RequestTotalsTest {
     private static RequestFileDto file(int quantity, Double grams, WeightKind weight, Long seconds, Boolean fits) {
         ModelInfoDto info = new ModelInfoDto(ModelInfoStatus.ANALYZED, ModelSource.MESH, 1.0, grams, weight, seconds,
                 fits, null, List.of(), null);
-        return new RequestFileDto(1L, "a.stl", ModelFileType.STL, 10, quantity, Instant.EPOCH, info);
+        return new RequestFileDto(1L, RequestFileKind.FILE, "a.stl", ModelFileType.STL, 10L, null, null, quantity,
+                Instant.EPOCH, info);
     }
 
     private static RequestFileDto pending(int quantity) {
-        return new RequestFileDto(2L, "b.stl", ModelFileType.STL, 10, quantity, Instant.EPOCH,
+        return new RequestFileDto(2L, RequestFileKind.FILE, "b.stl", ModelFileType.STL, 10L, null, null, quantity,
+                Instant.EPOCH,
                 ModelInfoDto.withStatus(ModelInfoStatus.PENDING, null));
+    }
+
+    private static RequestFileDto link(int quantity) {
+        return new RequestFileDto(3L, RequestFileKind.LINK, null, null, null, "https://example.com/model", null,
+                quantity, Instant.EPOCH, null);
     }
 
     @Test
@@ -78,6 +86,40 @@ class RequestTotalsTest {
     @Test
     void nothingKnownGivesEmptyTotals() {
         RequestTotalsDto totals = RequestTotals.of(List.of(pending(1)));
+        assertNull(totals.grams());
+        assertNull(totals.weight());
+        assertNull(totals.printSeconds());
+        assertFalse(totals.printTimePartial());
+        assertNull(totals.fits());
+    }
+
+    @Test
+    void linksCountAsCopiesAndMarkTheTotalsLikeAFailedPlate() {
+        RequestTotalsDto totals = RequestTotals.of(List.of(file(2, 10.0, WeightKind.EXACT, 600L, true), link(3)));
+
+        assertEquals(1, totals.files());
+        assertEquals(1, totals.links());
+        assertEquals(5, totals.copies());
+        assertEquals(20.0, totals.grams());
+        assertEquals(WeightKind.PARTLY_ESTIMATED, totals.weight());
+        assertEquals(1200L, totals.printSeconds());
+        assertTrue(totals.printTimePartial());
+        assertEquals(true, totals.fits());
+    }
+
+    @Test
+    void anEstimateStaysAnEstimateWithLinks() {
+        RequestTotalsDto totals = RequestTotals.of(List.of(file(1, 10.0, WeightKind.ESTIMATED, null, null), link(1)));
+        assertEquals(WeightKind.ESTIMATED, totals.weight());
+    }
+
+    @Test
+    void onlyLinksGiveEmptyTotals() {
+        RequestTotalsDto totals = RequestTotals.of(List.of(link(2), link(1)));
+
+        assertEquals(0, totals.files());
+        assertEquals(2, totals.links());
+        assertEquals(3, totals.copies());
         assertNull(totals.grams());
         assertNull(totals.weight());
         assertNull(totals.printSeconds());

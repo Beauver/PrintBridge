@@ -1,6 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { errorMessage } from '../../core/http/api-error';
-import { UploadConfig } from '../../core/models/print-request.model';
+import { NewLink, UploadConfig } from '../../core/models/print-request.model';
 import { formatBytes } from '../../shared/format/print-request-display';
 
 /** Used until the upload config is loaded (or if loading it fails); the backend checks anyway. */
@@ -40,6 +40,34 @@ export function checkFile(file: File, config: UploadConfig): string | null {
   }
   if (config.maxSizeBytes > 0 && file.size > config.maxSizeBytes) {
     return `The file is larger than ${formatBytes(config.maxSizeBytes)}`;
+  }
+  return null;
+}
+
+/** Same limits as the backend (#59). */
+export const MAX_URL_LENGTH = 2048;
+export const MAX_LINK_NAME_LENGTH = 100;
+
+/** An http(s) URL with a host; anything after that is up to the site. */
+const WEB_ADDRESS = /^https?:\/\/[^\s/?#]+[^\s]*$/i;
+
+/** Client-side link check, mirroring the backend. The server never fetches the link. */
+export function checkLink(link: NewLink): string | null {
+  const url = link.url.trim();
+  if (!url) {
+    return 'A link is required';
+  }
+  if (url.length > MAX_URL_LENGTH) {
+    return `The link must be at most ${MAX_URL_LENGTH} characters`;
+  }
+  if (!/^https?:\/\//i.test(url)) {
+    return 'The link must start with http:// or https://';
+  }
+  if (!WEB_ADDRESS.test(url)) {
+    return 'The link is not a valid web address';
+  }
+  if (link.name.trim().length > MAX_LINK_NAME_LENGTH) {
+    return `The link name must be at most ${MAX_LINK_NAME_LENGTH} characters`;
   }
   return null;
 }

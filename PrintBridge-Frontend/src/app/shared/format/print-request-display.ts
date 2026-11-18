@@ -53,3 +53,19 @@ export function formatBytes(bytes: number): string {
   }
   return `${value.toFixed(1)} ${units[unit]}`;
 }
+
+/** A link's name (#59), or else the host of its URL ("www.patreon.com"), or else the URL itself. */
+export function linkLabel(url: string, name: string | null): string {
+  if (name && name.trim()) {
+    return name.trim();
+  }
+  try {
+    const host = new URL(url).hostname;
+    if (host) {
+      return host;
+    }
+  } catch {
+    // Not parseable; show it as it is.
+  }
+  return url;
+}

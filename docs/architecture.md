@@ -48,7 +48,7 @@ common, storage ◀─ modelfile ◀─ settings ◀─ modelinfo, slicing ◀�
 ```
 
 - `auth` and `user` belong together and use each other; everything may use them.
-- `modelinfo` and `slicing` work on files by id and find them through `modelfile.StoredModelFiles`, which `printrequest` implements (`RequestFileLookup`).
+- `modelinfo` and `slicing` work on files by id and find them through `modelfile.StoredModelFiles`, which `printrequest` implements (`RequestFileLookup`). Links (#59) live in the same table but are never found there, so they are never analysed or sliced.
 - Deleting a user fires `UserDeleted`; `printrequest` listens and removes the user's files, so `user` doesn't know about print requests.
 
 Conventions:

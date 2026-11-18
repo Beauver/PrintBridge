@@ -1,11 +1,12 @@
 import { TestBed } from '@angular/core/testing';
-import { Subject } from 'rxjs';
+import { of, Subject, throwError } from 'rxjs';
+import { NewEntry } from '../../core/models/print-request.model';
 import { REQUEST } from '../../../testing/fixtures';
 import { PrintRequestsService, UploadEvent } from './print-requests.service';
 import { BatchUploadEvent, RequestUploadService } from './request-upload.service';
 
 describe('RequestUploadService', () => {
-  const requestsService = { create: vi.fn(), addFile: vi.fn() };
+  const requestsService = { create: vi.fn(), addFile: vi.fn(), addLink: vi.fn() };
   let service: RequestUploadService;
   let creation: Subject<UploadEvent>;
   let additions: Subject<UploadEvent>[];
@@ -15,6 +16,10 @@ describe('RequestUploadService', () => {
 
   function stl(name: string): File {
     return new File([new Uint8Array(10)], name);
+  }
+
+  function fileEntry(name: string, quantity: number): NewEntry & { kind: 'file' } {
+    return { kind: 'file', file: stl(name), quantity };
   }
 
   function observer() {
@@ -50,18 +55,17 @@ describe('RequestUploadService', () => {
     service = TestBed.inject(RequestUploadService);
   });
 
-  describe('createWithFiles', () => {
-    const first = { file: stl('a.stl'), quantity: 2 };
-    const second = { file: stl('b.stl'), quantity: 1 };
-    const third = { file: stl('c.stl'), quantity: 5 };
+  describe('createWithEntries', () => {
+    const first = fileEntry('a.stl', 2);
+    const second = fileEntry('b.stl', 1);
+    const third = fileEntry('c.stl', 5);
 
     it('creates the request with the first file, then adds the others to it in order', () => {
-      service.createWithFiles('Cube', 'Small', [first, second, third]).subscribe(observer());
+      service.createWithEntries('Cube', 'Small', [first, second, third]).subscribe(observer());
       expect(requestsService.create).toHaveBeenCalledWith({
         name: 'Cube',
         description: 'Small',
-        file: first.file,
-        quantity: 2,
+        first,
       });
       expect(requestsService.addFile).not.toHaveBeenCalled();
 
@@ -88,7 +92,7 @@ describe('RequestUploadService', () => {
     });
 
     it('errors when the first file fails and uploads nothing else', () => {
-      service.createWithFiles('Cube', '', [first, second]).subscribe(observer());
+      service.createWithEntries('Cube', '', [first, second]).subscribe(observer());
       creation.error('too large');
       expect(failure).toBe('too large');
       expect(requestsService.addFile).not.toHaveBeenCalled();
@@ -96,7 +100,7 @@ describe('RequestUploadService', () => {
     });
 
     it('reports a later file that fails and goes on with the next', () => {
-      service.createWithFiles('Cube', '', [first, second, third]).subscribe(observer());
+      service.createWithEntries('Cube', '', [first, second, third]).subscribe(observer());
       creation.next({ type: 'done', request: REQUEST });
       additions[0].error('broken');
       expect(events).toContainEqual({ type: 'failed', index: 1, error: 'broken' });
@@ -108,7 +112,7 @@ describe('RequestUploadService', () => {
 
     it('stops when unsubscribed: the running upload is cancelled, the rest never starts', () => {
       const subscription = service
-        .createWithFiles('Cube', '', [first, second, third])
+        .createWithEntries('Cube', '', [first, second, third])
         .subscribe(observer());
       creation.next({ type: 'done', request: REQUEST });
       expect(additions[0].observed).toBe(true);
@@ -119,19 +123,38 @@ describe('RequestUploadService', () => {
       expect(requestsService.addFile).toHaveBeenCalledTimes(1);
     });
 
+    it('adds a link after the first file, without progress', () => {
+      const link: NewEntry = {
+        kind: 'link',
+        link: { url: 'https://example.com/a', name: '' },
+        quantity: 2,
+      };
+      requestsService.addLink.mockReturnValue(of(REQUEST));
+      service.createWithEntries('Cube', '', [first, link]).subscribe(observer());
+      creation.next({ type: 'done', request: REQUEST });
+
+      expect(requestsService.addLink).toHaveBeenCalledWith(
+        REQUEST.id,
+        { url: 'https://example.com/a', name: '' },
+        2,
+      );
+      expect(events.slice(-2)).toEqual([
+        { type: 'started', index: 1 },
+        { type: 'uploaded', index: 1, request: REQUEST },
+      ]);
+      expect(completed).toBe(true);
+    });
+
     it('does nothing until subscribed', () => {
-      service.createWithFiles('Cube', '', [first]);
+      service.createWithEntries('Cube', '', [first]);
       expect(requestsService.create).not.toHaveBeenCalled();
     });
   });
 
-  describe('addFiles', () => {
+  describe('addEntries', () => {
     it('adds the files one at a time and reports failures without stopping', () => {
-      const files = [
-        { file: stl('a.stl'), quantity: 1 },
-        { file: stl('b.stl'), quantity: 3 },
-      ];
-      service.addFiles(4, files).subscribe(observer());
+      const files = [fileEntry('a.stl', 1), fileEntry('b.stl', 3)];
+      service.addEntries(4, files).subscribe(observer());
       expect(requestsService.addFile).toHaveBeenCalledTimes(1);
       expect(requestsService.addFile).toHaveBeenCalledWith(4, files[0].file, 1);
 
@@ -150,8 +173,25 @@ describe('RequestUploadService', () => {
       ]);
     });
 
+    it('reports a link that fails and goes on', () => {
+      const link: NewEntry = {
+        kind: 'link',
+        link: { url: 'https://example.com/a', name: 'A' },
+        quantity: 1,
+      };
+      requestsService.addLink.mockReturnValue(
+        throwError(() => {
+          return 'refused';
+        }),
+      );
+      service.addEntries(4, [link, fileEntry('b.stl', 1)]).subscribe(observer());
+
+      expect(events).toContainEqual({ type: 'failed', index: 0, error: 'refused' });
+      expect(requestsService.addFile).toHaveBeenCalledTimes(1);
+    });
+
     it('completes right away without files', () => {
-      service.addFiles(4, []).subscribe(observer());
+      service.addEntries(4, []).subscribe(observer());
       expect(completed).toBe(true);
       expect(requestsService.addFile).not.toHaveBeenCalled();
     });

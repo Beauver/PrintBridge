@@ -11,9 +11,13 @@ import {
 import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import {
   FailedUpload,
+  NewEntry,
+  NewLink,
   PrintRequest,
   UploadConfig,
 } from '../../../../core/models/print-request.model';
+import { linkLabel } from '../../../../shared/format/print-request-display';
+import { LinkForm } from '../../link-form/link-form';
 import { PrintRequestsService } from '../../print-requests.service';
 import { RequestUploadService } from '../../request-upload.service';
 import {
@@ -25,20 +29,23 @@ import {
   uploadErrorMessage,
 } from '../../upload-checks';
 
-/** A file on its way up. */
+/** A file or link on its way up. */
 export interface PendingUpload {
   key: number;
-  file: File;
+  /** The file name, or the link's name or host. */
+  name: string;
+  entry: NewEntry;
   progress: number;
 }
 
 /**
- * The "Add files" button of a request (#23): checks the chosen files against the limits, then
- * uploads them one at a time with one copy each. Every upload that succeeds hands the updated
- * request to the page; the ones that fail are listed with the reason.
+ * The "Add files" and "Add link" buttons of a request (#23, #59): checks the chosen files and
+ * links against the limits, then adds them one at a time with one copy each. Every addition that
+ * succeeds hands the updated request to the page; the ones that fail are listed with the reason.
  */
 @Component({
   selector: 'app-add-files',
+  imports: [LinkForm],
   templateUrl: './add-files.html',
 })
 export class AddFiles implements OnInit {
@@ -48,7 +55,7 @@ export class AddFiles implements OnInit {
   private nextKey = 1;
 
   readonly requestId = input.required<number>();
-  /** Files the request holds now. */
+  /** Files and links the request holds now. */
   readonly fileCount = input.required<number>();
   readonly added = output<PrintRequest>();
 
@@ -56,6 +63,8 @@ export class AddFiles implements OnInit {
   /** Waiting and uploading, in order; the first one is going up. */
   protected readonly queue = signal<PendingUpload[]>([]);
   protected readonly failed = signal<FailedUpload[]>([]);
+  /** Whether the "Add link" row is open. */
+  protected readonly addingLink = signal(false);
 
   /** Whether files are waiting or going up; also what the request page asks before leaving. */
   readonly busy = computed(() => {
@@ -98,13 +107,9 @@ export class AddFiles implements OnInit {
       if (error) {
         failed.push({ filename: file.name, reason: error });
       } else if (room <= 0) {
-        failed.push({
-          filename: file.name,
-          reason: `A request can hold at most ${this.config().maxFiles} files`,
-        });
+        failed.push({ filename: file.name, reason: this.limitReason() });
       } else {
-        accepted.push({ key: this.nextKey, file, progress: 0 });
-        this.nextKey++;
+        accepted.push(this.pending(file.name, { kind: 'file', file, quantity: MIN_QUANTITY }));
         room--;
       }
     }
@@ -113,11 +118,42 @@ export class AddFiles implements OnInit {
     this.upload(accepted);
   }
 
+  protected openLinkForm(): void {
+    this.addingLink.set(true);
+  }
+
+  protected closeLinkForm(): void {
+    this.addingLink.set(false);
+  }
+
+  /** The link form checked the link; it is added right away, with one copy. */
+  protected onLinkAdded(link: NewLink): void {
+    const name = linkLabel(link.url, link.name);
+    if (this.room() <= 0) {
+      this.failed.set([{ filename: name, reason: this.limitReason() }]);
+      return;
+    }
+    const accepted = [this.pending(name, { kind: 'link', link, quantity: MIN_QUANTITY })];
+    this.failed.set([]);
+    this.queue.set(accepted);
+    this.upload(accepted);
+  }
+
   protected dismissFailed(): void {
     this.failed.set([]);
   }
 
-  /** How many more files fit; unlimited until the config is known (the backend checks anyway). */
+  private pending(name: string, entry: NewEntry): PendingUpload {
+    const pending: PendingUpload = { key: this.nextKey, name, entry, progress: 0 };
+    this.nextKey++;
+    return pending;
+  }
+
+  private limitReason(): string {
+    return `A request can hold at most ${this.config().maxFiles} files and links`;
+  }
+
+  /** How many more entries fit; unlimited until the config is known (the backend checks anyway). */
   private room(): number {
     const maxFiles = this.config().maxFiles;
     if (maxFiles <= 0) {
@@ -126,13 +162,13 @@ export class AddFiles implements OnInit {
     return maxFiles - this.fileCount();
   }
 
-  /** Sends the accepted files one at a time, one copy each. */
+  /** Sends the accepted files and links one at a time. */
   private upload(accepted: PendingUpload[]): void {
-    const files = accepted.map((pending) => {
-      return { file: pending.file, quantity: MIN_QUANTITY };
+    const entries = accepted.map((pending) => {
+      return pending.entry;
     });
     this.uploadService
-      .addFiles(this.requestId(), files)
+      .addEntries(this.requestId(), entries)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe((event) => {
         const pending = accepted[event.index];
@@ -147,7 +183,7 @@ export class AddFiles implements OnInit {
             this.config(),
             'Could not upload this file.',
           );
-          this.failed.set([...this.failed(), { filename: pending.file.name, reason }]);
+          this.failed.set([...this.failed(), { filename: pending.name, reason }]);
           this.dequeue(pending.key);
         }
       });

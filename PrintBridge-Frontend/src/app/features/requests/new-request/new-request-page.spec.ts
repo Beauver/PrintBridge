@@ -5,12 +5,17 @@ import { of, Subject, throwError } from 'rxjs';
 import { REQUEST, TRIANGLE_MESH } from '../../../../testing/fixtures';
 import { ModelPreviewService } from '../model-preview.service';
 import { PrintRequestsService, UploadEvent } from '../print-requests.service';
-import { FileEntry, NewRequestPage } from './new-request-page';
+import { FileEntry, LinkEntry, NewRequestPage } from './new-request-page';
 
 describe('NewRequestPage', () => {
   let page: NewRequestPage;
   let router: Router;
-  const requestsService = { uploadConfig: vi.fn(), create: vi.fn(), addFile: vi.fn() };
+  const requestsService = {
+    uploadConfig: vi.fn(),
+    create: vi.fn(),
+    addFile: vi.fn(),
+    addLink: vi.fn(),
+  };
   const previewService = { uploadMesh: vi.fn() };
   const MB = 1024 * 1024;
 
@@ -24,8 +29,9 @@ describe('NewRequestPage', () => {
     return input;
   }
 
+  /** The entries, as files: most tests only add files. */
   function entries(): FileEntry[] {
-    return page['entries']();
+    return page['entries']() as FileEntry[];
   }
 
   function setQuantity(index: number, value: string): void {
@@ -135,7 +141,7 @@ describe('NewRequestPage', () => {
       select(stl(), stl(), stl());
       expect(page['filesError']()).toBeNull();
       select(stl());
-      expect(page['filesError']()).toBe('A request can hold at most 3 files');
+      expect(page['filesError']()).toBe('A request can hold at most 3 files and links');
       expect(page['hasFileErrors']()).toBe(true);
     });
 
@@ -198,7 +204,7 @@ describe('NewRequestPage', () => {
 
     it('requires a file', () => {
       page['submit']();
-      expect(page['filesError']()).toBe('Add at least one model file');
+      expect(page['filesError']()).toBe('Add at least one model file or link');
       expect(requestsService.create).not.toHaveBeenCalled();
     });
 
@@ -219,8 +225,7 @@ describe('NewRequestPage', () => {
       expect(requestsService.create).toHaveBeenCalledWith({
         name: 'Cube',
         description: 'Small',
-        file: entries()[0].file,
-        quantity: 2,
+        first: { kind: 'file', file: entries()[0].file, quantity: 2 },
       });
       expect(page['uploading']()).toBe(true);
       expect(page['uploadingText']()).toBe('Uploading…');
@@ -338,6 +343,98 @@ describe('NewRequestPage', () => {
       expect(adds[0].observed).toBe(false);
       adds[0].next({ type: 'done', request: REQUEST });
       expect(router.navigate).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('links (#59)', () => {
+    const LINK = { url: 'https://www.patreon.com/posts/dragon-123', name: '' };
+
+    function addLink(url = LINK.url, name = LINK.name): void {
+      page['onLinkAdded']({ url, name });
+    }
+
+    it('opens and closes the link form', () => {
+      expect(page['addingLink']()).toBe(false);
+      page['openLinkForm']();
+      expect(page['addingLink']()).toBe(true);
+      page['closeLinkForm']();
+      expect(page['addingLink']()).toBe(false);
+    });
+
+    it('adds a link as an entry with one copy that counts towards the limit', () => {
+      select(stl());
+      addLink();
+      const link = page['entries']()[1] as LinkEntry;
+      expect(link.kind).toBe('link');
+      expect(link.link).toEqual(LINK);
+      expect(link.quantity).toBe(1);
+      expect(link.error).toBeNull();
+      expect(page['limits']()).toBe('2 of 3 files · max 1.0 MB each');
+      expect(page['entryName'](link)).toBe('www.patreon.com');
+      expect(page['entryName'](entries()[0])).toBe('cube.stl');
+
+      addLink('https://example.com/b', 'B');
+      addLink('https://example.com/c', 'C');
+      expect(page['filesError']()).toBe('A request can hold at most 3 files and links');
+    });
+
+    it('keeps links when the limits are checked again', () => {
+      addLink();
+      page['recheck']();
+      expect(page['entries']()[0].kind).toBe('link');
+    });
+
+    it('can remove a link and change its quantity', () => {
+      addLink();
+      const key = page['entries']()[0].key;
+      page['setQuantity'](key, { target: { value: '4' } } as unknown as Event);
+      expect(page['entries']()[0].quantity).toBe(4);
+      page['removeEntry'](key);
+      expect(page['entries']()).toEqual([]);
+    });
+
+    it('creates the request with a link first and adds a file after it', () => {
+      const create = new Subject<UploadEvent>();
+      const addition = new Subject<UploadEvent>();
+      requestsService.create.mockReturnValue(create);
+      requestsService.addFile.mockReturnValue(addition);
+      page['form'].setValue({ name: 'Dragon', description: '' });
+      page['openLinkForm']();
+      addLink(LINK.url, 'Dragon');
+      select(stl());
+
+      page['submit']();
+
+      expect(page['addingLink']()).toBe(false);
+      expect(requestsService.create).toHaveBeenCalledWith({
+        name: 'Dragon',
+        description: '',
+        first: { kind: 'link', link: { url: LINK.url, name: 'Dragon' }, quantity: 1 },
+      });
+      create.next({ type: 'done', request: REQUEST });
+      expect(requestsService.addFile).toHaveBeenCalledWith(4, entries()[1].file, 1);
+      addition.next({ type: 'done', request: REQUEST });
+      expect(router.navigate).toHaveBeenCalledWith(['/requests', 4]);
+    });
+
+    it('names a link that failed by its name or host', () => {
+      const create = new Subject<UploadEvent>();
+      requestsService.create.mockReturnValue(create);
+      requestsService.addLink.mockReturnValue(
+        throwError(() => {
+          return new HttpErrorResponse({ status: 400, error: { message: 'Too many' } });
+        }),
+      );
+      page['form'].setValue({ name: 'Dragon', description: '' });
+      select(stl());
+      addLink();
+
+      page['submit']();
+      create.next({ type: 'done', request: REQUEST });
+
+      expect(router.navigate).toHaveBeenCalledWith(['/requests', 4], {
+        state: { failedUploads: [{ filename: 'www.patreon.com', reason: 'Too many' }] },
+      });
     });
   });
 });
