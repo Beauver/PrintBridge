@@ -27,7 +27,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - run: chmod +x gradlew
       # Tests use Quarkus Dev Services (Postgres via Docker, available on the runner)
       - run: ./gradlew build --no-daemon
@@ -75,7 +75,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@v6
       - name: Build backend app (skip tests, already run)
         working-directory: PrintBridge-Backend
         run: chmod +x gradlew && ./gradlew quarkusBuild -x test --no-daemon
