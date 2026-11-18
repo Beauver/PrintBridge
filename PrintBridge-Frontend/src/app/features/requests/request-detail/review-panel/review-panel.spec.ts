@@ -10,13 +10,8 @@ describe('ReviewPanel', () => {
   let fixture: ComponentFixture<ReviewPanel>;
   let panel: ReviewPanel;
   let emitted: PrintRequest[];
-  const requestsService = { changeStatus: vi.fn(), changePrice: vi.fn(), changePaid: vi.fn() };
+  const requestsService = { changePrice: vi.fn(), changePaid: vi.fn() };
 
-  const IN_REVIEW: PrintRequest = {
-    ...REQUEST,
-    status: 'IN_REVIEW',
-    nextStatuses: ['ACCEPTED', 'DECLINED'],
-  };
   const ACCEPTED: PrintRequest = {
     ...REQUEST,
     status: 'ACCEPTED',
@@ -46,106 +41,6 @@ describe('ReviewPanel', () => {
       emitted.push(request);
     });
     show(REQUEST);
-  });
-
-  describe('status', () => {
-    it('offers the current status followed by the allowed next ones', () => {
-      expect(panel['status'].value).toBe('SUBMITTED');
-      expect(panel['statusOptions']()).toEqual(['SUBMITTED', 'IN_REVIEW', 'ACCEPTED', 'DECLINED']);
-    });
-
-    it('applies a non-final status right away', () => {
-      requestsService.changeStatus.mockReturnValue(of(IN_REVIEW));
-      panel['status'].setValue('IN_REVIEW');
-
-      expect(requestsService.changeStatus).toHaveBeenCalledWith(4, 'IN_REVIEW', null);
-      expect(emitted).toEqual([IN_REVIEW]);
-      expect(panel['notice']()).toBe('Status changed to In review.');
-      expect(panel['status'].enabled).toBe(true);
-    });
-
-    it('starts printing right away and asks to confirm a decline while printing', () => {
-      const PRINTING: PrintRequest = {
-        ...ACCEPTED,
-        status: 'PRINTING',
-        nextStatuses: ['COMPLETED', 'ACCEPTED', 'DECLINED'],
-      };
-      show(ACCEPTED);
-      requestsService.changeStatus.mockReturnValue(of(PRINTING));
-      panel['status'].setValue('PRINTING');
-      expect(requestsService.changeStatus).toHaveBeenCalledWith(4, 'PRINTING', null);
-      expect(panel['notice']()).toBe('Status changed to Printing.');
-
-      show(PRINTING);
-      expect(panel['statusOptions']()).toEqual(['PRINTING', 'COMPLETED', 'ACCEPTED', 'DECLINED']);
-      panel['status'].setValue('DECLINED');
-      expect(panel['pendingStatus']()).toBe('DECLINED');
-    });
-
-    it('does nothing when the current status is picked again', () => {
-      panel['status'].setValue('SUBMITTED');
-      expect(requestsService.changeStatus).not.toHaveBeenCalled();
-      expect(panel['pendingStatus']()).toBeNull();
-    });
-
-    it('asks for confirmation (with reason) before declining', () => {
-      panel['status'].setValue('DECLINED');
-      expect(panel['pendingStatus']()).toBe('DECLINED');
-      expect(requestsService.changeStatus).not.toHaveBeenCalled();
-
-      requestsService.changeStatus.mockReturnValue(of({ ...REQUEST, status: 'DECLINED' }));
-      panel['declineReason'].setValue('Too big');
-      panel['confirmPending']();
-
-      expect(requestsService.changeStatus).toHaveBeenCalledWith(4, 'DECLINED', 'Too big');
-      expect(panel['pendingStatus']()).toBeNull();
-      expect(emitted).toHaveLength(1);
-    });
-
-    it('can cancel a pending final status', () => {
-      panel['status'].setValue('DECLINED');
-      panel['cancelPending']();
-      expect(panel['pendingStatus']()).toBeNull();
-      expect(panel['status'].value).toBe('SUBMITTED');
-      expect(requestsService.changeStatus).not.toHaveBeenCalled();
-    });
-
-    it('does not confirm with a too long reason or nothing pending', () => {
-      panel['confirmPending']();
-      panel['status'].setValue('DECLINED');
-      panel['declineReason'].setValue('x'.repeat(2001));
-      panel['confirmPending']();
-      expect(requestsService.changeStatus).not.toHaveBeenCalled();
-    });
-
-    it('confirms completing without a reason', () => {
-      show({ ...ACCEPTED, finalPrice: 10 });
-      requestsService.changeStatus.mockReturnValue(of({ ...ACCEPTED, status: 'COMPLETED' }));
-      panel['status'].setValue('COMPLETED');
-      panel['declineReason'].setValue('ignored');
-      panel['confirmPending']();
-      expect(requestsService.changeStatus).toHaveBeenCalledWith(4, 'COMPLETED', null);
-    });
-
-    it('disables completing until a price is set', () => {
-      show(ACCEPTED);
-      expect(panel['needsPrice']()).toBe(true);
-      expect(panel['isOptionDisabled']('COMPLETED')).toBe(true);
-      expect(panel['isOptionDisabled']('ACCEPTED')).toBe(false);
-      show({ ...ACCEPTED, finalPrice: 0 });
-      expect(panel['isOptionDisabled']('COMPLETED')).toBe(false);
-    });
-
-    it('shows the error and resets the dropdown when the change fails', () => {
-      requestsService.changeStatus.mockReturnValue(
-        httpError(409, 'Cannot change status from SUBMITTED to IN_REVIEW'),
-      );
-      panel['status'].setValue('IN_REVIEW');
-      expect(panel['error']()).toBe('Cannot change status from SUBMITTED to IN_REVIEW');
-      expect(panel['status'].value).toBe('SUBMITTED');
-      expect(panel['status'].enabled).toBe(true);
-      expect(emitted).toEqual([]);
-    });
   });
 
   describe('price', () => {

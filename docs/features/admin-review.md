@@ -9,14 +9,15 @@ Issue: #5 (part of #2); the Printing status is #22.
   - The status filter defaults to **Open** (Submitted, In review, Accepted, Printing). It also offers **All** and each single status, and changing it reloads straight away.
   - The search box matches the request name or the requester's username, ignoring case. It runs on the server after a short typing pause.
   - No paging (prototype).
-- **Review panel** (admin, on the request detail page, above the details; hidden once the request is final):
-  - **Status:** a Jira-style dropdown showing the current status and only the statuses it may move to.
-    - In review, Accepted and Printing are applied immediately.
-    - Declined and Completed are final, so they ask for confirmation first. Declining takes an optional reason (max 2000), which the user sees on the detail page.
-    - Completed is disabled until a price is set.
+- **Status** (admin, the status badge next to the request name; #65, like the [item statuses](#item-statuses)): the badge is a dropdown with only the statuses the request may move to. Users, and the admin on a final request, see a plain badge.
+  - In review, Accepted and Printing are applied immediately.
+  - Declined and Completed are final, so they ask for confirmation first, in a row under the name. Declining takes an optional reason (max 2000), which the user sees on the detail page.
+  - Completed is disabled ("set a price first") until a price is set.
+  - Errors from the server (e.g. someone else changed it first) appear under the name.
+- **Price & payment panel** (admin, on the request detail page, above the details; shown while the price or paid can still change):
   - **Final price (EUR):** €0 to € 99.999.999,99 with at most 2 decimals. *Save* (or Enter) sets or changes it; *Clear* returns it to "Price pending". Locked while the request is paid.
   - **Paid:** *Mark as paid* / *Mark as unpaid* on Accepted, Printing and Completed requests that have a price. This is the only thing that can still change on a Completed request.
-  - The page updates in place after every change. Errors from the server (e.g. someone else changed it first) appear in the panel, and the dropdown resets.
+  - The page updates in place after every change. Errors from the server appear in the panel.
 - The back link on the detail page goes to *All requests* for the admin and *My requests* for users.
 - Users see the price as soon as it is set (also while still in review), and the decline reason once declined.
 - Paid requests show the price crossed out with a green **Paid** badge, for users and the admin, in lists and on the detail page.

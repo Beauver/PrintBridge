@@ -30,14 +30,13 @@ import {
   formatBytes,
   itemProgressText,
   linkLabel,
-  statusBadgeClass,
-  statusLabel,
 } from '../../../shared/format/print-request-display';
 import { HasPendingUploads } from '../pending-uploads.guard';
 import { PrintRequestsService } from '../print-requests.service';
 import { isValidQuantity, MAX_QUANTITY, MIN_QUANTITY } from '../upload-checks';
 import { AddFiles } from './add-files/add-files';
 import { ItemStatusControl } from './item-status/item-status';
+import { RequestStatusControl } from './request-status/request-status';
 import { LinkCard } from './link-card/link-card';
 import { ModelInfoCard } from './model-info-card/model-info-card';
 import { ResliceDialog } from './reslice-dialog/reslice-dialog';
@@ -128,6 +127,7 @@ function printTimeTotal(request: PrintRequest): { text: string; note: string | n
     ModelInfoCard,
     LinkCard,
     ItemStatusControl,
+    RequestStatusControl,
     AddFiles,
   ],
   templateUrl: './request-detail-page.html',
@@ -257,8 +257,6 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
     return { link: '/', label: 'My requests' };
   });
 
-  protected readonly statusLabel = statusLabel;
-  protected readonly statusBadgeClass = statusBadgeClass;
   protected readonly formatBytes = formatBytes;
 
   constructor() {
