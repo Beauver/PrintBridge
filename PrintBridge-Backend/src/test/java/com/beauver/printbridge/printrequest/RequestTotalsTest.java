@@ -7,6 +7,7 @@ import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.modelinfo.WeightKind;
 import com.beauver.printbridge.printrequest.dto.RequestFileDto;
 import com.beauver.printbridge.printrequest.dto.RequestTotalsDto;
+import com.beauver.printbridge.printrequest.file.ItemStatus;
 import com.beauver.printbridge.printrequest.file.RequestFileKind;
 import org.junit.jupiter.api.Test;
 
@@ -21,18 +22,18 @@ class RequestTotalsTest {
         ModelInfoDto info = new ModelInfoDto(ModelInfoStatus.ANALYZED, ModelSource.MESH, 1.0, grams, weight, seconds,
                 fits, null, List.of(), null);
         return new RequestFileDto(1L, RequestFileKind.FILE, "a.stl", ModelFileType.STL, 10L, null, null, quantity,
-                Instant.EPOCH, info);
+                ItemStatus.PENDING, null, List.of(), Instant.EPOCH, info);
     }
 
     private static RequestFileDto pending(int quantity) {
         return new RequestFileDto(2L, RequestFileKind.FILE, "b.stl", ModelFileType.STL, 10L, null, null, quantity,
-                Instant.EPOCH,
+                ItemStatus.PENDING, null, List.of(), Instant.EPOCH,
                 ModelInfoDto.withStatus(ModelInfoStatus.PENDING, null));
     }
 
     private static RequestFileDto link(int quantity) {
         return new RequestFileDto(3L, RequestFileKind.LINK, null, null, null, "https://example.com/model", null,
-                quantity, Instant.EPOCH, null);
+                quantity, ItemStatus.PENDING, null, List.of(), Instant.EPOCH, null);
     }
 
     @Test
@@ -125,5 +126,32 @@ class RequestTotalsTest {
         assertNull(totals.printSeconds());
         assertFalse(totals.printTimePartial());
         assertNull(totals.fits());
+    }
+
+    // --- item statuses (#61) ---
+
+    private static RequestFileDto with(RequestFileDto entry, ItemStatus status) {
+        return new RequestFileDto(entry.id(), entry.kind(), entry.originalFilename(), entry.type(), entry.sizeBytes(),
+                entry.url(), entry.linkName(), entry.quantity(), status, null, List.of(), entry.createdAt(),
+                entry.modelInfo());
+    }
+
+    @Test
+    void declinedItemsOnlyCountAsDeclined() {
+        RequestTotalsDto totals = RequestTotals.of(List.of(
+                with(file(2, 10.0, WeightKind.EXACT, 600L, true), ItemStatus.COMPLETED),
+                with(file(3, 99.0, WeightKind.ESTIMATED, null, false), ItemStatus.DECLINED),
+                with(link(4), ItemStatus.DECLINED)));
+
+        assertEquals(2, totals.files());
+        assertEquals(1, totals.links());
+        assertEquals(2, totals.declined());
+        assertEquals(1, totals.completed());
+        assertEquals(2, totals.copies());
+        assertEquals(20.0, totals.grams());
+        assertEquals(WeightKind.EXACT, totals.weight());
+        assertEquals(1200L, totals.printSeconds());
+        assertFalse(totals.printTimePartial());
+        assertEquals(true, totals.fits());
     }
 }

@@ -39,6 +39,9 @@ export const UPLOADED_FILE: UploadedFile = {
   url: null,
   linkName: null,
   quantity: 1,
+  status: 'PENDING',
+  declineReason: null,
+  nextStatuses: ['ACCEPTED', 'DECLINED'],
   createdAt: '2026-02-01T10:00:00Z',
   modelInfo: {
     status: 'PENDING',
@@ -57,6 +60,9 @@ export const LINK: RequestLink = {
   url: 'https://www.printables.com/model/1',
   linkName: null,
   quantity: 2,
+  status: 'PENDING',
+  declineReason: null,
+  nextStatuses: ['ACCEPTED', 'DECLINED'],
   createdAt: '2026-02-01T10:00:00Z',
   modelInfo: null,
 };
@@ -77,6 +83,8 @@ export const REQUEST: PrintRequest = {
   totals: {
     files: 1,
     links: 0,
+    declined: 0,
+    completed: 0,
     copies: 1,
     grams: null,
     weight: null,
@@ -95,6 +103,8 @@ export const REQUEST_SUMMARY: PrintRequestSummary = {
   paidAt: null,
   ownerUsername: 'alice',
   createdAt: '2026-02-01T10:00:00Z',
+  itemsCompleted: 0,
+  itemsActive: 1,
 };
 
 /** Server slicing switched off, file never queued. */

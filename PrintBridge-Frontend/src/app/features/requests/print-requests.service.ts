@@ -2,6 +2,7 @@ import { HttpClient, HttpEventType, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { filter, map, Observable } from 'rxjs';
 import {
+  ItemStatus,
   NewLink,
   NewPrintRequest,
   PrintRequest,
@@ -144,6 +145,19 @@ export class PrintRequestsService {
   /** Admin: mark an accepted/completed request with a price as paid, or undo that. */
   changePaid(id: number, paid: boolean): Observable<PrintRequest> {
     return this.http.put<PrintRequest>(`/api/requests/${id}/paid`, { paid });
+  }
+
+  /** Admin: move one file or link to another status (#61); the reason only counts when declining. */
+  changeItemStatus(
+    requestId: number,
+    fileId: number,
+    status: ItemStatus,
+    declineReason: string | null = null,
+  ): Observable<PrintRequest> {
+    return this.http.put<PrintRequest>(`/api/requests/${requestId}/files/${fileId}/status`, {
+      status,
+      declineReason,
+    });
   }
 
   /** Admin: what the "Re-slice with…" dialog of one file offers (#21). */

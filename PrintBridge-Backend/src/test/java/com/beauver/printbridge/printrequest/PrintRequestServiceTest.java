@@ -13,6 +13,7 @@ import com.beauver.printbridge.modelinfo.ModelInfoStatus;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.printrequest.file.FileBundle;
+import com.beauver.printbridge.printrequest.file.ItemStatus;
 import com.beauver.printbridge.printrequest.file.NewLink;
 import com.beauver.printbridge.printrequest.file.RequestFile;
 import com.beauver.printbridge.printrequest.file.RequestFileKind;
@@ -1153,5 +1154,129 @@ class PrintRequestServiceTest {
         var e = assertThrows(ConflictException.class, () -> service.resliceWith(4, 201, CHOICE));
         assertEquals("Links can't be sliced", e.getMessage());
         verifyNoInteractions(customReslice);
+    }
+
+    // --- item statuses (#61) ---
+
+    private PrintRequest withItems(RequestStatus status, ItemStatus... items) {
+        PrintRequest r = request(4, user(2, "bob"), status);
+        r.files.getFirst().status = items[0];
+        for (int i = 1; i < items.length; i++) {
+            extraFile(r, 200 + i, "part" + i + ".stl").status = items[i];
+        }
+        when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
+        return r;
+    }
+
+    private static List<ItemStatus> statusesOf(PrintRequest r) {
+        return r.files.stream().map(file -> file.status).toList();
+    }
+
+    @Test
+    void adminMovesAnItemAlongItsFlow() {
+        PrintRequest r = withItems(RequestStatus.ACCEPTED, ItemStatus.PENDING, ItemStatus.PENDING);
+
+        PrintRequestDto dto = service.changeItemStatus(4, 104, ItemStatus.ACCEPTED, "ignored");
+
+        assertEquals(ItemStatus.ACCEPTED, dto.files().getFirst().status());
+        assertNull(dto.files().getFirst().declineReason());
+        assertEquals(List.of(ItemStatus.PRINTING, ItemStatus.COMPLETED, ItemStatus.DECLINED),
+                dto.files().getFirst().nextStatuses());
+        assertEquals(ItemStatus.PENDING, r.files.getLast().status);
+        verify(requests).flush();
+    }
+
+    @Test
+    void decliningAnItemKeepsTheTrimmedReasonAndReopeningDropsIt() {
+        PrintRequest r = withItems(RequestStatus.IN_REVIEW, ItemStatus.PENDING, ItemStatus.PENDING);
+
+        PrintRequestDto dto = service.changeItemStatus(4, 104, ItemStatus.DECLINED, "  Too big for my printers ");
+
+        assertEquals("Too big for my printers", dto.files().getFirst().declineReason());
+        assertEquals(1, dto.totals().declined());
+        assertEquals(1, dto.totals().copies());
+
+        service.changeItemStatus(4, 104, ItemStatus.ACCEPTED, null);
+        assertEquals(ItemStatus.ACCEPTED, r.files.getFirst().status);
+        assertNull(r.files.getFirst().declineReason);
+
+        service.changeItemStatus(4, 104, ItemStatus.DECLINED, "   ");
+        assertNull(r.files.getFirst().declineReason);
+    }
+
+    @Test
+    void itemMovesOutsideTheFlowOrOnAFinalRequestAreRefused() {
+        withItems(RequestStatus.ACCEPTED, ItemStatus.PENDING);
+        var e = assertThrows(ConflictException.class, () -> service.changeItemStatus(4, 104, ItemStatus.PRINTING, null));
+        assertEquals("Cannot change the item's status from PENDING to PRINTING", e.getMessage());
+
+        withItems(RequestStatus.COMPLETED, ItemStatus.COMPLETED);
+        e = assertThrows(ConflictException.class, () -> service.changeItemStatus(4, 104, ItemStatus.ACCEPTED, null));
+        assertEquals("This request is COMPLETED and its items can no longer change", e.getMessage());
+
+        assertThrows(ResourceNotFoundException.class, () -> service.changeItemStatus(4, 999, ItemStatus.ACCEPTED, null));
+        when(requests.findWithDetails(5)).thenReturn(Optional.empty());
+        assertThrows(ResourceNotFoundException.class, () -> service.changeItemStatus(5, 104, ItemStatus.ACCEPTED, null));
+    }
+
+    @Test
+    void aFinalRequestOffersNoItemStatuses() {
+        withItems(RequestStatus.DECLINED, ItemStatus.DECLINED);
+        assertEquals(List.of(), service.get(4, ADMIN).files().getFirst().nextStatuses());
+    }
+
+    @Test
+    void acceptingTheRequestAcceptsItsPendingItems() {
+        PrintRequest r = withItems(RequestStatus.IN_REVIEW, ItemStatus.PENDING, ItemStatus.DECLINED);
+        service.changeStatus(4, RequestStatus.ACCEPTED, null);
+        assertEquals(List.of(ItemStatus.ACCEPTED, ItemStatus.DECLINED), statusesOf(r));
+    }
+
+    @Test
+    void decliningTheRequestDeclinesAllButCompletedItems() {
+        PrintRequest r = withItems(RequestStatus.PRINTING, ItemStatus.PRINTING, ItemStatus.COMPLETED,
+                ItemStatus.PENDING);
+        r.files.getFirst().declineReason = "old";
+        service.changeStatus(4, RequestStatus.DECLINED, "No time");
+        assertEquals(List.of(ItemStatus.DECLINED, ItemStatus.COMPLETED, ItemStatus.DECLINED), statusesOf(r));
+        assertNull(r.files.getFirst().declineReason);
+    }
+
+    @Test
+    void completingTheRequestCompletesAllButDeclinedItems() {
+        PrintRequest r = withItems(RequestStatus.PRINTING, ItemStatus.PRINTING, ItemStatus.DECLINED,
+                ItemStatus.PENDING);
+        r.finalPrice = BigDecimal.TEN;
+        r.files.get(1).declineReason = "Too big";
+        service.changeStatus(4, RequestStatus.COMPLETED, null);
+        assertEquals(List.of(ItemStatus.COMPLETED, ItemStatus.DECLINED, ItemStatus.COMPLETED), statusesOf(r));
+        assertEquals("Too big", r.files.get(1).declineReason);
+    }
+
+    @Test
+    void otherRequestMovesLeaveTheItemsAlone() {
+        PrintRequest r = withItems(RequestStatus.PRINTING, ItemStatus.PENDING, ItemStatus.PRINTING);
+        service.changeStatus(4, RequestStatus.ACCEPTED, null);
+        assertEquals(List.of(ItemStatus.PENDING, ItemStatus.PRINTING), statusesOf(r));
+        service.changeStatus(4, RequestStatus.PRINTING, null);
+        assertEquals(List.of(ItemStatus.PENDING, ItemStatus.PRINTING), statusesOf(r));
+        r.status = RequestStatus.SUBMITTED;
+        service.changeStatus(4, RequestStatus.IN_REVIEW, null);
+        assertEquals(List.of(ItemStatus.PENDING, ItemStatus.PRINTING), statusesOf(r));
+    }
+
+    @Test
+    void listsCarryTheItemProgress() {
+        PrintRequest first = request(4, user(2, "bob"), RequestStatus.ACCEPTED);
+        PrintRequest second = request(5, user(2, "bob"), RequestStatus.SUBMITTED);
+        when(requests.listOwnNewestFirst(2)).thenReturn(List.of(first, second));
+        when(requests.itemProgress(List.of(4L, 5L))).thenReturn(Map.of(4L, new ItemProgress(2, 3)));
+
+        List<PrintRequestSummaryDto> rows = service.listOwn(2);
+
+        assertEquals(2, rows.getFirst().itemsCompleted());
+        assertEquals(3, rows.getFirst().itemsActive());
+        assertEquals(0, rows.getLast().itemsCompleted());
+        assertEquals(0, rows.getLast().itemsActive());
     }
 }

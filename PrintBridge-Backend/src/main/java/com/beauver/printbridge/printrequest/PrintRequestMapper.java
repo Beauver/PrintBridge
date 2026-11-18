@@ -5,6 +5,7 @@ import com.beauver.printbridge.printrequest.dto.PrintRequestDto;
 import com.beauver.printbridge.printrequest.dto.PrintRequestSummaryDto;
 import com.beauver.printbridge.printrequest.dto.RequestFileDto;
 import com.beauver.printbridge.printrequest.dto.RequestTotalsDto;
+import com.beauver.printbridge.printrequest.file.ItemStatus;
 import com.beauver.printbridge.printrequest.file.RequestFile;
 import jakarta.enterprise.context.ApplicationScoped;
 
@@ -15,9 +16,9 @@ import java.util.Map;
 @ApplicationScoped
 public class PrintRequestMapper {
 
-    public PrintRequestSummaryDto toSummary(PrintRequest r) {
+    public PrintRequestSummaryDto toSummary(PrintRequest r, ItemProgress progress) {
         return new PrintRequestSummaryDto(r.id, r.name, r.status, r.finalPrice, r.paidAt, r.owner.username,
-                r.createdAt);
+                r.createdAt, progress.completed(), progress.active());
     }
 
     public PrintRequestDto toDto(PrintRequest r, List<RequestFileDto> files, RequestTotalsDto totals) {
@@ -31,7 +32,11 @@ public class PrintRequestMapper {
     }
 
     public RequestFileDto toDto(RequestFile f, ModelInfoDto modelInfo) {
+        List<ItemStatus> next = List.of();
+        if (!f.request.status.isFinal()) {
+            next = f.status.nextStatuses();
+        }
         return new RequestFileDto(f.id, f.kind, f.originalFilename, f.fileType, f.sizeBytes, f.url, f.linkName,
-                f.quantity, f.createdAt, modelInfo);
+                f.quantity, f.status, f.declineReason, next, f.createdAt, modelInfo);
     }
 }

@@ -15,4 +15,17 @@ describe('RequestList', () => {
     expect(list.showOwner()).toBe(false);
     expect(list['statusLabel']('SUBMITTED')).toBe('Submitted');
   });
+
+  it('shows the item progress from Accepted on with more than one item (#61)', () => {
+    const list = TestBed.createComponent(RequestList).componentInstance;
+    const accepted = {
+      ...REQUEST_SUMMARY,
+      status: 'ACCEPTED' as const,
+      itemsCompleted: 2,
+      itemsActive: 3,
+    };
+    expect(list['progress'](accepted)).toBe('2/3 completed');
+    expect(list['progress']({ ...accepted, status: 'IN_REVIEW' })).toBeNull();
+    expect(list['progress']({ ...accepted, itemsActive: 1 })).toBeNull();
+  });
 });

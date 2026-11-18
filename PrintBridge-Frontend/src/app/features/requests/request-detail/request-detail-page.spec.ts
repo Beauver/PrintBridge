@@ -348,6 +348,8 @@ describe('RequestDetailPage', () => {
       const TOTALS: PrintRequest['totals'] = {
         files: 2,
         links: 0,
+        declined: 0,
+        completed: 0,
         copies: 4,
         grams: 65.25,
         weight: 'EXACT',
@@ -434,6 +436,46 @@ describe('RequestDetailPage', () => {
           filament: { text: '~65 g', note: '(partly estimated)' },
           printTime: { text: '~18 h 20 min', note: '(partial time)' },
         });
+      });
+    });
+
+    describe('item statuses (#61)', () => {
+      it('counts declined items and shows the progress from Accepted on', () => {
+        const request: PrintRequest = {
+          ...REQUEST,
+          status: 'ACCEPTED',
+          files: [UPLOADED_FILE, LINK, { ...LINK, id: 10 }],
+          totals: { ...REQUEST.totals, files: 1, links: 2, declined: 1, completed: 1, copies: 3 },
+        };
+        expect(create(request)['fileCounts']()).toBe(
+          '1 file · 2 links · 3 copies · 1 declined · 1/2 completed',
+        );
+        expect(create({ ...request, status: 'IN_REVIEW' })['fileCounts']()).toBe(
+          '1 file · 2 links · 3 copies · 1 declined',
+        );
+      });
+
+      it('does not count a declined file without details as left out', () => {
+        const request: PrintRequest = {
+          ...TWO_FILES,
+          files: [
+            { ...UPLOADED_FILE, modelInfo: STL_INFO },
+            {
+              ...LID,
+              status: 'DECLINED',
+              modelInfo: { ...STL_INFO, status: 'PENDING', totalGrams: null },
+            },
+          ],
+          totals: { ...REQUEST.totals, grams: 411.6, weight: 'ESTIMATED' },
+        };
+        expect(create(request)['summary']()?.filament?.note).toBe('(estimate)');
+      });
+
+      it('shows the request an item change answered with', () => {
+        const page = create();
+        const updated = { ...REQUEST, files: [{ ...UPLOADED_FILE, status: 'ACCEPTED' as const }] };
+        page['onItemChanged'](updated);
+        expect(page['request']()).toEqual(updated);
       });
     });
 

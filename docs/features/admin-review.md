@@ -53,6 +53,33 @@ Issue: #5 (part of #2); the Printing status is #22.
 - **Owners:** can only delete while the request is Submitted (#4).
 - **Single source of truth:** the allowed moves live in `RequestStatus.nextStatuses()`. The API sends them along as `nextStatuses`, so the frontend never duplicates the rules (except the "Completed needs a price" hint).
 
+## Item statuses
+
+Issue: #61. Every file and link of a request has its own status, so the admin can accept, decline, print and complete items one by one.
+
+- **Statuses:** *Pending* (new items, also ones added later to an accepted request), *Accepted*, *Declined*, *Printing*, *Completed*, in the same colours as the request statuses.
+- **On each card** (Model card and link card), in the header: a status badge for everyone. For the admin it is a dropdown (ng-bootstrap) with the allowed next statuses; choosing one saves it right away.
+- **Declining an item** asks for confirmation with an optional reason (max 500). The reason shows in the card for the requester too: "Declined: <reason>". Any other status drops the reason.
+- **Flow** (`ItemStatus.nextStatuses()`, sent per item as `nextStatuses`):
+
+  | From | Allowed to |
+  |---|---|
+  | Pending | Accepted, Declined |
+  | Accepted | Printing, Completed, Declined |
+  | Printing | Completed, Accepted (failed print), Declined |
+  | Declined, Completed | Accepted (reopened) |
+
+  Items only change while the request isn't final; on a Declined or Completed request they are locked (`409`, no dropdown).
+- **The request moves its items along** (in the same transaction):
+  - accepting it (from Submitted or In review) accepts its Pending items;
+  - declining it declines every item that isn't Completed (no per-item reason; the request's reason covers them);
+  - completing it completes every item that isn't Declined, Pending included. Nothing blocks completing.
+  - Moving to Printing, back to Accepted or to In review leaves the items alone. Items never change the request's status.
+- **Declined items** count nowhere but in the numbers of files, links and declined items: not in the copies, filament or print time.
+- **Progress:** the Files heading adds "· 1 declined" and "· 2/3 completed"; the request lists show "2/3 completed" next to the status badge. Progress counts the items that aren't declined, and only shows from Accepted onwards and with more than one such item.
+- Owner rules (remove, quantity while Submitted), downloads and *Re-slice with…* work for items in any status.
+- Data: `request_files.status` and `decline_reason` (V12). Existing items got a status from their request: Submitted/In review → Pending, Accepted/Printing → Accepted, Completed → Completed, Declined → Declined.
+
 ## Not included
 
-Comments, editing request details, notifications (also when printing starts), per-status timestamps, Spoolman/price estimation, paging.
+Comments, editing request details, notifications (also when printing starts), per-status timestamps, Spoolman/price estimation, paging. Out of #61: per-item prices, items changing the request status, the requester changing item statuses.

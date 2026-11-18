@@ -85,6 +85,18 @@ describe('PrintRequestsService', () => {
     paid.flush(REQUEST);
   });
 
+  it('changes the status of one item (#61)', () => {
+    service.changeItemStatus(4, 7, 'DECLINED', 'Too big').subscribe();
+    const declined = http.expectOne({ method: 'PUT', url: '/api/requests/4/files/7/status' });
+    expect(declined.request.body).toEqual({ status: 'DECLINED', declineReason: 'Too big' });
+    declined.flush(REQUEST);
+
+    service.changeItemStatus(4, 7, 'ACCEPTED').subscribe();
+    const accepted = http.expectOne('/api/requests/4/files/7/status');
+    expect(accepted.request.body).toEqual({ status: 'ACCEPTED', declineReason: null });
+    accepted.flush(REQUEST);
+  });
+
   it('re-slices a file with a chosen setup and loads what the dialog offers (#21)', () => {
     const choice = { printerId: 1, nozzle: 0.2, process: '0.12mm Fine', filament: null };
     service.resliceWith(4, 7, choice).subscribe();

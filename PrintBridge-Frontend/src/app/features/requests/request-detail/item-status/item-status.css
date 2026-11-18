@@ -1,0 +1,4 @@
+/* The confirmation and errors take a full row of the card header, under the name. */
+:host {
+  display: contents;
+}

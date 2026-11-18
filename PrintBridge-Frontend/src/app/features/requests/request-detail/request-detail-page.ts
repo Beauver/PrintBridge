@@ -28,6 +28,7 @@ import { PriceTag } from '../../../shared/price-tag/price-tag';
 import {
   allowsPayment,
   formatBytes,
+  itemProgressText,
   linkLabel,
   statusBadgeClass,
   statusLabel,
@@ -36,6 +37,7 @@ import { HasPendingUploads } from '../pending-uploads.guard';
 import { PrintRequestsService } from '../print-requests.service';
 import { isValidQuantity, MAX_QUANTITY, MIN_QUANTITY } from '../upload-checks';
 import { AddFiles } from './add-files/add-files';
+import { ItemStatusControl } from './item-status/item-status';
 import { LinkCard } from './link-card/link-card';
 import { ModelInfoCard } from './model-info-card/model-info-card';
 import { ResliceDialog } from './reslice-dialog/reslice-dialog';
@@ -84,9 +86,10 @@ function filamentTotal(request: PrintRequest): { text: string; note: string | nu
       notes.push('estimate');
     }
   }
-  // Links are already marked by the weight (partly estimated), like a plate that wasn't sliced.
+  // Links are already marked by the weight (partly estimated), like a plate that wasn't sliced;
+  // declined files (#61) aren't counted at all.
   const unknown = uploadedFiles(request).filter((file) => {
-    return file.modelInfo.totalGrams === null;
+    return file.status !== 'DECLINED' && file.modelInfo.totalGrams === null;
   }).length;
   if (unknown > 0) {
     notes.push(`${counted(unknown, 'file', 'files')} without details not counted`);
@@ -124,6 +127,7 @@ function printTimeTotal(request: PrintRequest): { text: string; note: string | n
     ReviewPanel,
     ModelInfoCard,
     LinkCard,
+    ItemStatusControl,
     AddFiles,
   ],
   templateUrl: './request-detail-page.html',
@@ -186,7 +190,10 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
     return this.canChangeFiles() && !!request && request.files.length > 1;
   });
 
-  /** "3 files · 2 links · 9 copies" next to the Files heading; no files or links part when 0. */
+  /**
+   * "3 files · 2 links · 9 copies · 1 declined · 2/4 completed" next to the Files heading; parts
+   * with nothing to say are left out (#59, #61).
+   */
   protected readonly fileCounts = computed(() => {
     const request = this.request();
     if (!request) {
@@ -201,6 +208,17 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
       parts.push(counted(totals.links, 'link', 'links'));
     }
     parts.push(counted(totals.copies, 'copy', 'copies'));
+    if (totals.declined > 0) {
+      parts.push(`${totals.declined} declined`);
+    }
+    const progress = itemProgressText(
+      request.status,
+      totals.completed,
+      totals.files + totals.links - totals.declined,
+    );
+    if (progress) {
+      parts.push(progress);
+    }
     return parts.join(' · ');
   });
 
@@ -281,6 +299,11 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
 
   /** A file from "Add files" is in; the request comes back with it (and new totals). */
   protected onFileAdded(updated: PrintRequest): void {
+    this.show(updated);
+  }
+
+  /** Admin: an item's status changed (#61); the request comes back with new totals. */
+  protected onItemChanged(updated: PrintRequest): void {
     this.show(updated);
   }
 

@@ -189,6 +189,16 @@ public class PrintRequestResource {
         return service.changeStatus(id, request.status(), request.declineReason());
     }
 
+    /** Moves one file or link of the request to another status (#61; admin). */
+    @PUT
+    @Path("/{id}/files/{fileId}/status")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed(Role.ADMIN_ROLE)
+    public PrintRequestDto changeItemStatus(@PathParam("id") long id, @PathParam("fileId") long fileId,
+                                            @Valid @NotNull ItemStatusChangeRequest request) {
+        return service.changeItemStatus(id, fileId, request.status(), request.declineReason());
+    }
+
     @PUT
     @Path("/{id}/price")
     @Consumes(MediaType.APPLICATION_JSON)

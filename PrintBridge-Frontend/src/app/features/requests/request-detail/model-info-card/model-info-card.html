@@ -20,6 +20,7 @@
         }}</span>
       }
     </button>
+    <ng-content select="[cardStatus]" />
     @if (slicingPending()) {
       <span class="badge text-bg-info" data-cy="model-info-slicing">
         <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Slicing…

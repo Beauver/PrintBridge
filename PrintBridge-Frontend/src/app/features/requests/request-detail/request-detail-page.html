@@ -146,8 +146,26 @@
       />
     }
 
+    <!-- The status of a file or link (#61), in its card header. -->
+    <ng-template #itemStatus let-file>
+      <app-item-status
+        [requestId]="request.id"
+        [item]="file"
+        [isAdmin]="auth.isAdmin()"
+        (changed)="onItemChanged($event)"
+      />
+    </ng-template>
+
     <!-- The actions of a file or link, at the top of its card. -->
     <ng-template #entryActions let-file>
+      @if (file.status === 'DECLINED' && file.declineReason) {
+        <div
+          class="alert alert-danger py-2 small text-pre-wrap"
+          data-cy="request-item-decline-reason"
+        >
+          Declined: {{ file.declineReason }}
+        </div>
+      }
       <div class="d-flex flex-wrap align-items-center gap-2 mb-3" data-cy="request-file">
         @if (file.kind === 'LINK') {
           <div class="me-auto d-flex align-items-center gap-2 link-target">
@@ -245,6 +263,10 @@
           [quantity]="file.quantity"
           [startOpen]="first"
         >
+          <ng-container
+            ngProjectAs="[cardStatus]"
+            *ngTemplateOutlet="itemStatus; context: { $implicit: file }"
+          />
           <ng-container *ngTemplateOutlet="entryActions; context: { $implicit: file }" />
         </app-link-card>
       } @else {
@@ -258,6 +280,10 @@
           [isAdmin]="auth.isAdmin()"
           (resliceWith)="onResliceWith(file)"
         >
+          <ng-container
+            ngProjectAs="[cardStatus]"
+            *ngTemplateOutlet="itemStatus; context: { $implicit: file }"
+          />
           <ng-container *ngTemplateOutlet="entryActions; context: { $implicit: file }" />
         </app-model-info-card>
       }

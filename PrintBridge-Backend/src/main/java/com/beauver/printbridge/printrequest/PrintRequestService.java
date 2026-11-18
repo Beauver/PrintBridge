@@ -11,6 +11,7 @@ import com.beauver.printbridge.modelfile.ModelFileValidator;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.printrequest.file.FileBundle;
+import com.beauver.printbridge.printrequest.file.ItemStatus;
 import com.beauver.printbridge.printrequest.file.NewLink;
 import com.beauver.printbridge.printrequest.file.RequestFile;
 import com.beauver.printbridge.printrequest.file.RequestFileKind;
@@ -41,6 +42,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 
@@ -100,12 +102,20 @@ public class PrintRequestService {
 
     /** The caller's own requests, newest first. */
     public List<PrintRequestSummaryDto> listOwn(long ownerId) {
-        return requests.listOwnNewestFirst(ownerId).stream().map(mapper::toSummary).toList();
+        return summaries(requests.listOwnNewestFirst(ownerId));
     }
 
     /** Admin overview: everyone's requests in the given statuses, optionally searched, newest first. */
     public List<PrintRequestSummaryDto> listAll(Set<RequestStatus> statuses, String search) {
-        return requests.searchNewestFirst(statuses, search).stream().map(mapper::toSummary).toList();
+        return summaries(requests.searchNewestFirst(statuses, search));
+    }
+
+    /** List rows with the progress of their items (#61), loaded in one query. */
+    private List<PrintRequestSummaryDto> summaries(List<PrintRequest> found) {
+        Map<Long, ItemProgress> progress = requests.itemProgress(found.stream().map(r -> r.id).toList());
+        return found.stream()
+                .map(r -> mapper.toSummary(r, progress.getOrDefault(r.id, ItemProgress.NONE)))
+                .toList();
     }
 
     public PrintRequestDto get(long id, Caller caller) {
@@ -467,12 +477,63 @@ public class PrintRequestService {
         if (target == RequestStatus.COMPLETED && request.finalPrice == null) {
             throw new ConflictException("Set a final price before completing the request");
         }
+        RequestStatus from = request.status;
         request.status = target;
         if (target == RequestStatus.DECLINED) {
             request.declineReason = blankToNull(declineReason);
         }
+        moveItemsAlong(request, from, target);
         requests.flush();
         return describe(request, true);
+    }
+
+    /**
+     * The request moves its items along (#61): accepting it accepts the pending ones, declining
+     * it declines all but the completed ones, completing it completes all but the declined ones.
+     * Other moves (to PRINTING, back to ACCEPTED, IN_REVIEW) leave the items alone.
+     */
+    static void moveItemsAlong(PrintRequest request, RequestStatus from, RequestStatus to) {
+        // Back from PRINTING to ACCEPTED is a failed print, not an acceptance.
+        boolean accepting = to == RequestStatus.ACCEPTED && from != RequestStatus.PRINTING;
+        for (RequestFile item : request.files) {
+            if (accepting && item.status == ItemStatus.PENDING) {
+                setItemStatus(item, ItemStatus.ACCEPTED, null);
+            } else if (to == RequestStatus.DECLINED && item.status != ItemStatus.COMPLETED) {
+                setItemStatus(item, ItemStatus.DECLINED, null);
+            } else if (to == RequestStatus.COMPLETED && item.status != ItemStatus.DECLINED) {
+                setItemStatus(item, ItemStatus.COMPLETED, null);
+            }
+        }
+    }
+
+    /**
+     * Moves one file or link of a request along its own flow (#61; admin). Refused on a final
+     * request and for a move outside {@link ItemStatus#nextStatuses()}. Declining keeps the
+     * optional reason; any other status drops it.
+     */
+    @Transactional
+    public PrintRequestDto changeItemStatus(long id, long fileId, ItemStatus target, String declineReason) {
+        PrintRequest request = requests.findWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        RequestFile item = fileOf(request, fileId);
+        if (request.status.isFinal()) {
+            throw new ConflictException("This request is " + request.status + " and its items can no longer change");
+        }
+        if (!item.status.canMoveTo(target)) {
+            throw new ConflictException("Cannot change the item's status from " + item.status + " to " + target);
+        }
+        String reason = null;
+        if (target == ItemStatus.DECLINED) {
+            reason = blankToNull(declineReason);
+        }
+        setItemStatus(item, target, reason);
+        requests.flush();
+        return describe(request, true);
+    }
+
+    private static void setItemStatus(RequestFile item, ItemStatus status, String declineReason) {
+        item.status = status;
+        item.declineReason = declineReason;
     }
 
     /**

@@ -1,0 +1,82 @@
+@if (isAdmin() && item().nextStatuses.length > 0) {
+  <div ngbDropdown class="d-inline-block" data-cy="item-status">
+    <button
+      type="button"
+      class="badge border-0"
+      [class]="badgeClass(item().status)"
+      [disabled]="saving()"
+      ngbDropdownToggle
+      data-cy="item-status-toggle"
+    >
+      {{ label(item().status) }}
+    </button>
+    <div ngbDropdownMenu>
+      @for (status of item().nextStatuses; track status) {
+        <button
+          type="button"
+          ngbDropdownItem
+          (click)="choose(status)"
+          [attr.data-cy]="'item-status-' + status"
+        >
+          {{ label(status) }}
+        </button>
+      }
+    </div>
+  </div>
+} @else {
+  <span class="badge" [class]="badgeClass(item().status)" data-cy="item-status-badge">{{
+    label(item().status)
+  }}</span>
+}
+
+@if (confirmingDecline()) {
+  <div class="w-100 alert alert-danger py-2 mb-0 mt-2" data-cy="item-decline-confirm">
+    <label class="form-label small mb-1" [for]="'item-decline-reason-' + item().id"
+      >Decline this item? Reason <span class="text-body-secondary">(optional)</span></label
+    >
+    <textarea
+      [id]="'item-decline-reason-' + item().id"
+      class="form-control form-control-sm mb-2"
+      rows="2"
+      [attr.maxlength]="maxReason"
+      [value]="reason()"
+      [disabled]="saving()"
+      (input)="setReason($event)"
+      data-cy="item-decline-reason"
+    ></textarea>
+    <div class="d-flex gap-2">
+      <button
+        type="button"
+        class="btn btn-danger btn-sm"
+        [disabled]="saving()"
+        (click)="confirmDecline()"
+        data-cy="item-decline-yes"
+      >
+        @if (saving()) {
+          Declining…
+        } @else {
+          Decline
+        }
+      </button>
+      <button
+        type="button"
+        class="btn btn-outline-secondary btn-sm"
+        [disabled]="saving()"
+        (click)="cancelDecline()"
+        data-cy="item-decline-no"
+      >
+        Cancel
+      </button>
+    </div>
+  </div>
+}
+
+@if (error()) {
+  <div
+    class="w-100 alert alert-danger alert-dismissible py-2 mb-0 mt-2"
+    data-cy="item-status-error"
+  >
+    {{ error() }}
+    <button type="button" class="btn-close" aria-label="Close" (click)="dismissError()"></button>
+  </div>
+}

@@ -23,8 +23,9 @@ import {
 /**
  * What the backend knows about the model file: size, plates, weight, time and filaments, from
  * server slicing, the file's own slice data or an estimate (see docs/features/server-slicing.md).
- * Collapsible (#23): the header keeps the file name, quantity, weight, time and badges; the body
- * starts with whatever the page projects into it (the file's actions).
+ * Collapsible (#23): the header keeps the file name, quantity, weight, time and badges, plus what
+ * the page projects with `cardStatus` (the item's status, #61); the body starts with whatever the
+ * page projects into it (the file's actions).
  */
 @Component({
   selector: 'app-model-info-card',
