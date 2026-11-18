@@ -89,12 +89,12 @@ class CustomResliceResourceTest {
 
     private ValidatableResponse resliceWith(String token, int[] file, Map<String, Object> choice) {
         return given().auth().oauth2(token).contentType(ContentType.JSON).body(choice)
-                .post("/api/requests/" + file[0] + "/files/" + file[1] + "/reslice-with").then();
+                .post("/api/requests/" + file[0] + "/files/" + file[1] + "/reslice").then();
     }
 
     private ValidatableResponse options(String token, int[] file) {
         return given().auth().oauth2(token)
-                .get("/api/requests/" + file[0] + "/files/" + file[1] + "/reslice-options").then();
+                .get("/api/requests/" + file[0] + "/files/" + file[1] + "/reslice").then();
     }
 
     private ValidatableResponse slicingOf(int[] file) {
@@ -136,38 +136,15 @@ class CustomResliceResourceTest {
                 .body("start.process", is(PROCESS));
     }
 
+    /** The old plain re-slice (#15) is gone since #21; a POST without a choice is refused. */
     @Test
-    void thePlainResliceGoesBackToTheRules() {
-        int[] file = uploaded("cube.stl", ModelFiles.cubeStl(10));
-        resliceWith(adminToken, file, choice(p1sId, "0.2", PROCESS, FILAMENT)).statusCode(200);
-        worker.drain();
-
-        given().auth().oauth2(adminToken).post("/api/requests/" + file[0] + "/files/" + file[1] + "/reslice")
-                .then().statusCode(200);
-        worker.drain();
-
-        assertEquals("0.20mm Standard @BBL X1C", slicer.plans.getLast().process());
-        slicingOf(file)
-                .body("files[0].modelInfo.slicing.custom", is(false))
-                .body("files[0].modelInfo.slicing.process", nullValue())
-                .body("files[0].modelInfo.slicing.nozzle", is(0.4f));
-    }
-
-    /** Browsers send a body-less POST with or without a Content-Type; both are the plain re-slice. */
-    @Test
-    void aResliceWithoutABodyUsesTheRules() {
+    void aResliceWithoutAChoiceIsRefused() {
         int[] file = uploaded("cube.stl", ModelFiles.cubeStl(10));
         String url = "/api/requests/" + file[0] + "/files/" + file[1] + "/reslice";
 
-        given().auth().oauth2(adminToken).post(url).then().statusCode(200);
-        worker.drain();
-        given().auth().oauth2(adminToken).contentType(ContentType.JSON).post(url).then().statusCode(200);
-        worker.drain();
-        given().auth().oauth2(adminToken).contentType(ContentType.TEXT).post(url).then().statusCode(200);
-        worker.drain();
-
-        assertEquals(3, slicer.plans.size());
-        slicingOf(file).body("files[0].modelInfo.slicing.custom", is(false));
+        given().auth().oauth2(adminToken).post(url).then().statusCode(415);
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON).post(url).then().statusCode(400);
+        assertTrue(slicer.plans.isEmpty());
     }
 
     @Test
@@ -232,7 +209,7 @@ class CustomResliceResourceTest {
         resliceWith(adminToken, file, choice(p1sId, "0.4", PROCESS, "PETG HF"))
                 .statusCode(400).body("message", startsWith("The filament profile PETG HF doesn't exist"));
         given().auth().oauth2(adminToken).contentType(ContentType.JSON)
-                .post("/api/requests/" + file[0] + "/files/" + file[1] + "/reslice-with").then().statusCode(400);
+                .post("/api/requests/" + file[0] + "/files/" + file[1] + "/reslice").then().statusCode(400);
         Map<String, Object> noNozzle = choice(p1sId, "0.4", PROCESS, FILAMENT);
         noNozzle.remove("nozzle");
         resliceWith(adminToken, file, noNozzle).statusCode(400);

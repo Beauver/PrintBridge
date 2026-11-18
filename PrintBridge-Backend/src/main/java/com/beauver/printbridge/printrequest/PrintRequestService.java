@@ -513,19 +513,6 @@ public class PrintRequestService {
     }
 
     /**
-     * Queues one file of a request for server slicing again (admin), e.g. after changing the
-     * profiles. The other files are left alone. Refused while slicing is off or the file is
-     * already queued or running.
-     */
-    @Transactional
-    public PrintRequestDto reslice(long id, long fileId) {
-        PrintRequest request = requests.findWithDetails(id)
-                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
-        slicing.reslice(List.of(sliceableFile(request, fileId).id));
-        return describe(request, true);
-    }
-
-    /**
      * Queues one file of a request for server slicing with the admin's choice of printer, nozzle
      * and profiles (#21); the other files are left alone. The choice is checked by
      * {@link CustomResliceService}.

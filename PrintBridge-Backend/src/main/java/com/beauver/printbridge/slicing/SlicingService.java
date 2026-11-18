@@ -80,16 +80,6 @@ public class SlicingService {
     }
 
     /**
-     * Slices these files again with the automatic rules (admin), which also drops an earlier
-     * custom choice (#21). Refused while slicing is off or a file is already in the queue.
-     */
-    @Transactional(Transactional.TxType.MANDATORY)
-    public void reslice(Collection<Long> fileIds) {
-        fileIds.forEach(this::checkMayReslice);
-        fileIds.forEach(fileId -> queue(fileId, null));
-    }
-
-    /**
      * Slices one file again with the admin's choice (#21), which {@link CustomResliceService}
      * checked. Refused while slicing is off or the file is already in the queue.
      */

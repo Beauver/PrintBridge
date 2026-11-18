@@ -46,7 +46,7 @@ A printer counts as owned when the project names the same model (case doesn't ma
 - A plate OrcaSlicer refused shows its own estimate (`~X g`); the total then says *(partly estimated)*. The admin also sees OrcaSlicer's reason under the plate.
 - When the whole job failed (slicer unreachable, timed out, file missing, …) the card falls back to the file's own slice data or the estimate. The admin sees *Slicing failed: <reason>* and can re-slice; the requester just sees the fallback.
 - **Re-slice with…** (admin, while slicing is on and the file isn't queued or running): see [below](#re-slice-with). The request's other files are left alone (#23).
-- The plain re-slice with the rules above (#15) is still in the API (`POST …/reslice`, which also drops an earlier custom choice), but has no button any more since #21: *Re-slice with…* covers it.
+- The plain re-slice with the rules above (#15) was removed in #21: *Re-slice with…* covers it. The rules still decide how new uploads are sliced.
 - Switching slicing off drops queued jobs (a running one finishes). Switching it on again doesn't re-queue them.
 
 ## Re-slice with…
@@ -70,7 +70,7 @@ Issue: #21. The admin can re-slice one file with chosen settings, to see what a 
 
 - **Checks** (`400`): the printer must be owned and set up, the nozzle owned on it, and each chosen profile must exist for that printer + nozzle (asked from the slicer; `503` when it can't be reached). *Project's own settings* only for a project on its own printer and nozzle, *Project's filaments* only for projects. `409` while slicing is off or the file is queued or running; links can't be sliced.
 - **Stored:** the choice is saved with the job when it is queued (`custom`, printer, nozzle, process, filament), so it survives a restart. When the chosen printer is removed, or no longer owns that nozzle, before the job runs, the job fails with that reason. A profile OrcaSlicer no longer knows fails it too.
-- **On the card:** the *Sliced for* row adds the profiles: "Bambu Lab P1S · 0,2 mm nozzle · 0.12mm Fine @BBL P1S · Bambu PLA Basic", or "project's settings" / "project's filaments". The *Made for* row appears when a project was sliced on another printer or nozzle than its own (custom or automatic). The requester sees the same rows. The result stays until the file is re-sliced again (a plain re-slice through the API goes back to the rules and the text disappears).
+- **On the card:** the *Sliced for* row adds the profiles: "Bambu Lab P1S · 0,2 mm nozzle · 0.12mm Fine @BBL P1S · Bambu PLA Basic", or "project's settings" / "project's filaments". The *Made for* row appears when a project was sliced on another printer or nozzle than its own (custom or automatic). The requester sees the same rows. The result stays until the file is re-sliced again.
 - Only that file is re-sliced, not the rest of the request.
 
 ## Slicer service

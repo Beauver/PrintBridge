@@ -148,15 +148,13 @@ export class PrintRequestsService {
 
   /** Admin: what the "Re-slice with…" dialog of one file offers (#21). */
   resliceOptions(requestId: number, fileId: number): Observable<ResliceOptions> {
-    return this.http.get<ResliceOptions>(
-      `/api/requests/${requestId}/files/${fileId}/reslice-options`,
-    );
+    return this.http.get<ResliceOptions>(`/api/requests/${requestId}/files/${fileId}/reslice`);
   }
 
   /** Admin: slice one file again with a chosen printer, nozzle and profiles (#21). */
   resliceWith(requestId: number, fileId: number, choice: ResliceChoice): Observable<PrintRequest> {
     return this.http.post<PrintRequest>(
-      `/api/requests/${requestId}/files/${fileId}/reslice-with`,
+      `/api/requests/${requestId}/files/${fileId}/reslice`,
       choice,
     );
   }

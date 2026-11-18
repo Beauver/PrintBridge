@@ -21,6 +21,7 @@ import com.beauver.printbridge.printrequest.file.UploadedModel;
 import com.beauver.printbridge.settings.SettingsService;
 import com.beauver.printbridge.settings.UploadConfig;
 import com.beauver.printbridge.settings.UploadLimits;
+import com.beauver.printbridge.slicing.CustomResliceService;
 import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.storage.FileStorage;
 import com.beauver.printbridge.user.Role;
@@ -71,6 +72,8 @@ class PrintRequestServiceTest {
     SlicingService slicing;
     @Mock
     SettingsService settings;
+    @Mock
+    CustomResliceService customReslice;
 
     @TempDir
     Path dir;
@@ -98,6 +101,7 @@ class PrintRequestServiceTest {
         service.afterTransaction = afterTransaction;
         service.transactions = transactions;
         service.settings = settings;
+        service.customReslice = customReslice;
         lenient().when(settings.uploads()).thenReturn(new UploadLimits(3, 2, 5));
         lenient().doAnswer(inv -> {
             assignFileIds();
@@ -896,24 +900,26 @@ class PrintRequestServiceTest {
                 PrintRequestService.uniqueNames(List.of("a (2).stl", "a.stl", "a.stl")));
     }
 
+    static final CustomResliceRequest CHOICE = new CustomResliceRequest(1L, new BigDecimal("0.4"), "0.20mm Standard", "PLA Basic");
+
     @Test
-    void resliceQueuesOnlyThatFile() {
+    void resliceQueuesOnlyThatFileWithTheChoice() {
         PrintRequest r = request(4, user(2, "bob"), RequestStatus.ACCEPTED);
         RequestFile lid = extraFile(r, 201, "lid.stl");
         when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
 
-        service.reslice(4, 201);
+        service.resliceWith(4, 201, CHOICE);
 
-        verify(slicing).reslice(List.of(lid.id));
+        verify(customReslice).reslice(lid.id, 1L, new BigDecimal("0.4"), "0.20mm Standard", "PLA Basic");
     }
 
     @Test
     void resliceOfUnknownFileOrRequestIsNotFound() {
         when(requests.findWithDetails(4)).thenReturn(Optional.of(request(4, user(2, "bob"), RequestStatus.ACCEPTED)));
-        assertThrows(ResourceNotFoundException.class, () -> service.reslice(4, 999));
+        assertThrows(ResourceNotFoundException.class, () -> service.resliceWith(4, 999, CHOICE));
         when(requests.findWithDetails(5)).thenReturn(Optional.empty());
-        assertThrows(ResourceNotFoundException.class, () -> service.reslice(5, 105));
-        verifyNoInteractions(slicing);
+        assertThrows(ResourceNotFoundException.class, () -> service.resliceWith(5, 105, CHOICE));
+        verifyNoInteractions(customReslice);
     }
 
     // --- links (#59) ---
@@ -1144,8 +1150,8 @@ class PrintRequestServiceTest {
         PrintRequest r = request(4, user(2, "bob"), RequestStatus.ACCEPTED);
         extraLink(r, 201, "https://example.com/a", null, 1);
         when(requests.findWithDetails(4)).thenReturn(Optional.of(r));
-        var e = assertThrows(ConflictException.class, () -> service.reslice(4, 201));
+        var e = assertThrows(ConflictException.class, () -> service.resliceWith(4, 201, CHOICE));
         assertEquals("Links can't be sliced", e.getMessage());
-        verifyNoInteractions(slicing);
+        verifyNoInteractions(customReslice);
     }
 }

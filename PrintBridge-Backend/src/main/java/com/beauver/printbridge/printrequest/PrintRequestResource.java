@@ -163,20 +163,9 @@ public class PrintRequestResource {
                 .build();
     }
 
-    /** Slices one file of the request again on the server with the automatic rules (admin). */
+    /** Slices one file of the request again with a chosen printer, nozzle and profiles (admin; #21). */
     @POST
     @Path("/{id}/files/{fileId}/reslice")
-    @RolesAllowed(Role.ADMIN_ROLE)
-    public PrintRequestDto reslice(@PathParam("id") long id, @PathParam("fileId") long fileId) {
-        return service.reslice(id, fileId);
-    }
-
-    /**
-     * Slices one file again with a chosen printer, nozzle and profiles (admin; #21). Its own path,
-     * so a body-less plain re-slice can never be taken for this one.
-     */
-    @POST
-    @Path("/{id}/files/{fileId}/reslice-with")
     @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed(Role.ADMIN_ROLE)
     public PrintRequestDto resliceWith(@PathParam("id") long id, @PathParam("fileId") long fileId,
@@ -186,7 +175,7 @@ public class PrintRequestResource {
 
     /** What the "Re-slice with…" dialog of one file offers (admin; #21). */
     @GET
-    @Path("/{id}/files/{fileId}/reslice-options")
+    @Path("/{id}/files/{fileId}/reslice")
     @RolesAllowed(Role.ADMIN_ROLE)
     public ResliceOptionsDto resliceOptions(@PathParam("id") long id, @PathParam("fileId") long fileId) {
         return service.resliceOptions(id, fileId);

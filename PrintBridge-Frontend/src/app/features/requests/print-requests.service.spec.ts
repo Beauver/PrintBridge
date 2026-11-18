@@ -88,12 +88,12 @@ describe('PrintRequestsService', () => {
   it('re-slices a file with a chosen setup and loads what the dialog offers (#21)', () => {
     const choice = { printerId: 1, nozzle: 0.2, process: '0.12mm Fine', filament: null };
     service.resliceWith(4, 7, choice).subscribe();
-    const custom = http.expectOne({ method: 'POST', url: '/api/requests/4/files/7/reslice-with' });
+    const custom = http.expectOne({ method: 'POST', url: '/api/requests/4/files/7/reslice' });
     expect(custom.request.body).toEqual(choice);
     custom.flush(REQUEST);
 
     service.resliceOptions(4, 7).subscribe();
-    http.expectOne({ method: 'GET', url: '/api/requests/4/files/7/reslice-options' }).flush({});
+    http.expectOne({ method: 'GET', url: '/api/requests/4/files/7/reslice' }).flush({});
   });
 
   it('downloads a file as a blob', () => {
