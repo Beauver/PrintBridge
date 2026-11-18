@@ -41,25 +41,50 @@
     </div>
 
     <div class="mb-3">
-      <label class="form-label" for="request-files">Model files</label>
-      <input
-        id="request-files"
-        type="file"
-        class="form-control"
-        multiple
-        [accept]="accept()"
-        [disabled]="uploading()"
-        [class.is-invalid]="filesError()"
-        (change)="onFilesSelected($event)"
-        data-cy="new-request-files"
-      />
-      <div class="invalid-feedback" data-cy="new-request-files-error">{{ filesError() }}</div>
+      <label class="form-label" for="request-files">Model files and links</label>
+      <div class="d-flex gap-2">
+        <input
+          id="request-files"
+          type="file"
+          class="form-control"
+          multiple
+          [accept]="accept()"
+          [disabled]="uploading()"
+          [class.is-invalid]="filesError()"
+          (change)="onFilesSelected($event)"
+          data-cy="new-request-files"
+        />
+        <button
+          type="button"
+          class="btn btn-outline-primary text-nowrap"
+          [disabled]="uploading() || addingLink()"
+          (click)="openLinkForm()"
+          data-cy="new-request-add-link"
+        >
+          Add link
+        </button>
+      </div>
+      @if (filesError()) {
+        <div class="small text-danger mt-1" data-cy="new-request-files-error">
+          {{ filesError() }}
+        </div>
+      }
       <div class="form-text" data-cy="new-request-limits">
         {{ accept() }}
         @if (limits()) {
           · {{ limits() }}
         }
+        · links to Patreon, Printables, … are downloaded by the owner
       </div>
+      @if (addingLink()) {
+        <div class="mt-2">
+          <app-link-form
+            [disabled]="uploading()"
+            (added)="onLinkAdded($event)"
+            (cancelled)="closeLinkForm()"
+          />
+        </div>
+      }
     </div>
 
     @if (entries().length > 0) {
@@ -67,12 +92,20 @@
         @for (entry of entries(); track entry.key) {
           <li class="list-group-item" data-cy="new-request-file">
             <div class="d-flex flex-wrap align-items-center gap-2">
-              <span class="me-auto text-break">
-                {{ entry.file.name }}
-                <span class="text-body-secondary small ms-1">{{
-                  formatBytes(entry.file.size)
-                }}</span>
-              </span>
+              @if (entry.kind === 'file') {
+                <span class="me-auto text-break">
+                  {{ entry.file.name }}
+                  <span class="text-body-secondary small ms-1">{{
+                    formatBytes(entry.file.size)
+                  }}</span>
+                </span>
+              } @else {
+                <span class="me-auto text-break" data-cy="new-request-link">
+                  <span class="badge text-bg-secondary me-1">Link</span>
+                  {{ linkLabel(entry.link.url, entry.link.name) }}
+                  <span class="d-block text-body-secondary small">{{ entry.link.url }}</span>
+                </span>
+              }
               <label class="small text-body-secondary" [for]="'quantity-' + entry.key"
                 >Quantity</label
               >
@@ -113,7 +146,7 @@
               <div
                 class="progress mt-2"
                 role="progressbar"
-                [attr.aria-label]="'Upload progress of ' + entry.file.name"
+                [attr.aria-label]="'Upload progress of ' + entryName(entry)"
                 [attr.aria-valuenow]="entry.progress"
                 aria-valuemin="0"
                 aria-valuemax="100"
@@ -133,9 +166,9 @@
                 </div>
               </div>
             }
-            @if (entry.loader; as loader) {
+            @if (entry.kind === 'file' && entry.loader) {
               <div class="mt-2" data-cy="new-request-preview">
-                <app-model-preview [loader]="loader" />
+                <app-model-preview [loader]="entry.loader" />
               </div>
             }
           </li>

@@ -17,19 +17,38 @@
       (change)="onFilesSelected($event)"
       data-cy="add-files-input"
     />
+    <button
+      type="button"
+      class="btn btn-sm btn-outline-primary"
+      [disabled]="busy() || addingLink()"
+      (click)="openLinkForm()"
+      data-cy="add-files-add-link"
+    >
+      Add link
+    </button>
     @if (limits()) {
       <span class="small text-body-secondary" data-cy="add-files-limits">{{ limits() }}</span>
     }
   </div>
 
+  @if (addingLink()) {
+    <div class="mt-2">
+      <app-link-form
+        [disabled]="busy()"
+        (added)="onLinkAdded($event)"
+        (cancelled)="closeLinkForm()"
+      />
+    </div>
+  }
+
   @for (upload of queue(); track upload.key; let first = $first) {
     <div class="small mt-2" data-cy="add-files-upload">
-      {{ upload.file.name }}
+      <span class="text-break">{{ upload.name }}</span>
       @if (first) {
         <div
           class="progress"
           role="progressbar"
-          [attr.aria-label]="'Upload progress of ' + upload.file.name"
+          [attr.aria-label]="'Upload progress of ' + upload.name"
           [attr.aria-valuenow]="upload.progress"
           aria-valuemin="0"
           aria-valuemax="100"
@@ -44,7 +63,7 @@
 
   @if (failed().length > 0) {
     <div class="alert alert-warning alert-dismissible py-2 mt-2 mb-0" data-cy="add-files-failed">
-      These files weren't added:
+      These weren't added:
       <ul class="mb-0">
         @for (failure of failed(); track $index) {
           <li>

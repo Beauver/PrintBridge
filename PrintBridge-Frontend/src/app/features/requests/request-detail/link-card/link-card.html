@@ -1,0 +1,26 @@
+<div class="card mb-3" data-cy="link-card">
+  <div class="card-header d-flex flex-wrap align-items-center gap-2">
+    <button
+      type="button"
+      class="btn btn-link p-0 me-auto text-start text-reset text-decoration-none toggle"
+      [attr.aria-expanded]="open()"
+      (click)="toggle()"
+      data-cy="link-card-toggle"
+    >
+      <span class="chevron" [class.open]="open()" aria-hidden="true">&#9656;</span>
+      <span class="badge text-bg-secondary ms-1" data-cy="link-card-badge">Link</span>
+      <span class="fw-semibold text-break ms-1" data-cy="link-card-name">{{ label() }}</span>
+      <span class="text-body-secondary small ms-1" data-cy="link-card-quantity"
+        >× {{ quantity() }}</span
+      >
+    </button>
+  </div>
+  @if (open()) {
+    <div class="card-body" data-cy="link-card-body">
+      <ng-content />
+      <p class="text-body-secondary small mb-0">
+        No preview or model details for links; the model is downloaded from the site.
+      </p>
+    </div>
+  }
+</div>

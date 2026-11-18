@@ -51,15 +51,16 @@ Deleting a user also deletes their print requests and files.
 |---|---|---|---|
 | GET | `/requests` | – | `200` list of the caller's own request summaries, newest first |
 | GET | `/requests/upload-config` | – | `200 {maxSizeBytes, maxFiles, allowedExtensions}` (the [upload settings](features/print-requests.md#upload-settings-adminsettings)) |
-| POST | `/requests` | `multipart/form-data`: `name` (1–100), `description` (optional, max 2000), `file` (`.stl`/`.3mf`), `quantity` (optional, 1–100, default 1) | `201` request + `Location`; `400` invalid input or file; `413` body larger than the limit |
+| POST | `/requests` | `multipart/form-data`: `name` (1–100), `description` (optional, max 2000), either `file` (`.stl`/`.3mf`) or a link (#59): `url` (`http(s)`, max 2048) and `linkName` (optional, max 100); `quantity` (optional, 1–100, default 1) | `201` request + `Location`; `400` invalid input, file or link, or both or neither of `file` and `url`; `413` body larger than the limit |
 | GET | `/requests/{id}` | – | `200` request; `404` unknown or not yours |
-| GET | `/requests/{id}/files/{fileId}` | – | `200` file bytes (`model/stl` or `model/3mf`, `Content-Disposition: attachment` with the original name); `404` |
+| GET | `/requests/{id}/files/{fileId}` | – | `200` file bytes (`model/stl` or `model/3mf`, `Content-Disposition: attachment` with the original name); `404` (also for a link) |
 | GET | `/requests/{id}/files/{fileId}/preview` | – | `200` preview mesh (`application/vnd.printbridge.mesh`, gzipped, see [3D preview](features/model-preview.md)); `404`; `422 {message}` "This model is too detailed for a preview" / "No preview available for this file" |
 | GET | `/requests/{id}/files/{fileId}/plates/{plate}/thumbnail` | – | `200` the plate's PNG from a Bambu Studio / OrcaSlicer project; `404` none (STL, plain 3MF, no image) or not yours |
 | POST | `/requests/{id}/files` | `multipart/form-data`: `file`, `quantity` (optional, 1–100, default 1) | `201` request; `400` invalid file or quantity, or the request already holds *max files*; `404`; `409` owner and the request is no longer SUBMITTED; `413` |
-| DELETE | `/requests/{id}/files/{fileId}` | – | `200` request; `404`; `409` the last file, or owner and the request is no longer SUBMITTED |
+| POST | `/requests/{id}/links` | `{url, name, quantity}`: `url` `http(s)` (max 2048), `name` optional (max 100), `quantity` optional (1–100, default 1) | `201` request; `400` invalid link or quantity, or the request already holds *max files* (files and links together); `404`; `409` owner and the request is no longer SUBMITTED |
+| DELETE | `/requests/{id}/files/{fileId}` | – (also removes a link) | `200` request; `404`; `409` the last file or link, or owner and the request is no longer SUBMITTED |
 | PUT | `/requests/{id}/files/{fileId}/quantity` | `{quantity}` (1–100) | `200` request; `400`; `404`; `409` owner and no longer SUBMITTED, or admin and the request is final |
-| GET | `/requests/{id}/files.zip` | – | `200` ZIP (`application/zip`, named after the request) with every file under its original name; duplicates get a number; `404` |
+| GET | `/requests/{id}/files.zip` | – | `200` ZIP (`application/zip`, named after the request) with every file under its original name; duplicates get a number. With links, also `links.txt` (name or host, quantity and URL per link); `404` |
 | DELETE | `/requests/{id}` | – | `204`; `404` unknown or not yours; `409` owner deleting a request that is no longer SUBMITTED |
 
 Admin only (users get `403`):
@@ -70,14 +71,14 @@ Admin only (users get `403`):
 | PUT | `/requests/{id}/status` | `{status, declineReason}` (reason optional, max 2000, only kept when declining) | `200` request; `409` move not allowed, request final, or completing without a price; `404`; `400` invalid |
 | PUT | `/requests/{id}/price` | `{finalPrice}` (EUR, 0–99999999.99, max 2 decimals; `null` clears) | `200` request; `409` request final or paid; `404`; `400` invalid |
 | PUT | `/requests/{id}/paid` | `{paid}` (`true`/`false`) | `200` request; `409` not ACCEPTED/PRINTING/COMPLETED, or marking paid without a price; `404`; `400` missing `paid` |
-| POST | `/requests/{id}/files/{fileId}/reslice` | – | `200` request (that file queued for server slicing; the others are left alone); `409` slicing is off or the file is still queued/running; `404` |
+| POST | `/requests/{id}/files/{fileId}/reslice` | – | `200` request (that file queued for server slicing; the others are left alone); `409` slicing is off, the file is still queued/running, or it is a link; `404` |
 
 Allowed moves: SUBMITTED → IN_REVIEW / ACCEPTED / DECLINED; IN_REVIEW → ACCEPTED / DECLINED; ACCEPTED → PRINTING / COMPLETED; PRINTING → COMPLETED / ACCEPTED / DECLINED. DECLINED and COMPLETED are final.
 
 The admin can open, download and delete any request (delete in any status). Other users' requests are always `404`, never `403`, so their existence doesn't leak.
 
 Summary: `{id, name, status, finalPrice, paidAt, ownerUsername, createdAt}`.
-Request: `{id, name, description, status, finalPrice, declineReason, paidAt, ownerId, ownerUsername, createdAt, updatedAt, files: [{id, originalFilename, type, sizeBytes, createdAt, modelInfo}], nextStatuses}` (`nextStatuses`: where the admin may move it; empty once final).
+Request: `{id, name, description, status, finalPrice, declineReason, paidAt, ownerId, ownerUsername, createdAt, updatedAt, files, totals, nextStatuses}` (`files` and `totals`: see below; `nextStatuses`: where the admin may move it; empty once final).
 `status` is `SUBMITTED | IN_REVIEW | ACCEPTED | PRINTING | DECLINED | COMPLETED`; `type` is `STL | THREE_MF`; `finalPrice` is EUR or `null` (pending); `paidAt` is when it was marked paid, or `null`.
 
 `modelInfo` is what is known about the file, see [model info](features/model-info.md) and [server slicing](features/server-slicing.md): `{status, source, volumeCm3, totalGrams, weight, printSeconds, fits, fitPrinter, plates: [{index, name, width, depth, height, grams, estimated, printSeconds, fits, filaments: [{type, color, grams}], sliceError}], slicing: {enabled, status, printer, nozzle, madeForPrinter, madeForNozzle, error}}`. `fitPrinter` is the printer the fit check is for.
@@ -93,9 +94,9 @@ Request: `{id, name, description, status, finalPrice, declineReason, paidAt, own
 
 Errors are always JSON (`{message}`), also on the endpoints that otherwise return a file or a mesh.
 
-A request has `files: [{id, originalFilename, type, sizeBytes, quantity, createdAt, modelInfo}]` and `totals: {files, copies, grams, weight, printSeconds, printTimePartial, fits}` (every file times its quantity; see [model info](features/model-info.md#totals-of-a-request)).
+A request has `files: [{id, kind, originalFilename, type, sizeBytes, url, linkName, quantity, createdAt, modelInfo}]` and `totals: {files, links, copies, grams, weight, printSeconds, printTimePartial, fits}` (every file and link times its quantity; see [model info](features/model-info.md#totals-of-a-request)). `kind` is `FILE` or `LINK` (#59): a file has `originalFilename`, `type`, `sizeBytes` and `modelInfo`; a link has `url` and maybe `linkName`, and those file fields are `null`.
 
-Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file is empty`, `The file is larger than N MB`, `The file is not a valid STL file` / `3MF file`, `A request can hold at most N files`. Missing name or file gives a validation error (`violations`).
+Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file is empty`, `The file is larger than N MB`, `The file is not a valid STL file` / `3MF file`, `A request can hold at most N files and links`, `Add a model file or a link`. Link errors: `The link must start with http:// or https://`, `The link is not a valid web address`, `The link must be at most 2048 characters`, `The link name must be at most 100 characters`. A missing name gives a validation error (`violations`).
 
 ## Settings (admin only)
 

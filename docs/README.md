@@ -7,7 +7,7 @@
 - [Licence](licence.md): AGPL-3.0-or-later, contributor terms, OrcaSlicer in the slicer image.
 - Features:
   - [First-run setup, login and user management](features/setup-auth-users.md)
-  - [Print requests and STL/3MF uploads](features/print-requests.md)
+  - [Print requests, STL/3MF uploads and links](features/print-requests.md)
   - [Admin review, status flow and final price](features/admin-review.md)
   - [Model info and settings](features/model-info.md)
   - [Server slicing](features/server-slicing.md)

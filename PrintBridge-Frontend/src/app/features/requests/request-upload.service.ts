@@ -1,15 +1,9 @@
 import { inject, Injectable } from '@angular/core';
 import { catchError, concat, defer, map, Observable, of, takeWhile, tap } from 'rxjs';
-import { PrintRequest } from '../../core/models/print-request.model';
+import { NewEntry, PrintRequest } from '../../core/models/print-request.model';
 import { PrintRequestsService, UploadEvent } from './print-requests.service';
 
-/** A file to upload with its number of copies. */
-export interface FileToUpload {
-  file: File;
-  quantity: number;
-}
-
-/** What happens to the files of a batch; `index` is the file's position in the batch. */
+/** What happens to the entries of a batch; `index` is the entry's position in the batch. */
 export type BatchUploadEvent =
   | { type: 'started'; index: number }
   | { type: 'progress'; index: number; percent: number }
@@ -17,32 +11,27 @@ export type BatchUploadEvent =
   | { type: 'failed'; index: number; error: unknown };
 
 /**
- * Uploads several model files one at a time (#23), so one that fails doesn't lose the rest.
- * Unsubscribing cancels the upload that is running and skips the files after it.
+ * Adds model files and links (#59) to a request one at a time (#23), so one that fails doesn't
+ * lose the rest. Unsubscribing cancels the upload that is running and skips the entries after it.
  */
 @Injectable({ providedIn: 'root' })
 export class RequestUploadService {
   private readonly requestsService = inject(PrintRequestsService);
 
   /**
-   * Creates the request with the first file, then adds the others to it. The stream errors when
-   * the first file fails, since there is no request then; a later file that fails is reported
+   * Creates the request with the first entry, then adds the others to it. The stream errors when
+   * the first entry fails, since there is no request then; a later one that fails is reported
    * as `failed` and the next one goes on.
    */
-  createWithFiles(
+  createWithEntries(
     name: string,
     description: string,
-    files: FileToUpload[],
+    entries: NewEntry[],
   ): Observable<BatchUploadEvent> {
     return defer(() => {
-      const [first, ...others] = files;
+      const [first, ...others] = entries;
       let requestId: number | null = null;
-      const creation = this.requestsService.create({
-        name,
-        description,
-        file: first.file,
-        quantity: first.quantity,
-      });
+      const creation = this.requestsService.create({ name, description, first });
       const created = track(0, creation).pipe(
         tap((event) => {
           if (event.type === 'uploaded') {
@@ -55,30 +44,42 @@ export class RequestUploadService {
           if (requestId === null) {
             throw new Error('The request was not created');
           }
-          const addition = this.requestsService.addFile(requestId, other.file, other.quantity);
-          return track(position + 1, addition).pipe(catchError(failedAt(position + 1)));
+          return track(position + 1, this.add(requestId, other)).pipe(
+            catchError(failedAt(position + 1)),
+          );
         });
       });
       return concat(created, ...added);
     });
   }
 
-  /** Adds files to an existing request; a file that fails is reported as `failed`. */
-  addFiles(requestId: number, files: FileToUpload[]): Observable<BatchUploadEvent> {
-    const added = files.map((file, index) => {
+  /** Adds entries to an existing request; one that fails is reported as `failed`. */
+  addEntries(requestId: number, entries: NewEntry[]): Observable<BatchUploadEvent> {
+    const added = entries.map((entry, index) => {
       return defer(() => {
-        const addition = this.requestsService.addFile(requestId, file.file, file.quantity);
-        return track(index, addition).pipe(catchError(failedAt(index)));
+        return track(index, this.add(requestId, entry)).pipe(catchError(failedAt(index)));
       });
     });
     return concat(...added);
   }
+
+  /** A file is uploaded with progress; a link is one small request without any. */
+  private add(requestId: number, entry: NewEntry): Observable<UploadEvent> {
+    if (entry.kind === 'file') {
+      return this.requestsService.addFile(requestId, entry.file, entry.quantity);
+    }
+    return this.requestsService.addLink(requestId, entry.link, entry.quantity).pipe(
+      map((request): UploadEvent => {
+        return { type: 'done', request };
+      }),
+    );
+  }
 }
 
-/** One file's upload as batch events: started, its progress, then uploaded. */
+/** One entry's upload as batch events: started, its progress, then uploaded. */
 function track(index: number, upload: Observable<UploadEvent>): Observable<BatchUploadEvent> {
   const events = upload.pipe(
-    // The request the upload answers with ends this file, whether or not the source completes.
+    // The request the upload answers with ends this entry, whether or not the source completes.
     takeWhile((event) => {
       return event.type !== 'done';
     }, true),

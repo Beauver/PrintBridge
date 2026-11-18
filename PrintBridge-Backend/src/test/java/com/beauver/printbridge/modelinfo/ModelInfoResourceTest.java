@@ -166,6 +166,17 @@ class ModelInfoResourceTest {
     }
 
     @Test
+    void backfillSkipsLinks() {
+        given().auth().oauth2(bobToken)
+                .multiPart("name", "Dragon")
+                .multiPart("url", "https://www.patreon.com/posts/dragon-123")
+                .post("/api/requests").then().statusCode(201);
+
+        assertEquals(0, backfill.run());
+        assertEquals(0L, em.createQuery("select count(m) from ModelInfo m", Long.class).getSingleResult());
+    }
+
+    @Test
     void notYetAnalysedFileIsPending() {
         long id = data.printRequest(bob, RequestStatus.SUBMITTED).id();
         deleteAllModelInfo();

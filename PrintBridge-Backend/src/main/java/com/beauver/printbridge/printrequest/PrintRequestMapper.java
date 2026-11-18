@@ -25,13 +25,13 @@ public class PrintRequestMapper {
                 r.owner.id, r.owner.username, r.createdAt, r.updatedAt, files, totals, r.status.nextStatuses());
     }
 
-    /** @param modelInfos what is known about each file, by file id */
+    /** @param modelInfos what is known about each file, by file id; links have none */
     public List<RequestFileDto> toFileDtos(List<RequestFile> files, Map<Long, ModelInfoDto> modelInfos) {
         return files.stream().map(file -> toDto(file, modelInfos.get(file.id))).toList();
     }
 
     public RequestFileDto toDto(RequestFile f, ModelInfoDto modelInfo) {
-        return new RequestFileDto(f.id, f.originalFilename, f.fileType, f.sizeBytes, f.quantity, f.createdAt,
-                modelInfo);
+        return new RequestFileDto(f.id, f.kind, f.originalFilename, f.fileType, f.sizeBytes, f.url, f.linkName,
+                f.quantity, f.createdAt, modelInfo);
     }
 }

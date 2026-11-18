@@ -120,8 +120,8 @@
         role="alert"
         data-cy="request-failed-uploads"
       >
-        These files couldn't be added to the request. Add them again with
-        <strong>Add files</strong>:
+        These couldn't be added to the request. Add them again with
+        <strong>Add files</strong> or <strong>Add link</strong>:
         <ul class="mb-0">
           @for (failure of failedUploads(); track $index) {
             <li>
@@ -146,39 +146,49 @@
       />
     }
 
-    @for (file of request.files; track file.id; let first = $first) {
-      <app-model-info-card
-        [info]="file.modelInfo"
-        [requestId]="request.id"
-        [fileId]="file.id"
-        [filename]="file.originalFilename"
-        [quantity]="file.quantity"
-        [startOpen]="first"
-        [isAdmin]="auth.isAdmin()"
-        [reslicing]="reslicingId() === file.id"
-        (reslice)="onReslice(file)"
-      >
-        <div class="d-flex flex-wrap align-items-center gap-2 mb-3" data-cy="request-file">
-          <span class="me-auto text-body-secondary small"
-            >{{ fileTypeLabel(file) }} · {{ formatBytes(file.sizeBytes) }}</span
-          >
-          @if (canChangeQuantity()) {
-            <label class="small text-body-secondary" [for]="'file-quantity-' + file.id"
-              >Quantity</label
+    <!-- The actions of a file or link, at the top of its card. -->
+    <ng-template #entryActions let-file>
+      <div class="d-flex flex-wrap align-items-center gap-2 mb-3" data-cy="request-file">
+        @if (file.kind === 'LINK') {
+          <div class="me-auto d-flex align-items-center gap-2 link-target">
+            <a
+              class="btn btn-sm btn-outline-primary text-nowrap"
+              [href]="file.url"
+              target="_blank"
+              rel="noopener noreferrer"
+              data-cy="request-link-open"
+              >Open link</a
             >
-            <input
-              [id]="'file-quantity-' + file.id"
-              type="number"
-              class="form-control form-control-sm quantity"
-              [min]="minQuantity"
-              [max]="maxQuantity"
-              step="1"
-              [value]="file.quantity"
-              [disabled]="savingQuantityId() === file.id"
-              (change)="changeQuantity(file, $event)"
-              data-cy="request-file-quantity"
-            />
-          }
+            <span
+              class="small text-body-secondary text-truncate"
+              [title]="file.url"
+              data-cy="request-link-url"
+              >{{ file.url }}</span
+            >
+          </div>
+        } @else {
+          <span class="me-auto text-body-secondary small">
+            {{ fileTypeLabel(file) }} · {{ formatBytes(file.sizeBytes) }}
+          </span>
+        }
+        @if (canChangeQuantity()) {
+          <label class="small text-body-secondary" [for]="'file-quantity-' + file.id"
+            >Quantity</label
+          >
+          <input
+            [id]="'file-quantity-' + file.id"
+            type="number"
+            class="form-control form-control-sm quantity"
+            [min]="minQuantity"
+            [max]="maxQuantity"
+            step="1"
+            [value]="file.quantity"
+            [disabled]="savingQuantityId() === file.id"
+            (change)="changeQuantity(file, $event)"
+            data-cy="request-file-quantity"
+          />
+        }
+        @if (file.kind === 'FILE') {
           <button
             type="button"
             class="btn btn-sm btn-outline-primary"
@@ -188,49 +198,76 @@
           >
             {{ downloadingId() === file.id ? 'Downloading…' : 'Download' }}
           </button>
-          @if (canRemoveFiles()) {
+        }
+        @if (canRemoveFiles()) {
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-danger"
+            (click)="askRemove(file)"
+            data-cy="request-file-remove"
+          >
+            Remove
+          </button>
+        }
+      </div>
+      @if (confirmingRemoveId() === file.id) {
+        <div class="alert alert-danger py-2" data-cy="request-file-remove-confirm">
+          <p class="mb-2">Remove {{ entryName(file) }} from this request?</p>
+          <div class="d-flex gap-2">
             <button
               type="button"
-              class="btn btn-sm btn-outline-danger"
-              (click)="askRemove(file)"
-              data-cy="request-file-remove"
+              class="btn btn-danger btn-sm"
+              [disabled]="removingId() === file.id"
+              (click)="confirmRemove(file)"
+              data-cy="request-file-remove-yes"
             >
-              Remove
+              {{ removingId() === file.id ? 'Removing…' : 'Remove' }}
             </button>
-          }
-        </div>
-        @if (confirmingRemoveId() === file.id) {
-          <div class="alert alert-danger py-2" data-cy="request-file-remove-confirm">
-            <p class="mb-2">Remove {{ file.originalFilename }} from this request?</p>
-            <div class="d-flex gap-2">
-              <button
-                type="button"
-                class="btn btn-danger btn-sm"
-                [disabled]="removingId() === file.id"
-                (click)="confirmRemove(file)"
-                data-cy="request-file-remove-yes"
-              >
-                {{ removingId() === file.id ? 'Removing…' : 'Remove' }}
-              </button>
-              <button
-                type="button"
-                class="btn btn-outline-secondary btn-sm"
-                [disabled]="removingId() === file.id"
-                (click)="cancelRemove()"
-                data-cy="request-file-remove-no"
-              >
-                Cancel
-              </button>
-            </div>
+            <button
+              type="button"
+              class="btn btn-outline-secondary btn-sm"
+              [disabled]="removingId() === file.id"
+              (click)="cancelRemove()"
+              data-cy="request-file-remove-no"
+            >
+              Cancel
+            </button>
           </div>
-        }
-      </app-model-info-card>
+        </div>
+      }
+    </ng-template>
+
+    @for (file of request.files; track file.id; let first = $first) {
+      @if (file.kind === 'LINK') {
+        <app-link-card
+          [url]="file.url"
+          [linkName]="file.linkName"
+          [quantity]="file.quantity"
+          [startOpen]="first"
+        >
+          <ng-container *ngTemplateOutlet="entryActions; context: { $implicit: file }" />
+        </app-link-card>
+      } @else {
+        <app-model-info-card
+          [info]="file.modelInfo"
+          [requestId]="request.id"
+          [fileId]="file.id"
+          [filename]="file.originalFilename"
+          [quantity]="file.quantity"
+          [startOpen]="first"
+          [isAdmin]="auth.isAdmin()"
+          [reslicing]="reslicingId() === file.id"
+          (reslice)="onReslice(file)"
+        >
+          <ng-container *ngTemplateOutlet="entryActions; context: { $implicit: file }" />
+        </app-model-info-card>
+      }
     }
 
     @if (canDelete()) {
       @if (confirmingDelete()) {
         <div class="alert alert-danger" data-cy="request-delete-confirm">
-          <p class="mb-2">Delete this request and its files? This cannot be undone.</p>
+          <p class="mb-2">Delete this request and its files and links? This cannot be undone.</p>
           <div class="d-flex gap-2">
             <button
               type="button"

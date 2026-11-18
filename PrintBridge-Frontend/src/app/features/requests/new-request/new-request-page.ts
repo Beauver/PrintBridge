@@ -7,11 +7,14 @@ import { PreviewMesh } from '../../../core/models/model-preview.model';
 import {
   FailedUpload,
   FailedUploadsState,
+  NewEntry,
+  NewLink,
   UploadConfig,
 } from '../../../core/models/print-request.model';
 import { fieldError } from '../../../shared/forms/field-error';
 import { ModelPreview } from '../../../shared/model-viewer/model-preview';
-import { formatBytes } from '../../../shared/format/print-request-display';
+import { formatBytes, linkLabel } from '../../../shared/format/print-request-display';
+import { LinkForm } from '../link-form/link-form';
 import { ModelPreviewService } from '../model-preview.service';
 import { HasPendingUploads } from '../pending-uploads.guard';
 import { PrintRequestsService } from '../print-requests.service';
@@ -29,27 +32,41 @@ import {
 
 export type EntryStatus = 'waiting' | 'uploading' | 'done' | 'failed';
 
-/** A chosen file, its number of copies and how its upload goes. */
-export interface FileEntry {
+/** What every entry of the list has: its number of copies and how its upload goes. */
+interface EntryBase {
   /** Local key; the same file may be chosen twice. */
   key: number;
-  file: File;
   quantity: number;
-  /** Why the file can't be uploaded; checked when it is chosen. */
+  /** Why the entry can't be uploaded; checked when it is added. */
   error: string | null;
-  /** Loads the preview before uploading (#13); null for a file that can't be uploaded. */
-  loader: (() => Observable<PreviewMesh>) | null;
   status: EntryStatus;
   progress: number;
 }
 
+/** A chosen model file. */
+export interface FileEntry extends EntryBase {
+  kind: 'file';
+  file: File;
+  /** Loads the preview before uploading (#13); null for a file that can't be uploaded. */
+  loader: (() => Observable<PreviewMesh>) | null;
+}
+
+/** A link (#59); checked by the link form before it is added. */
+export interface LinkEntry extends EntryBase {
+  kind: 'link';
+  link: NewLink;
+}
+
+export type RequestEntry = FileEntry | LinkEntry;
+
 /**
- * Form to submit a new print request with one or more model files (#23). The request is created
- * with the first file; the others follow one by one, so one failing doesn't lose the rest.
+ * Form to submit a new print request with one or more model files (#23) and links (#59). The
+ * request is created with the first entry; the others follow one by one, so one failing doesn't
+ * lose the rest.
  */
 @Component({
   selector: 'app-new-request-page',
-  imports: [ReactiveFormsModule, RouterLink, ModelPreview],
+  imports: [ReactiveFormsModule, RouterLink, ModelPreview, LinkForm],
   templateUrl: './new-request-page.html',
   styleUrl: './new-request-page.css',
 })
@@ -70,7 +87,9 @@ export class NewRequestPage implements OnInit, HasPendingUploads {
   });
 
   protected readonly config = signal<UploadConfig>(FALLBACK_CONFIG);
-  protected readonly entries = signal<FileEntry[]>([]);
+  protected readonly entries = signal<RequestEntry[]>([]);
+  /** Whether the "Add link" row is open. */
+  protected readonly addingLink = signal(false);
   /** Set once the user tried to submit, so "file required" isn't shown up front. */
   protected readonly submitted = signal(false);
   protected readonly uploading = signal(false);
@@ -88,18 +107,18 @@ export class NewRequestPage implements OnInit, HasPendingUploads {
     return limitsText(this.entries().length, this.config());
   });
 
-  /** About the list as a whole: no file, or more than the limit. */
+  /** About the list as a whole: nothing in it, or more than the limit (files and links together). */
   protected readonly filesError = computed(() => {
     const count = this.entries().length;
     if (count === 0) {
       if (this.submitted()) {
-        return 'Add at least one model file';
+        return 'Add at least one model file or link';
       }
       return null;
     }
     const maxFiles = this.config().maxFiles;
     if (maxFiles > 0 && count > maxFiles) {
-      return `A request can hold at most ${maxFiles} files`;
+      return `A request can hold at most ${maxFiles} files and links`;
     }
     return null;
   });
@@ -127,6 +146,7 @@ export class NewRequestPage implements OnInit, HasPendingUploads {
 
   protected readonly fieldError = fieldError;
   protected readonly formatBytes = formatBytes;
+  protected readonly linkLabel = linkLabel;
   protected readonly isValidQuantity = isValidQuantity;
 
   constructor() {
@@ -152,11 +172,42 @@ export class NewRequestPage implements OnInit, HasPendingUploads {
     const input = event.target as HTMLInputElement;
     const chosen = Array.from(input.files ?? []);
     const added = chosen.map((file) => {
-      return this.entryFor(file);
+      return this.fileEntryFor(file);
     });
     this.entries.set([...this.entries(), ...added]);
     // So choosing the same file again still fires a change.
     input.value = '';
+  }
+
+  protected openLinkForm(): void {
+    this.addingLink.set(true);
+  }
+
+  protected closeLinkForm(): void {
+    this.addingLink.set(false);
+  }
+
+  /** A link from the link form goes to the end of the list; the form stays open for more. */
+  protected onLinkAdded(link: NewLink): void {
+    const entry: LinkEntry = {
+      kind: 'link',
+      key: this.nextKey,
+      link,
+      quantity: MIN_QUANTITY,
+      error: null,
+      status: 'waiting',
+      progress: 0,
+    };
+    this.nextKey++;
+    this.entries.set([...this.entries(), entry]);
+  }
+
+  /** The file name, or the link's name or host. */
+  protected entryName(entry: RequestEntry): string {
+    if (entry.kind === 'file') {
+      return entry.file.name;
+    }
+    return linkLabel(entry.link.url, entry.link.name);
   }
 
   protected removeEntry(key: number): void {
@@ -189,8 +240,15 @@ export class NewRequestPage implements OnInit, HasPendingUploads {
     let requestId: number | null = null;
     this.uploading.set(true);
     this.error.set(null);
+    const toUpload = entries.map((entry): NewEntry => {
+      if (entry.kind === 'file') {
+        return { kind: 'file', file: entry.file, quantity: entry.quantity };
+      }
+      return { kind: 'link', link: entry.link, quantity: entry.quantity };
+    });
+    this.addingLink.set(false);
     this.uploadService
-      .createWithFiles(name, description, entries)
+      .createWithEntries(name, description, toUpload)
       .pipe(takeUntilDestroyed(this.destroyRef))
       .subscribe({
         next: (event) => {
@@ -210,11 +268,11 @@ export class NewRequestPage implements OnInit, HasPendingUploads {
               this.config(),
               'Could not upload this file.',
             );
-            failed.push({ filename: entry.file.name, reason });
+            failed.push({ filename: this.entryName(entry), reason });
           }
         },
         error: (err: unknown) => {
-          // The first file failed, so there is no request.
+          // The first entry failed, so there is no request.
           this.uploading.set(false);
           this.update(entries[0].key, { status: 'waiting', progress: 0 });
           this.error.set(uploadErrorMessage(err, this.config(), 'Could not submit your request.'));
@@ -239,8 +297,9 @@ export class NewRequestPage implements OnInit, HasPendingUploads {
     void this.router.navigate(['/requests', requestId], { state });
   }
 
-  private entryFor(file: File): FileEntry {
+  private fileEntryFor(file: File): FileEntry {
     const entry: FileEntry = {
+      kind: 'file',
       key: this.nextKey,
       file,
       quantity: MIN_QUANTITY,
@@ -269,16 +328,19 @@ export class NewRequestPage implements OnInit, HasPendingUploads {
     return { ...entry, error, loader };
   }
 
-  /** The limits arrived after files were chosen: check them again. */
+  /** The limits arrived after files were chosen: check them again. Links don't depend on them. */
   private recheck(): void {
     this.entries.set(
       this.entries().map((entry) => {
-        return this.checked(entry);
+        if (entry.kind === 'file') {
+          return this.checked(entry);
+        }
+        return entry;
       }),
     );
   }
 
-  private update(key: number, changes: Partial<FileEntry>): void {
+  private update(key: number, changes: Partial<EntryBase>): void {
     this.entries.set(
       this.entries().map((entry) => {
         if (entry.key !== key) {

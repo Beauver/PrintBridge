@@ -2,7 +2,12 @@
 import { AuthResponse, User } from '../app/core/models/account.model';
 import { ModelInfo, SlicingInfo } from '../app/core/models/model-info.model';
 import { PreviewMesh } from '../app/core/models/model-preview.model';
-import { PrintRequest, PrintRequestSummary } from '../app/core/models/print-request.model';
+import {
+  PrintRequest,
+  PrintRequestSummary,
+  RequestLink,
+  UploadedFile,
+} from '../app/core/models/print-request.model';
 import { Printer, Settings } from '../app/core/models/settings.model';
 import { SlicerPrinter } from '../app/core/models/slicer.model';
 
@@ -25,6 +30,37 @@ export function authResponse(user: User, token = 'access-token'): AuthResponse {
   return { accessToken: token, expiresIn: 900, user };
 }
 
+export const UPLOADED_FILE: UploadedFile = {
+  id: 7,
+  kind: 'FILE',
+  originalFilename: 'benchy.stl',
+  type: 'STL',
+  sizeBytes: 2048,
+  url: null,
+  linkName: null,
+  quantity: 1,
+  createdAt: '2026-02-01T10:00:00Z',
+  modelInfo: {
+    status: 'PENDING',
+    plates: [],
+    slicing: { status: null },
+  } as unknown as ModelInfo,
+};
+
+/** A link (#59) without a name. */
+export const LINK: RequestLink = {
+  id: 9,
+  kind: 'LINK',
+  originalFilename: null,
+  type: null,
+  sizeBytes: null,
+  url: 'https://www.printables.com/model/1',
+  linkName: null,
+  quantity: 2,
+  createdAt: '2026-02-01T10:00:00Z',
+  modelInfo: null,
+};
+
 export const REQUEST: PrintRequest = {
   id: 4,
   name: 'Benchy',
@@ -37,23 +73,10 @@ export const REQUEST: PrintRequest = {
   ownerUsername: 'alice',
   createdAt: '2026-02-01T10:00:00Z',
   updatedAt: '2026-02-01T10:00:00Z',
-  files: [
-    {
-      id: 7,
-      originalFilename: 'benchy.stl',
-      type: 'STL',
-      sizeBytes: 2048,
-      quantity: 1,
-      createdAt: '2026-02-01T10:00:00Z',
-      modelInfo: {
-        status: 'PENDING',
-        plates: [],
-        slicing: { status: null },
-      } as unknown as ModelInfo,
-    },
-  ],
+  files: [UPLOADED_FILE],
   totals: {
     files: 1,
+    links: 0,
     copies: 1,
     grams: null,
     weight: null,

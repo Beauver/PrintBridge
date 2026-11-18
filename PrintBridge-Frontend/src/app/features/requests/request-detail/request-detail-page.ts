@@ -1,4 +1,4 @@
-import { DatePipe, Location } from '@angular/common';
+import { DatePipe, Location, NgTemplateOutlet } from '@angular/common';
 import { HttpErrorResponse } from '@angular/common/http';
 import {
   Component,
@@ -20,12 +20,14 @@ import {
   FailedUploadsState,
   PrintRequest,
   RequestFile,
+  UploadedFile,
 } from '../../../core/models/print-request.model';
 import { formatDuration, formatGrams } from '../../../shared/format/model-info-display';
 import { PriceTag } from '../../../shared/price-tag/price-tag';
 import {
   allowsPayment,
   formatBytes,
+  linkLabel,
   statusBadgeClass,
   statusLabel,
 } from '../../../shared/format/print-request-display';
@@ -33,18 +35,26 @@ import { HasPendingUploads } from '../pending-uploads.guard';
 import { PrintRequestsService } from '../print-requests.service';
 import { isValidQuantity, MAX_QUANTITY, MIN_QUANTITY } from '../upload-checks';
 import { AddFiles } from './add-files/add-files';
+import { LinkCard } from './link-card/link-card';
 import { ModelInfoCard } from './model-info-card/model-info-card';
 import { ReviewPanel } from './review-panel/review-panel';
 
-const FILE_TYPE_LABELS: Record<RequestFile['type'], string> = { STL: 'STL', THREE_MF: '3MF' };
+const FILE_TYPE_LABELS: Record<UploadedFile['type'], string> = { STL: 'STL', THREE_MF: '3MF' };
 
 /** How often the page reloads the request while one of its files is being sliced. */
 export const SLICING_POLL_MS = 3000;
 
 function isSlicing(request: PrintRequest): boolean {
-  return request.files.some((file) => {
+  return uploadedFiles(request).some((file) => {
     const status = file.modelInfo.slicing.status;
     return status === 'QUEUED' || status === 'RUNNING';
+  });
+}
+
+/** The uploaded files of a request, without its links (#59). */
+function uploadedFiles(request: PrintRequest): UploadedFile[] {
+  return request.files.filter((file): file is UploadedFile => {
+    return file.kind === 'FILE';
   });
 }
 
@@ -72,7 +82,8 @@ function filamentTotal(request: PrintRequest): { text: string; note: string | nu
       notes.push('estimate');
     }
   }
-  const unknown = request.files.filter((file) => {
+  // Links are already marked by the weight (partly estimated), like a plate that wasn't sliced.
+  const unknown = uploadedFiles(request).filter((file) => {
     return file.modelInfo.totalGrams === null;
   }).length;
   if (unknown > 0) {
@@ -103,7 +114,16 @@ function printTimeTotal(request: PrintRequest): { text: string; note: string | n
 /** One print request: details, its files (#23), delete and (admin) review. */
 @Component({
   selector: 'app-request-detail-page',
-  imports: [RouterLink, DatePipe, PriceTag, ReviewPanel, ModelInfoCard, AddFiles],
+  imports: [
+    RouterLink,
+    DatePipe,
+    NgTemplateOutlet,
+    PriceTag,
+    ReviewPanel,
+    ModelInfoCard,
+    LinkCard,
+    AddFiles,
+  ],
   templateUrl: './request-detail-page.html',
   styleUrl: './request-detail-page.css',
 })
@@ -159,20 +179,28 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
     return request.status === 'SUBMITTED';
   });
 
-  /** The last file can't be removed; that is deleting the request. */
+  /** The last file or link can't be removed; that is deleting the request. */
   protected readonly canRemoveFiles = computed(() => {
     const request = this.request();
     return this.canChangeFiles() && !!request && request.files.length > 1;
   });
 
-  /** "3 files · 7 copies", next to the Files heading. */
+  /** "3 files · 2 links · 9 copies" next to the Files heading; no files or links part when 0. */
   protected readonly fileCounts = computed(() => {
     const request = this.request();
     if (!request) {
       return null;
     }
     const totals = request.totals;
-    return `${counted(totals.files, 'file', 'files')} · ${counted(totals.copies, 'copy', 'copies')}`;
+    const parts: string[] = [];
+    if (totals.files > 0 || totals.links === 0) {
+      parts.push(counted(totals.files, 'file', 'files'));
+    }
+    if (totals.links > 0) {
+      parts.push(counted(totals.links, 'link', 'links'));
+    }
+    parts.push(counted(totals.copies, 'copy', 'copies'));
+    return parts.join(' · ');
   });
 
   /** Filament and print time of the whole request: every file times its quantity. */
@@ -303,11 +331,19 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
     }
   }
 
-  protected fileTypeLabel(file: RequestFile): string {
+  protected fileTypeLabel(file: UploadedFile): string {
     return FILE_TYPE_LABELS[file.type];
   }
 
-  protected download(file: RequestFile): void {
+  /** The file name, or the link's name or host. */
+  protected entryName(file: RequestFile): string {
+    if (file.kind === 'LINK') {
+      return linkLabel(file.url, file.linkName);
+    }
+    return file.originalFilename;
+  }
+
+  protected download(file: UploadedFile): void {
     this.downloadingId.set(file.id);
     this.error.set(null);
     this.requestsService.downloadFile(this.id(), file.id).subscribe({
@@ -388,7 +424,7 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
       error: (err: unknown) => {
         this.removingId.set(null);
         this.confirmingRemoveId.set(null);
-        this.error.set(errorMessage(err, 'Could not remove the file.'));
+        this.error.set(errorMessage(err, 'Could not remove it.'));
       },
     });
   }
