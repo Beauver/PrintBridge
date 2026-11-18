@@ -31,7 +31,7 @@ jobs:
       - run: chmod +x gradlew
       # Tests use Quarkus Dev Services (Postgres via Docker, available on the runner)
       - run: ./gradlew build --no-daemon
-      - uses: actions/upload-artifact@v4
+      - uses: actions/upload-artifact@v7
         if: always()
         with:
           name: backend-test-reports
