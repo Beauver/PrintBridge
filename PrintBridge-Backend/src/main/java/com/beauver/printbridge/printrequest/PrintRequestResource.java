@@ -8,6 +8,7 @@ import com.beauver.printbridge.printrequest.file.NewLink;
 import com.beauver.printbridge.printrequest.file.RequestFile;
 import com.beauver.printbridge.printrequest.file.StoredFile;
 import com.beauver.printbridge.printrequest.file.UploadedModel;
+import com.beauver.printbridge.slicing.dto.ResliceOptionsDto;
 import com.beauver.printbridge.user.Role;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -162,12 +163,22 @@ public class PrintRequestResource {
                 .build();
     }
 
-    /** Slices one file of the request again on the server (admin). */
+    /** Slices one file of the request again with a chosen printer, nozzle and profiles (admin; #21). */
     @POST
     @Path("/{id}/files/{fileId}/reslice")
+    @Consumes(MediaType.APPLICATION_JSON)
     @RolesAllowed(Role.ADMIN_ROLE)
-    public PrintRequestDto reslice(@PathParam("id") long id, @PathParam("fileId") long fileId) {
-        return service.reslice(id, fileId);
+    public PrintRequestDto resliceWith(@PathParam("id") long id, @PathParam("fileId") long fileId,
+                                       @Valid @NotNull CustomResliceRequest choice) {
+        return service.resliceWith(id, fileId, choice);
+    }
+
+    /** What the "Re-slice with…" dialog of one file offers (admin; #21). */
+    @GET
+    @Path("/{id}/files/{fileId}/reslice")
+    @RolesAllowed(Role.ADMIN_ROLE)
+    public ResliceOptionsDto resliceOptions(@PathParam("id") long id, @PathParam("fileId") long fileId) {
+        return service.resliceOptions(id, fileId);
     }
 
     @PUT
@@ -176,6 +187,16 @@ public class PrintRequestResource {
     @RolesAllowed(Role.ADMIN_ROLE)
     public PrintRequestDto changeStatus(@PathParam("id") long id, @Valid @NotNull StatusChangeRequest request) {
         return service.changeStatus(id, request.status(), request.declineReason());
+    }
+
+    /** Moves one file or link of the request to another status (#61; admin). */
+    @PUT
+    @Path("/{id}/files/{fileId}/status")
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RolesAllowed(Role.ADMIN_ROLE)
+    public PrintRequestDto changeItemStatus(@PathParam("id") long id, @PathParam("fileId") long fileId,
+                                            @Valid @NotNull ItemStatusChangeRequest request) {
+        return service.changeItemStatus(id, fileId, request.status(), request.declineReason());
     }
 
     @PUT

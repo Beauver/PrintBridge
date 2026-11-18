@@ -23,6 +23,11 @@
           <span class="badge" [class]="statusBadgeClass(request.status)" data-cy="request-status">
             {{ statusLabel(request.status) }}
           </span>
+          @if (progress(request); as progress) {
+            <span class="small text-body-secondary ms-1" data-cy="request-progress">{{
+              progress
+            }}</span>
+          }
         </td>
         <td data-cy="request-price">
           <app-price-tag [price]="request.finalPrice" [paidAt]="request.paidAt" />
@@ -42,8 +47,13 @@
     >
       <div class="d-flex justify-content-between align-items-start gap-2">
         <span class="fw-semibold text-body">{{ request.name }}</span>
-        <span class="badge" [class]="statusBadgeClass(request.status)">
-          {{ statusLabel(request.status) }}
+        <span class="text-nowrap">
+          @if (progress(request); as progress) {
+            <span class="small text-body-secondary me-1">{{ progress }}</span>
+          }
+          <span class="badge" [class]="statusBadgeClass(request.status)">
+            {{ statusLabel(request.status) }}
+          </span>
         </span>
       </div>
       <div class="d-flex justify-content-between small text-body-secondary mt-1">

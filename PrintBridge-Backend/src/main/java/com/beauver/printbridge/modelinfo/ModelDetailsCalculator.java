@@ -81,14 +81,16 @@ public class ModelDetailsCalculator {
 
     private static SlicingDetails slicingInfo(SliceResult slice, Context context) {
         if (slice == null) {
-            return new SlicingDetails(context.settings().enabled(), null, null, null, null, null, null);
+            return new SlicingDetails(context.settings().enabled(), null, null, null, null, null, false, null, null,
+                    null);
         }
         String error = null;
         if (context.admin()) {
             error = slice.error;
         }
         return new SlicingDetails(context.settings().enabled(), slice.status, slice.printer, slice.nozzle,
-                slice.madeForPrinter, slice.madeForNozzle, error);
+                slice.madeForPrinter, slice.madeForNozzle, slice.custom, slice.chosenProcess, slice.chosenFilament,
+                error);
     }
 
     private static Map<Integer, SlicedPlate> serverPlates(SliceResult slice) {

@@ -4,6 +4,7 @@ import { signal } from '@angular/core';
 import { ComponentFixture, TestBed } from '@angular/core/testing';
 import { By } from '@angular/platform-browser';
 import { provideRouter, Router } from '@angular/router';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { of, Subject, throwError } from 'rxjs';
 import { AuthService } from '../../../core/auth/auth.service';
 import { FileSaverService } from '../../../core/files/file-saver.service';
@@ -12,6 +13,7 @@ import { LINK, NO_SLICING, REQUEST, STL_INFO, UPLOADED_FILE } from '../../../../
 import { SliceStatus } from '../../../core/models/model-info.model';
 import { PrintRequestsService, UploadEvent } from '../print-requests.service';
 import { AddFiles } from './add-files/add-files';
+import { ResliceDialog } from './reslice-dialog/reslice-dialog';
 import { RequestDetailPage, SLICING_POLL_MS } from './request-detail-page';
 
 describe('RequestDetailPage', () => {
@@ -19,7 +21,6 @@ describe('RequestDetailPage', () => {
     get: vi.fn(),
     downloadFile: vi.fn(),
     delete: vi.fn(),
-    reslice: vi.fn(),
     uploadConfig: vi.fn(),
     addFile: vi.fn(),
     removeFile: vi.fn(),
@@ -30,6 +31,7 @@ describe('RequestDetailPage', () => {
   const isAdmin = signal(false);
   let router: Router;
   let fixture: ComponentFixture<RequestDetailPage>;
+  let modalService: NgbModal;
 
   function httpError(status: number, message?: string) {
     let error: { message: string } | null = null;
@@ -67,6 +69,7 @@ describe('RequestDetailPage', () => {
     });
     router = TestBed.inject(Router);
     vi.spyOn(router, 'navigate').mockResolvedValue(true);
+    modalService = TestBed.inject(NgbModal);
     requestsService.uploadConfig.mockReturnValue(
       of({ maxSizeBytes: 1024, maxFiles: 10, allowedExtensions: ['stl'] }),
     );
@@ -154,26 +157,35 @@ describe('RequestDetailPage', () => {
       vi.useRealTimers();
     });
 
-    it('re-slices and shows the queued request', () => {
+    it('opens the Re-slice with… dialog for a file and shows the request it queued', async () => {
       const page = create();
       const queued = withSlicing('QUEUED');
-      requestsService.reslice.mockReturnValue(of(queued));
+      const dialog = { requestId: 0, fileId: 0, filename: '' };
+      vi.spyOn(modalService, 'open').mockReturnValue({
+        componentInstance: dialog,
+        result: Promise.resolve(queued),
+      } as unknown as NgbModalRef);
 
-      page['onReslice'](UPLOADED_FILE);
+      page['onResliceWith'](UPLOADED_FILE);
+      await Promise.resolve();
 
-      expect(requestsService.reslice).toHaveBeenCalledWith(4, 7);
+      expect(modalService.open).toHaveBeenCalledWith(ResliceDialog);
+      expect(dialog).toEqual({ requestId: 4, fileId: 7, filename: 'benchy.stl' });
       expect(page['request']()).toEqual(queued);
-      expect(page['reslicingId']()).toBeNull();
     });
 
-    it('shows a re-slice error', () => {
+    it('changes nothing when the dialog is cancelled', async () => {
       const page = create();
-      requestsService.reslice.mockReturnValue(httpError(409, 'This file is already being sliced'));
+      vi.spyOn(modalService, 'open').mockReturnValue({
+        componentInstance: {},
+        result: Promise.reject(new Error('dismissed')),
+      } as unknown as NgbModalRef);
 
-      page['onReslice'](UPLOADED_FILE);
+      page['onResliceWith'](UPLOADED_FILE);
+      await Promise.resolve();
+      await Promise.resolve();
 
-      expect(page['error']()).toBe('This file is already being sliced');
-      expect(page['reslicingId']()).toBeNull();
+      expect(page['request']()).toEqual(REQUEST);
     });
 
     /** Lets Angular run its first change detection now, so only the polling counts below. */
@@ -336,6 +348,8 @@ describe('RequestDetailPage', () => {
       const TOTALS: PrintRequest['totals'] = {
         files: 2,
         links: 0,
+        declined: 0,
+        completed: 0,
         copies: 4,
         grams: 65.25,
         weight: 'EXACT',
@@ -422,6 +436,46 @@ describe('RequestDetailPage', () => {
           filament: { text: '~65 g', note: '(partly estimated)' },
           printTime: { text: '~18 h 20 min', note: '(partial time)' },
         });
+      });
+    });
+
+    describe('item statuses (#61)', () => {
+      it('counts declined items and shows the progress from Accepted on', () => {
+        const request: PrintRequest = {
+          ...REQUEST,
+          status: 'ACCEPTED',
+          files: [UPLOADED_FILE, LINK, { ...LINK, id: 10 }],
+          totals: { ...REQUEST.totals, files: 1, links: 2, declined: 1, completed: 1, copies: 3 },
+        };
+        expect(create(request)['fileCounts']()).toBe(
+          '1 file · 2 links · 3 copies · 1 declined · 1/2 completed',
+        );
+        expect(create({ ...request, status: 'IN_REVIEW' })['fileCounts']()).toBe(
+          '1 file · 2 links · 3 copies · 1 declined',
+        );
+      });
+
+      it('does not count a declined file without details as left out', () => {
+        const request: PrintRequest = {
+          ...TWO_FILES,
+          files: [
+            { ...UPLOADED_FILE, modelInfo: STL_INFO },
+            {
+              ...LID,
+              status: 'DECLINED',
+              modelInfo: { ...STL_INFO, status: 'PENDING', totalGrams: null },
+            },
+          ],
+          totals: { ...REQUEST.totals, grams: 411.6, weight: 'ESTIMATED' },
+        };
+        expect(create(request)['summary']()?.filament?.note).toBe('(estimate)');
+      });
+
+      it('shows the request an item change answered with', () => {
+        const page = create();
+        const updated = { ...REQUEST, files: [{ ...UPLOADED_FILE, status: 'ACCEPTED' as const }] };
+        page['onItemChanged'](updated);
+        expect(page['request']()).toEqual(updated);
       });
     });
 

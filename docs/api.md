@@ -49,7 +49,7 @@ Deleting a user also deletes their print requests and files.
 
 | Method | Path | Body | Response |
 |---|---|---|---|
-| GET | `/requests` | – | `200` list of the caller's own request summaries, newest first |
+| GET | `/requests` | – | `200` list of the caller's own request summaries (`{id, name, status, finalPrice, paidAt, ownerUsername, createdAt, itemsCompleted, itemsActive}`; the last two: completed and not-declined items, #61), newest first |
 | GET | `/requests/upload-config` | – | `200 {maxSizeBytes, maxFiles, allowedExtensions}` (the [upload settings](features/print-requests.md#upload-settings-adminsettings)) |
 | POST | `/requests` | `multipart/form-data`: `name` (1–100), `description` (optional, max 2000), either `file` (`.stl`/`.3mf`) or a link (#59): `url` (`http(s)`, max 2048) and `linkName` (optional, max 100); `quantity` (optional, 1–100, default 1) | `201` request + `Location`; `400` invalid input, file or link, or both or neither of `file` and `url`; `413` body larger than the limit |
 | GET | `/requests/{id}` | – | `200` request; `404` unknown or not yours |
@@ -68,10 +68,12 @@ Admin only (users get `403`):
 | Method | Path | Body | Response |
 |---|---|---|---|
 | GET | `/requests/all?status=&q=` | – | `200` everyone's request summaries, newest first. `status`: `OPEN` (default: SUBMITTED, IN_REVIEW, ACCEPTED, PRINTING), `ALL` or one status, case-insensitive; `q`: matches name or username, ignoring case. `400` unknown status |
-| PUT | `/requests/{id}/status` | `{status, declineReason}` (reason optional, max 2000, only kept when declining) | `200` request; `409` move not allowed, request final, or completing without a price; `404`; `400` invalid |
+| PUT | `/requests/{id}/status` | `{status, declineReason}` (reason optional, max 2000, only kept when declining) | `200` request (accepting, declining and completing also move its items along, see [item statuses](features/admin-review.md#item-statuses)); `409` move not allowed, request final, or completing without a price; `404`; `400` invalid |
+| PUT | `/requests/{id}/files/{fileId}/status` | `{status, declineReason}` (#61): `PENDING`, `ACCEPTED`, `DECLINED`, `PRINTING`, `COMPLETED`; reason optional, max 500, only kept when declining | `200` request; `409` move outside the item's `nextStatuses`, or the request is final; `404`; `400` invalid |
 | PUT | `/requests/{id}/price` | `{finalPrice}` (EUR, 0–99999999.99, max 2 decimals; `null` clears) | `200` request; `409` request final or paid; `404`; `400` invalid |
 | PUT | `/requests/{id}/paid` | `{paid}` (`true`/`false`) | `200` request; `409` not ACCEPTED/PRINTING/COMPLETED, or marking paid without a price; `404`; `400` missing `paid` |
-| POST | `/requests/{id}/files/{fileId}/reslice` | – | `200` request (that file queued for server slicing; the others are left alone); `409` slicing is off, the file is still queued/running, or it is a link; `404` |
+| POST | `/requests/{id}/files/{fileId}/reslice` | JSON `{printerId, nozzle, process, filament}` (#21): `process`/`filament` `null` = the project's own | `200` request (that file queued with the chosen settings); `400` printer not owned or not set up, nozzle not owned on it, profile unknown for that printer + nozzle, `null` process outside a project on its own printer and nozzle, `null` filament for a non-project; `409` slicing is off, the file is still queued/running, or it is a link; `503` the slicer can't be reached to check the profiles; `404` |
+| GET | `/requests/{id}/files/{fileId}/reslice` | – | `200 {printers: [{id, model, ownedNozzles, defaultNozzle, process, filament}], project, projectPrinter, projectNozzle, start: {printerId, nozzle, process, filament, custom}}` for the *Re-slice with…* dialog (#21); `409` a link; `404` |
 
 Allowed moves: SUBMITTED → IN_REVIEW / ACCEPTED / DECLINED; IN_REVIEW → ACCEPTED / DECLINED; ACCEPTED → PRINTING / COMPLETED; PRINTING → COMPLETED / ACCEPTED / DECLINED. DECLINED and COMPLETED are final.
 
@@ -81,7 +83,7 @@ Summary: `{id, name, status, finalPrice, paidAt, ownerUsername, createdAt}`.
 Request: `{id, name, description, status, finalPrice, declineReason, paidAt, ownerId, ownerUsername, createdAt, updatedAt, files, totals, nextStatuses}` (`files` and `totals`: see below; `nextStatuses`: where the admin may move it; empty once final).
 `status` is `SUBMITTED | IN_REVIEW | ACCEPTED | PRINTING | DECLINED | COMPLETED`; `type` is `STL | THREE_MF`; `finalPrice` is EUR or `null` (pending); `paidAt` is when it was marked paid, or `null`.
 
-`modelInfo` is what is known about the file, see [model info](features/model-info.md) and [server slicing](features/server-slicing.md): `{status, source, volumeCm3, totalGrams, weight, printSeconds, fits, fitPrinter, plates: [{index, name, width, depth, height, grams, estimated, printSeconds, fits, filaments: [{type, color, grams}], sliceError}], slicing: {enabled, status, printer, nozzle, madeForPrinter, madeForNozzle, error}}`. `fitPrinter` is the printer the fit check is for.
+`modelInfo` is what is known about the file, see [model info](features/model-info.md) and [server slicing](features/server-slicing.md): `{status, source, volumeCm3, totalGrams, weight, printSeconds, fits, fitPrinter, plates: [{index, name, width, depth, height, grams, estimated, printSeconds, fits, filaments: [{type, color, grams}], sliceError}], slicing: {enabled, status, printer, nozzle, madeForPrinter, madeForNozzle, custom, process, filament, error}}`. `fitPrinter` is the printer the fit check is for. `custom`: sliced with the admin's choice (#21), with the chosen `process` and `filament` (`null` = the project's own).
 - `status` is `PENDING` (not analysed yet), `ANALYZED` or `FAILED`; unless ANALYZED, only `status` and `slicing` are set and `plates` is empty. `source` is `MESH | BAMBU`.
 - `weight` is `EXACT`, `PARTLY_ESTIMATED` or `ESTIMATED`; a plate's `estimated` says whether its `grams` come from its volume.
 - `slicing.status` is `null` (never queued), `QUEUED`, `RUNNING`, `DONE` or `FAILED`. `slicing.error` and the plates' `sliceError` are only filled in for the admin.
@@ -94,7 +96,7 @@ Request: `{id, name, description, status, finalPrice, declineReason, paidAt, own
 
 Errors are always JSON (`{message}`), also on the endpoints that otherwise return a file or a mesh.
 
-A request has `files: [{id, kind, originalFilename, type, sizeBytes, url, linkName, quantity, createdAt, modelInfo}]` and `totals: {files, links, copies, grams, weight, printSeconds, printTimePartial, fits}` (every file and link times its quantity; see [model info](features/model-info.md#totals-of-a-request)). `kind` is `FILE` or `LINK` (#59): a file has `originalFilename`, `type`, `sizeBytes` and `modelInfo`; a link has `url` and maybe `linkName`, and those file fields are `null`.
+A request has `files: [{id, kind, originalFilename, type, sizeBytes, url, linkName, quantity, status, declineReason, nextStatuses, createdAt, modelInfo}]` and `totals: {files, links, declined, completed, copies, grams, weight, printSeconds, printTimePartial, fits}` (every file and link times its quantity, declined items left out except in `files`, `links` and `declined`; see [model info](features/model-info.md#totals-of-a-request)). `kind` is `FILE` or `LINK` (#59): a file has `originalFilename`, `type`, `sizeBytes` and `modelInfo`; a link has `url` and maybe `linkName`, and those file fields are `null`.
 
 Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file is empty`, `The file is larger than N MB`, `The file is not a valid STL file` / `3MF file`, `A request can hold at most N files and links`, `Add a model file or a link`. Link errors: `The link must start with http:// or https://`, `The link is not a valid web address`, `The link must be at most 2048 characters`, `The link name must be at most 100 characters`. A missing name gives a validation error (`violations`).
 

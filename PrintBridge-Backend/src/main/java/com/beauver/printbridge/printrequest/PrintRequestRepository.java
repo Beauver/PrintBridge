@@ -4,9 +4,13 @@ import io.quarkus.hibernate.orm.panache.PanacheRepository;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.LockModeType;
 
+import com.beauver.printbridge.printrequest.file.ItemStatus;
+
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 
 @ApplicationScoped
@@ -50,6 +54,30 @@ public class PrintRequestRepository implements PanacheRepository<PrintRequest> {
             return Optional.empty();
         }
         return findWithDetails(id);
+    }
+
+    /**
+     * Completed and not-declined items per request (#61), for the lists; requests without items
+     * are left out. One query for the whole list.
+     */
+    public Map<Long, ItemProgress> itemProgress(Collection<Long> requestIds) {
+        if (requestIds.isEmpty()) {
+            return Map.of();
+        }
+        List<Object[]> rows = getEntityManager()
+                .createQuery("select f.request.id,"
+                        + " sum(case when f.status = :completed then 1 else 0 end),"
+                        + " sum(case when f.status <> :declined then 1 else 0 end)"
+                        + " from RequestFile f where f.request.id in :ids group by f.request.id", Object[].class)
+                .setParameter("completed", ItemStatus.COMPLETED)
+                .setParameter("declined", ItemStatus.DECLINED)
+                .setParameter("ids", requestIds)
+                .getResultList();
+        Map<Long, ItemProgress> progress = new HashMap<>();
+        for (Object[] row : rows) {
+            progress.put((Long) row[0], new ItemProgress(((Number) row[1]).intValue(), ((Number) row[2]).intValue()));
+        }
+        return progress;
     }
 
     public List<Long> idsOfOwner(long ownerId) {

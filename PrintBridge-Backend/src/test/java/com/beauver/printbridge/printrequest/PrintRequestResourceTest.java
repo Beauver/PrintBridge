@@ -402,7 +402,9 @@ class PrintRequestResourceTest {
         String file = "/api/requests/" + created.getLong("id") + "/files/" + created.getLong("files[0].id");
         given().auth().oauth2(bobToken).get(file).then().statusCode(404);
         given().auth().oauth2(bobToken).get(file + "/preview").then().statusCode(404);
-        given().auth().oauth2(adminToken).post(file + "/reslice").then().statusCode(409);
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(Map.of("printerId", 1, "nozzle", 0.4, "process", "0.20mm Standard", "filament", "PLA Basic"))
+                .post(file + "/reslice").then().statusCode(409);
     }
 
     @Test

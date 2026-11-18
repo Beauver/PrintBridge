@@ -4,7 +4,8 @@ import { linkLabel } from '../../../../shared/format/print-request-display';
 /**
  * A link of a request (#59), in the same list as the Model cards and collapsible like them. A
  * link has no preview, model details or slicing; the body is whatever the page projects into it
- * (the link's actions, with Open link and the URL).
+ * (the link's actions, with Open link and the URL), the header also takes what is projected with
+ * `cardStatus` (the item's status, #61).
  */
 @Component({
   selector: 'app-link-card',

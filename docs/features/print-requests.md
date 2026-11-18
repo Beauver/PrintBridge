@@ -4,7 +4,7 @@ Issue: #4 (part of #2); several files per request, quantities and upload setting
 
 ## What it does
 
-- **My requests** (start page, *My requests* in the navbar): the logged-in user's own requests, newest first. Shows the name, a status badge, the price ("Price pending" until the admin sets one, see [admin review](admin-review.md)) and the creation date. It's a table on wider screens and cards on phones. With no requests yet, the page shows a *New request* button (plus a hint to create accounts for the admin).
+- **My requests** (start page, *My requests* in the navbar): the logged-in user's own requests, newest first. Shows the name, a status badge (with the [item progress](admin-review.md#item-statuses), e.g. "2/3 completed", from Accepted on), the price ("Price pending" until the admin sets one, see [admin review](admin-review.md)) and the creation date. It's a table on wider screens and cards on phones. With no requests yet, the page shows a *New request* button (plus a hint to create accounts for the admin).
 - **New request** (*New request* in the navbar, `/requests/new`):
   - Fields: name (required, max 100), description (optional, max 2000) and one or more model files (`.stl` or `.3mf`) and/or [links](#links).
   - The file input takes several files at once; choosing again adds more. Each file is a row with its name, size, a **quantity** (copies, 1–100, default 1), *Remove* and *Show 3D preview* ([3D preview](model-preview.md)). Under the input: "3 of 10 files · max 100 MB each".
@@ -15,7 +15,8 @@ Issue: #4 (part of #2); several files per request, quantities and upload setting
 - **Request detail** (`/requests/:id`):
   - The details card has two columns (one on phones): on the left *Requested by* (admin), *Description*, *Created* and *Last updated*; on the right *Price* and the **totals** of the request, every file times its quantity (see [model info](model-info.md#totals-of-a-request)): *Filament* (`~412 g`, with a note on estimates) and *Print time* (`~12 h 5 min (partial time)` while some files have no time yet). A decline reason gets a full-width row below.
   - Problems with a file show as badges in its Model card header, also when collapsed: *Too big for …* and *Slicing failed*.
-  - **Files:** a heading with the counts ("3 files · 2 links · 9 copies"; a part is left out when there are none) and *Download all (ZIP)*.
+  - **Files:** a heading with the counts ("3 files · 2 links · 9 copies · 1 declined · 2/4 completed"; a part is left out when there is nothing to say; see [item statuses](admin-review.md#item-statuses)) and *Download all (ZIP)*.
+  - Every card shows the item's [status](admin-review.md#item-statuses) in its header; the admin changes it there.
   - **One Model card per file** ([model info](model-info.md)), collapsible: the first is open, the others closed. The header shows the file name, "× quantity", grams, time and the slicing / fit badges. The body starts with the file's type and size, its quantity, *Download* and *Remove*.
   - **Add files** (owner while *Submitted*, admin always): choose one or more files; they go through the same checks and limits and are uploaded one at a time with one copy each. Files that fail are listed with the reason. New files are analysed and, with server slicing on, queued.
   - **Add link** (same rules): adds one [link](#links) with one copy.

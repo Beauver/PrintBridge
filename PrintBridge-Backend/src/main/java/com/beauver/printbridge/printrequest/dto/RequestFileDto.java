@@ -2,8 +2,10 @@ package com.beauver.printbridge.printrequest.dto;
 
 import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
+import com.beauver.printbridge.printrequest.file.ItemStatus;
 import com.beauver.printbridge.printrequest.file.RequestFileKind;
 import java.time.Instant;
+import java.util.List;
 
 /**
  * An entry of a request: an uploaded file or a link (#59).
@@ -14,6 +16,9 @@ import java.time.Instant;
  * @param url              links only
  * @param linkName         links only, optional
  * @param quantity         how many copies to print
+ * @param status           where this item is (#61)
+ * @param declineReason    why the admin declined it; only while DECLINED, optional
+ * @param nextStatuses     statuses the admin may move it to; empty while the request is final
  * @param modelInfo        what the analyser read from the file; {@code null} for links
  */
 public record RequestFileDto(
@@ -25,6 +30,9 @@ public record RequestFileDto(
         String url,
         String linkName,
         int quantity,
+        ItemStatus status,
+        String declineReason,
+        List<ItemStatus> nextStatuses,
         Instant createdAt,
         ModelInfoDto modelInfo) {
 }

@@ -58,6 +58,15 @@ public class RequestFile extends PanacheEntityBase {
     @Column(name = "link_name", length = 100)
     public String linkName;
 
+    /** Where this item is (#61); new items start PENDING. */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    public ItemStatus status = ItemStatus.PENDING;
+
+    /** Why the admin declined this item; optional, only while DECLINED. */
+    @Column(name = "decline_reason", length = 500)
+    public String declineReason;
+
     /** How many copies of this file to print. */
     @Column(nullable = false)
     public int quantity = MIN_QUANTITY;
@@ -67,6 +76,10 @@ public class RequestFile extends PanacheEntityBase {
 
     public boolean isLink() {
         return kind == RequestFileKind.LINK;
+    }
+
+    public boolean isDeclined() {
+        return status == ItemStatus.DECLINED;
     }
 
     /** This file as the analysis and slicing code use it. Only for files, not links. */

@@ -8,6 +8,9 @@ export type StatusFilter = 'OPEN' | 'ALL' | RequestStatus;
 
 export type ModelFileType = 'STL' | 'THREE_MF';
 
+/** Status of one file or link of a request (#61), set by the admin. */
+export type ItemStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'PRINTING' | 'COMPLETED';
+
 /** A row in a request list. `finalPrice` is null while the price is pending. */
 export interface PrintRequestSummary {
   id: number;
@@ -18,6 +21,10 @@ export interface PrintRequestSummary {
   paidAt: string | null;
   ownerUsername: string;
   createdAt: string;
+  /** Files and links that are completed (#61). */
+  itemsCompleted: number;
+  /** Files and links that aren't declined. */
+  itemsActive: number;
 }
 
 /** An uploaded STL/3MF of a request. */
@@ -31,6 +38,11 @@ export interface UploadedFile {
   linkName: null;
   /** How many copies to print (1–100). */
   quantity: number;
+  status: ItemStatus;
+  /** Why the admin declined it; only while DECLINED, optional. */
+  declineReason: string | null;
+  /** Statuses the admin may move it to; empty while the request is final. */
+  nextStatuses: ItemStatus[];
   createdAt: string;
   modelInfo: ModelInfo;
 }
@@ -47,6 +59,9 @@ export interface RequestLink {
   /** Optional; the URL's host is shown without one. */
   linkName: string | null;
   quantity: number;
+  status: ItemStatus;
+  declineReason: string | null;
+  nextStatuses: ItemStatus[];
   createdAt: string;
   modelInfo: null;
 }
@@ -54,11 +69,16 @@ export interface RequestLink {
 /** An entry of a request: a file or a link. They share the quantity and the per-request limit. */
 export type RequestFile = UploadedFile | RequestLink;
 
-/** The whole request: every file and link times its quantity. */
+/**
+ * The whole request: every file and link times its quantity. Declined items (#61) only count in
+ * `files`, `links` and `declined`.
+ */
 export interface RequestTotals {
   /** Uploaded files. */
   files: number;
   links: number;
+  declined: number;
+  completed: number;
   /** Sum of the quantities, links included. */
   copies: number;
   /** Over the files whose weight is known; null when none is. */

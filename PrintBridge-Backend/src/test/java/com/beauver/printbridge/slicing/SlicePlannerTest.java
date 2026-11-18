@@ -117,4 +117,69 @@ class SlicePlannerTest {
         assertEquals(new SlicePlan("3mf", List.of(1), "Bambu Lab P1S", NOZZLE_04, false, null, null, 1, Map.of(),
                 true, null, null), plan);
     }
+
+    // --- custom re-slice (#21) ---
+
+    static final CustomSlice FINE_02 = new CustomSlice("Bambu Lab P1S", NOZZLE_02, "0.12mm Fine", "PLA Basic");
+
+    @Test
+    void customStlUsesTheChoiceAndIsArranged() {
+        SlicePlan plan = planner.planCustom(FINE_02, ModelFileType.STL, ModelSource.MESH, List.of(1),
+                Optional.empty());
+
+        assertEquals(new SlicePlan("stl", List.of(1), "Bambu Lab P1S", NOZZLE_02, false, "0.12mm Fine", "PLA Basic",
+                1, Map.of(), true, null, null), plan);
+    }
+
+    @Test
+    void customProjectWithoutSettingsSlicesEveryPlateWithTheChoice() {
+        SlicePlan plan = planner.planCustom(FINE_02, ModelFileType.THREE_MF, ModelSource.BAMBU, List.of(),
+                Optional.empty());
+
+        assertEquals(new SlicePlan("3mf", List.of(1), "Bambu Lab P1S", NOZZLE_02, false, "0.12mm Fine", "PLA Basic",
+                1, Map.of(), true, null, null), plan);
+    }
+
+    @Test
+    void customProjectWithItsOwnProcessKeepsItsPrinterSettings() {
+        CustomSlice own = new CustomSlice("Bambu Lab P1S", NOZZLE_02, null, "PLA Basic");
+
+        SlicePlan plan = planner.planCustom(own, ModelFileType.THREE_MF, ModelSource.BAMBU, List.of(1, 2),
+                project(NOZZLE_02, "Bambu Lab P1S"));
+
+        assertEquals(new SlicePlan("3mf", List.of(1, 2), "Bambu Lab P1S", NOZZLE_02, true, null, "PLA Basic", 3,
+                Map.of(), false, null, null), plan);
+    }
+
+    @Test
+    void customProcessOnAProjectKeepsTheDesignersChoicesAndSaysWhatItWasMadeFor() {
+        CustomSlice onA1 = new CustomSlice("Bambu Lab A1", NOZZLE_06, "0.30mm Standard @A1", null);
+
+        SlicePlan plan = planner.planCustom(onA1, ModelFileType.THREE_MF, ModelSource.BAMBU, List.of(1),
+                project(NOZZLE_04, "Bambu Lab P1S"));
+
+        assertEquals(new SlicePlan("3mf", List.of(1), "Bambu Lab A1", NOZZLE_06, false, "0.30mm Standard @A1", null,
+                3, KEPT, true, NOZZLE_04, "Bambu Lab P1S"), plan);
+    }
+
+    @Test
+    void customProcessOnTheProjectsOwnPrinterAndNozzleMentionsNothing() {
+        SlicePlan plan = planner.planCustom(FINE_02, ModelFileType.THREE_MF, ModelSource.BAMBU, List.of(1),
+                project(NOZZLE_02, " bambu lab p1s "));
+
+        assertFalse(plan.arrange());
+        assertNull(plan.madeForNozzle());
+        assertNull(plan.madeForPrinter());
+        assertEquals(KEPT, plan.overrides());
+    }
+
+    @Test
+    void customProcessOnAProjectWithoutAKnownPrinterIsArranged() {
+        SlicePlan plan = planner.planCustom(FINE_02, ModelFileType.THREE_MF, ModelSource.BAMBU, List.of(1),
+                project(null, null));
+
+        assertTrue(plan.arrange());
+        assertNull(plan.madeForNozzle());
+        assertNull(plan.madeForPrinter());
+    }
 }

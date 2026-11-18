@@ -83,9 +83,29 @@ describe('PrintRequestsService', () => {
     const paid = http.expectOne({ method: 'PUT', url: '/api/requests/4/paid' });
     expect(paid.request.body).toEqual({ paid: true });
     paid.flush(REQUEST);
+  });
 
-    service.reslice(4, 7).subscribe();
-    http.expectOne({ method: 'POST', url: '/api/requests/4/files/7/reslice' }).flush(REQUEST);
+  it('changes the status of one item (#61)', () => {
+    service.changeItemStatus(4, 7, 'DECLINED', 'Too big').subscribe();
+    const declined = http.expectOne({ method: 'PUT', url: '/api/requests/4/files/7/status' });
+    expect(declined.request.body).toEqual({ status: 'DECLINED', declineReason: 'Too big' });
+    declined.flush(REQUEST);
+
+    service.changeItemStatus(4, 7, 'ACCEPTED').subscribe();
+    const accepted = http.expectOne('/api/requests/4/files/7/status');
+    expect(accepted.request.body).toEqual({ status: 'ACCEPTED', declineReason: null });
+    accepted.flush(REQUEST);
+  });
+
+  it('re-slices a file with a chosen setup and loads what the dialog offers (#21)', () => {
+    const choice = { printerId: 1, nozzle: 0.2, process: '0.12mm Fine', filament: null };
+    service.resliceWith(4, 7, choice).subscribe();
+    const custom = http.expectOne({ method: 'POST', url: '/api/requests/4/files/7/reslice' });
+    expect(custom.request.body).toEqual(choice);
+    custom.flush(REQUEST);
+
+    service.resliceOptions(4, 7).subscribe();
+    http.expectOne({ method: 'GET', url: '/api/requests/4/files/7/reslice' }).flush({});
   });
 
   it('downloads a file as a blob', () => {
