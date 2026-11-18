@@ -75,7 +75,7 @@ Test fixtures shared by the specs are in `src/testing/`, outside the app build.
 
 Layering: template → component → service → backend API. Components never use `HttpClient` directly. A flow over several calls belongs in a service too: `RequestUploadService` uploads the files of a request one at a time for both the new request page and "Add files".
 
-Angular style: standalone components, signals for state, `inject()`, lazy-loaded routes, reactive forms. UI is Bootstrap 5 (CSS only, no Bootstrap JS); dark theme by default with a floating toggle bottom-right (`ThemeService`, `layout/theme-toggle`). Interactive elements carry `data-cy` attributes for future Cypress tests.
+Angular style: standalone components, signals for state, `inject()`, lazy-loaded routes, reactive forms. UI is Bootstrap 5 (CSS, no Bootstrap JS) with ng-bootstrap for dialogs (`NgbModal`, #21; it needs the `@angular/localize/init` polyfill); dark theme by default with a floating toggle bottom-right (`ThemeService`, `layout/theme-toggle`). Interactive elements carry `data-cy` attributes for future Cypress tests.
 
 ## Testing
 

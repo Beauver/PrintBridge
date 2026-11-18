@@ -105,7 +105,7 @@ class SlicingResourceTest {
     }
 
     /** A one-plate Bambu project saved for this nozzle and printer, with 2 filament slots. */
-    private static byte[] project(String nozzle, String printer) {
+    static byte[] project(String nozzle, String printer) {
         String modelSettings = "<config><object id=\"1\"><metadata key=\"extruder\" value=\"1\"/></object>"
                 + "<plate><metadata key=\"plater_id\" value=\"1\"/>"
                 + "<model_instance><metadata key=\"object_id\" value=\"1\"/></model_instance></plate></config>";

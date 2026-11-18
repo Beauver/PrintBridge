@@ -105,6 +105,9 @@ export const NO_SLICING: SlicingInfo = {
   nozzle: null,
   madeForPrinter: null,
   madeForNozzle: null,
+  custom: false,
+  process: null,
+  filament: null,
   error: null,
 };
 

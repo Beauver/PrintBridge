@@ -256,8 +256,7 @@
           [quantity]="file.quantity"
           [startOpen]="first"
           [isAdmin]="auth.isAdmin()"
-          [reslicing]="reslicingId() === file.id"
-          (reslice)="onReslice(file)"
+          (resliceWith)="onResliceWith(file)"
         >
           <ng-container *ngTemplateOutlet="entryActions; context: { $implicit: file }" />
         </app-model-info-card>

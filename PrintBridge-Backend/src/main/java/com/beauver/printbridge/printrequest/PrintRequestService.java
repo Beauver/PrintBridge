@@ -19,7 +19,9 @@ import com.beauver.printbridge.printrequest.file.UploadedModel;
 import com.beauver.printbridge.settings.SettingsService;
 import com.beauver.printbridge.settings.UploadConfig;
 import com.beauver.printbridge.settings.UploadLimits;
+import com.beauver.printbridge.slicing.CustomResliceService;
 import com.beauver.printbridge.slicing.SlicingService;
+import com.beauver.printbridge.slicing.dto.ResliceOptionsDto;
 import com.beauver.printbridge.storage.FileStorage;
 import com.beauver.printbridge.user.UserDeleted;
 import com.beauver.printbridge.user.UserRepository;
@@ -86,6 +88,9 @@ public class PrintRequestService {
 
     @Inject
     Transactions transactions;
+
+    @Inject
+    CustomResliceService customReslice;
 
     public UploadConfigDto uploadConfig() {
         UploadLimits limits = settings.uploads();
@@ -516,12 +521,38 @@ public class PrintRequestService {
     public PrintRequestDto reslice(long id, long fileId) {
         PrintRequest request = requests.findWithDetails(id)
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        slicing.reslice(List.of(sliceableFile(request, fileId).id));
+        return describe(request, true);
+    }
+
+    /**
+     * Queues one file of a request for server slicing with the admin's choice of printer, nozzle
+     * and profiles (#21); the other files are left alone. The choice is checked by
+     * {@link CustomResliceService}.
+     */
+    @Transactional
+    public PrintRequestDto resliceWith(long id, long fileId, CustomResliceRequest choice) {
+        PrintRequest request = requests.findWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        RequestFile file = sliceableFile(request, fileId);
+        customReslice.reslice(file.id, choice.printerId(), choice.nozzle(), choice.process(), choice.filament());
+        return describe(request, true);
+    }
+
+    /** What the "Re-slice with…" dialog of one file offers (#21; admin). */
+    @Transactional
+    public ResliceOptionsDto resliceOptions(long id, long fileId) {
+        PrintRequest request = requests.findWithDetails(id)
+                .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
+        return customReslice.options(sliceableFile(request, fileId).id);
+    }
+
+    private static RequestFile sliceableFile(PrintRequest request, long fileId) {
         RequestFile file = fileOf(request, fileId);
         if (file.isLink()) {
             throw new ConflictException("Links can't be sliced");
         }
-        slicing.reslice(List.of(file.id));
-        return describe(request, true);
+        return file;
     }
 
     /** The file of a request, for download by the owner or the admin. A link (#59) has no file. */

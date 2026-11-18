@@ -10,6 +10,7 @@ import {
   StatusFilter,
   UploadConfig,
 } from '../../core/models/print-request.model';
+import { ResliceChoice, ResliceOptions } from '../../core/models/slicer.model';
 
 /** Progress of an upload: percentages while sending, then the created request. */
 export type UploadEvent =
@@ -145,9 +146,19 @@ export class PrintRequestsService {
     return this.http.put<PrintRequest>(`/api/requests/${id}/paid`, { paid });
   }
 
-  /** Admin: slice one file of the request again on the server. */
-  reslice(requestId: number, fileId: number): Observable<PrintRequest> {
-    return this.http.post<PrintRequest>(`/api/requests/${requestId}/files/${fileId}/reslice`, null);
+  /** Admin: what the "Re-slice with…" dialog of one file offers (#21). */
+  resliceOptions(requestId: number, fileId: number): Observable<ResliceOptions> {
+    return this.http.get<ResliceOptions>(
+      `/api/requests/${requestId}/files/${fileId}/reslice-options`,
+    );
+  }
+
+  /** Admin: slice one file again with a chosen printer, nozzle and profiles (#21). */
+  resliceWith(requestId: number, fileId: number, choice: ResliceChoice): Observable<PrintRequest> {
+    return this.http.post<PrintRequest>(
+      `/api/requests/${requestId}/files/${fileId}/reslice-with`,
+      choice,
+    );
   }
 
   downloadFile(requestId: number, fileId: number): Observable<Blob> {

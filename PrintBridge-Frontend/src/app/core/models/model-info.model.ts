@@ -49,6 +49,12 @@ export interface SlicingInfo {
   madeForPrinter: string | null;
   /** The project's nozzle when another nozzle was used (not owned, or another printer). */
   madeForNozzle: number | null;
+  /** Sliced with the printer, nozzle and profiles the admin chose (#21). */
+  custom: boolean;
+  /** With `custom`: the chosen process profile; null for the project's own settings. */
+  process: string | null;
+  /** With `custom`: the chosen filament profile; null for the project's filaments. */
+  filament: string | null;
   /** Why the job failed; only for the admin. */
   error: string | null;
 }

@@ -23,7 +23,7 @@ Uploads are sliced on the server with [OrcaSlicer](https://github.com/OrcaSlicer
 
 ## What gets sliced, and how
 
-- New uploads are queued while slicing is on. Older requests are only sliced when the admin clicks **Re-slice** on a file's Model card (also after changing printers or profiles).
+- New uploads are queued while slicing is on. Older requests are only sliced when the admin re-slices a file with **Re-slice with…** on its Model card (also after changing printers or profiles).
 - One job at a time, in the background. The queue is the `slice_results` table, so it survives a restart (a job that was running is queued again).
 - Every file is sliced once, on one printer (not once per printer). Each plate is sliced separately, so a plate OrcaSlicer refuses only loses that plate.
 
@@ -41,12 +41,37 @@ A printer counts as owned when the project names the same model (case doesn't ma
 ## On the Model card
 
 - **Slicing…** badge while queued or running; the page reloads every 3 seconds until it is done.
-- When done: the server's grams, time and filaments per plate (the same type and colour from several slots are added up), and a *Sliced for* line: "Bambu Lab P1S · 0,4 mm nozzle". When it was sliced on another printer or nozzle than the project's: "Made for Bambu Lab A1 · 0,2 mm nozzle. Numbers are for your Bambu Lab P1S · 0,4 mm nozzle" (then the colours shown are the project's, since your filament was used for every slot).
+- When done: the server's grams, time and filaments per plate (the same type and colour from several slots are added up), and a *Sliced for* row: "Bambu Lab P1S · 0,4 mm nozzle". When it was sliced on another printer or nozzle than the project's, a *Made for* row above it shows the project's: "Bambu Lab A1 · 0,2 mm nozzle" (then the colours shown are the project's, since your filament was used for every slot).
 - The fit check uses the build plate of the printer it was sliced for.
 - A plate OrcaSlicer refused shows its own estimate (`~X g`); the total then says *(partly estimated)*. The admin also sees OrcaSlicer's reason under the plate.
 - When the whole job failed (slicer unreachable, timed out, file missing, …) the card falls back to the file's own slice data or the estimate. The admin sees *Slicing failed: <reason>* and can re-slice; the requester just sees the fallback.
-- **Re-slice** (admin, while slicing is on): queues that card's file again; the request's other files are left alone (#23). Refused (`409`) while the file is still queued or running.
+- **Re-slice with…** (admin, while slicing is on and the file isn't queued or running): see [below](#re-slice-with). The request's other files are left alone (#23).
+- The plain re-slice with the rules above (#15) is still in the API (`POST …/reslice`, which also drops an earlier custom choice), but has no button any more since #21: *Re-slice with…* covers it.
 - Switching slicing off drops queued jobs (a running one finishes). Switching it on again doesn't re-queue them.
+
+## Re-slice with…
+
+Issue: #21. The admin can re-slice one file with chosen settings, to see what a model costs and takes with another printer, nozzle or profile.
+
+- **Dialog** (ng-bootstrap modal), "Re-slice <file name>":
+  - **Printer:** the owned printers that are set up for slicing.
+  - **Nozzle:** the nozzles owned on that printer. Changing the printer keeps the nozzle size when the new printer owns it, else takes its default nozzle.
+  - **Process profile** (a dropdown) and **Filament profile** (a text field that filters the list as you type and only accepts a listed profile, like on the settings page): OrcaSlicer's profiles for that printer + nozzle, reloaded when either changes (spinner while loading; an error when the slicer can't be reached).
+    - Projects (Bambu Studio / OrcaSlicer with saved settings) also get **Project's own settings**, but only on the printer and nozzle the project was made for (its process is tuned for that nozzle; the dialog says so otherwise), and **Project's filaments** on any printer.
+  - **Starting values:** the last custom choice while its printer and nozzle are still owned; else the printer and nozzle the file was last sliced on, else the default printer and its default nozzle. Profiles: the printer's own for an STL; the project's own where possible for a project, else the printer's process with the project's filaments. A profile that doesn't fit the new printer or nozzle falls back the same way, else to the first listed.
+  - **Slice** (only with a listed filament) queues the file and closes the dialog; the card shows *Slicing…* as usual. **Cancel** changes nothing.
+- **How it is sliced:**
+
+  | File | Choice | Sliced with |
+  |---|---|---|
+  | STL, plain 3MF, project without saved settings | process + filament (both required) | the chosen printer, nozzle and profiles; objects re-arranged |
+  | Project | project's own settings | the project's printer settings on its own printer and nozzle, with the chosen filament in every slot or the project's filaments |
+  | Project | a process profile | that profile with the designer's infill %, wall loops and supports on top (as for a nozzle you don't own); the chosen filament in every slot or the project's filaments; re-arranged when it is another printer than the project's |
+
+- **Checks** (`400`): the printer must be owned and set up, the nozzle owned on it, and each chosen profile must exist for that printer + nozzle (asked from the slicer; `503` when it can't be reached). *Project's own settings* only for a project on its own printer and nozzle, *Project's filaments* only for projects. `409` while slicing is off or the file is queued or running; links can't be sliced.
+- **Stored:** the choice is saved with the job when it is queued (`custom`, printer, nozzle, process, filament), so it survives a restart. When the chosen printer is removed, or no longer owns that nozzle, before the job runs, the job fails with that reason. A profile OrcaSlicer no longer knows fails it too.
+- **On the card:** the *Sliced for* row adds the profiles: "Bambu Lab P1S · 0,2 mm nozzle · 0.12mm Fine @BBL P1S · Bambu PLA Basic", or "project's settings" / "project's filaments". The *Made for* row appears when a project was sliced on another printer or nozzle than its own (custom or automatic). The requester sees the same rows. The result stays until the file is re-sliced again (a plain re-slice through the API goes back to the rules and the text disappears).
+- Only that file is re-sliced, not the rest of the request.
 
 ## Slicer service
 
@@ -63,7 +88,7 @@ Measured on the four sample projects and an STL: 1–5 s per file, peak memory 0
 
 - `app_settings`: `slicing_enabled`, `slicing_timeout_minutes` (V5), `default_printer_id` (V6). The upload limits (V8) are described in [print requests](print-requests.md#upload-settings-adminsettings).
 - `printers` (V6): `model` (unique, case-insensitive), `build_plate_x/y/z`, `owned_nozzles` (`NUMERIC(4,2)[]`, mm), `default_nozzle`, `process`, `filament`. V6 moved the single printer of V4/V5 (when its build plate was set) into this table as the default.
-- `slice_results` (V5, printer columns V6): one row per file (`ON DELETE CASCADE`): `status` (`QUEUED`, `RUNNING`, `DONE`, `FAILED`), `printer`, `nozzle`, `made_for_printer`, `made_for_nozzle`, `plates` (JSONB per plate: grams, seconds, filaments or OrcaSlicer's refusal), `error`, `queued_at`, `finished_at`. Only the numbers are kept; the G-code is thrown away.
+- `slice_results` (V5, printer columns V6, custom choice V11: `custom`, `chosen_printer`, `chosen_nozzle`, `chosen_process`, `chosen_filament`; a `NULL` profile with `custom` means the project's own): one row per file (`ON DELETE CASCADE`): `status` (`QUEUED`, `RUNNING`, `DONE`, `FAILED`), `printer`, `nozzle`, `made_for_printer`, `made_for_nozzle`, `plates` (JSONB per plate: grams, seconds, filaments or OrcaSlicer's refusal), `error`, `queued_at`, `finished_at`. Only the numbers are kept; the G-code is thrown away.
 
 ## Not included
 
