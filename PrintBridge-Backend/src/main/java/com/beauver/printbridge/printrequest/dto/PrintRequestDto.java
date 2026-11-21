@@ -11,6 +11,8 @@ import java.util.List;
  * @param paidAt       when it was marked paid; {@code null} while not paid
  * @param totals       all files times their quantities
  * @param nextStatuses statuses the admin may move this request to; empty once it is final
+ * @param filamentSelection the caller may choose filaments from Spoolman now (#11): colour selection is on
+ *                          and the request may still change for them
  */
 public record PrintRequestDto(
         Long id,
@@ -26,5 +28,6 @@ public record PrintRequestDto(
         Instant updatedAt,
         List<RequestFileDto> files,
         RequestTotalsDto totals,
-        List<RequestStatus> nextStatuses) {
+        List<RequestStatus> nextStatuses,
+        boolean filamentSelection) {
 }

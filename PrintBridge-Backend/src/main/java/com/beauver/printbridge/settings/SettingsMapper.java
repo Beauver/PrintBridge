@@ -4,6 +4,7 @@ import com.beauver.printbridge.settings.dto.BuildPlateDto;
 import com.beauver.printbridge.settings.dto.PrinterDto;
 import com.beauver.printbridge.settings.dto.SettingsDto;
 import com.beauver.printbridge.settings.dto.SlicingSettingsDto;
+import com.beauver.printbridge.settings.dto.SpoolmanSettingsDto;
 import com.beauver.printbridge.settings.dto.UploadLimitsDto;
 import com.beauver.printbridge.settings.printer.BuildPlate;
 import com.beauver.printbridge.settings.printer.Printer;
@@ -22,7 +23,8 @@ public class SettingsMapper {
         List<PrinterDto> owned = printers.stream().map(this::toDto).toList();
         return new SettingsDto(new SlicingSettingsDto(settings.slicingEnabled, settings.slicingTimeoutMinutes),
                 settings.defaultPrinterId, owned,
-                new UploadLimitsDto(uploads.maxFiles(), uploads.maxFileSizeMb(), uploads.ceilingMb()));
+                new UploadLimitsDto(uploads.maxFiles(), uploads.maxFileSizeMb(), uploads.ceilingMb()),
+                new SpoolmanSettingsDto(settings.spoolmanEnabled, settings.spoolmanColorSelection));
     }
 
     public PrinterDto toDto(Printer printer) {

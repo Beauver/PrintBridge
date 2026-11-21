@@ -8,10 +8,12 @@ import java.util.List;
  * @param defaultPrinterId the printer for STL files and projects made for a printer that isn't owned
  * @param printers         the owned printers, in the order they were added
  * @param uploads          the upload limits (#23)
+ * @param spoolman         the Spoolman switches as saved (#11)
  */
 public record SettingsDto(
         SlicingSettingsDto slicing,
         Long defaultPrinterId,
         List<PrinterDto> printers,
-        UploadLimitsDto uploads) {
+        UploadLimitsDto uploads,
+        SpoolmanSettingsDto spoolman) {
 }

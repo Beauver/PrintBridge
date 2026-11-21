@@ -7,6 +7,7 @@ import com.beauver.printbridge.settings.dto.BuildPlateDto;
 import com.beauver.printbridge.settings.dto.PrinterInputDto;
 import com.beauver.printbridge.settings.dto.SettingsDto;
 import com.beauver.printbridge.settings.dto.SlicingSettingsDto;
+import com.beauver.printbridge.settings.dto.SpoolmanSettingsDto;
 import com.beauver.printbridge.settings.dto.UploadSettingsDto;
 import com.beauver.printbridge.settings.printer.Printer;
 import com.beauver.printbridge.settings.printer.PrinterRepository;
@@ -25,7 +26,8 @@ import java.util.TreeSet;
 
 /**
  * Settings the admin edits in the browser instead of through environment variables: server
- * slicing, the owned printers (build plate and slicing setup each) and the upload limits.
+ * slicing, the owned printers (build plate and slicing setup each), the upload limits and the
+ * Spoolman switches.
  */
 @ApplicationScoped
 public class SettingsService {
@@ -42,12 +44,23 @@ public class SettingsService {
     @Inject
     SettingsMapper mapper;
 
+    @Inject
+    SpoolmanConnection spoolman;
+
+    /** Fired after the Spoolman integration was switched on, inside the saving transaction. */
+    @Inject
+    Event<SpoolmanSwitchedOn> spoolmanSwitchedOn;
+
     /** Fired after server slicing was switched on or off, inside the saving transaction. */
     @Inject
     Event<SlicingToggled> slicingToggled;
 
     /** Server slicing was switched on ({@code enabled}) or off. */
     public record SlicingToggled(boolean enabled) {
+    }
+
+    /** The Spoolman integration was switched on. */
+    public record SpoolmanSwitchedOn() {
     }
 
     @Transactional
@@ -95,6 +108,42 @@ public class SettingsService {
         settings.uploadMaxFileSizeMb = input.maxFileSizeMb();
         repository.flush();
         return toDto(settings);
+    }
+
+    /**
+     * Switches the Spoolman integration and colour selection (#11). Both need {@code SPOOLMAN_URL};
+     * colour selection needs the integration, and switching the integration off switches it off too.
+     */
+    @Transactional
+    public SettingsDto updateSpoolman(SpoolmanSettingsDto input) {
+        boolean enabled = input.enabled();
+        boolean colorSelection = input.colorSelection();
+        if ((enabled || colorSelection) && !spoolman.isConfigured()) {
+            throw new InvalidInputException("Set SPOOLMAN_URL on the server before switching Spoolman on");
+        }
+        if (colorSelection && !enabled) {
+            throw new InvalidInputException("Switch the Spoolman integration on before colour selection");
+        }
+        AppSettings settings = repository.get();
+        boolean switchedOn = enabled && !settings.spoolmanEnabled;
+        settings.spoolmanEnabled = enabled;
+        settings.spoolmanColorSelection = colorSelection;
+        repository.flush();
+        if (switchedOn) {
+            spoolmanSwitchedOn.fire(new SpoolmanSwitchedOn());
+        }
+        return toDto(settings);
+    }
+
+    /** The Spoolman switches that apply now: off while {@code SPOOLMAN_URL} isn't set. */
+    @Transactional
+    public SpoolmanSettings spoolman() {
+        if (!spoolman.isConfigured()) {
+            return SpoolmanSettings.OFF;
+        }
+        AppSettings settings = repository.get();
+        return new SpoolmanSettings(settings.spoolmanEnabled,
+                settings.spoolmanEnabled && settings.spoolmanColorSelection);
     }
 
     /** The upload limits that apply now. */

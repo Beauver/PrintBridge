@@ -33,6 +33,14 @@ public class AppSettings extends PanacheEntityBase {
     @Column(name = "upload_max_file_size_mb")
     public Integer uploadMaxFileSizeMb;
 
+    /** Spoolman integration switched on (#11); only has effect while {@code SPOOLMAN_URL} is set. */
+    @Column(name = "spoolman_enabled", nullable = false)
+    public boolean spoolmanEnabled;
+
+    /** Requesters choose filaments from Spoolman; needs {@link #spoolmanEnabled}. */
+    @Column(name = "spoolman_color_selection", nullable = false)
+    public boolean spoolmanColorSelection;
+
     @Column(name = "updated_at", nullable = false)
     public Instant updatedAt;
 

@@ -2,6 +2,7 @@ package com.beauver.printbridge.printrequest;
 
 import com.beauver.printbridge.auth.CurrentUser;
 import com.beauver.printbridge.common.error.InvalidInputException;
+import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceRequest;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.printrequest.file.FileBundle;
 import com.beauver.printbridge.printrequest.file.NewLink;
@@ -124,6 +125,26 @@ public class PrintRequestResource {
     public PrintRequestDto changeQuantity(@PathParam("id") long id, @PathParam("fileId") long fileId,
                                           @Valid @NotNull QuantityChangeRequest request) {
         return service.changeQuantity(id, fileId, request.quantity(), currentUser.caller());
+    }
+
+    /**
+     * Chooses a Spoolman filament for one colour of a plate, or for the whole item (#11). 409 while
+     * colour selection is off or the request may no longer change for the caller.
+     */
+    @PUT
+    @Path("/{id}/files/{fileId}/filaments")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public PrintRequestDto chooseFilament(@PathParam("id") long id, @PathParam("fileId") long fileId,
+                                          @Valid @NotNull FilamentChoiceRequest choice) {
+        return service.chooseFilament(id, fileId, choice, currentUser.caller());
+    }
+
+    /** Removes a chosen filament; the colour goes back to the file's own (#11). */
+    @DELETE
+    @Path("/{id}/files/{fileId}/filaments/{choiceId}")
+    public PrintRequestDto removeFilamentChoice(@PathParam("id") long id, @PathParam("fileId") long fileId,
+                                                @PathParam("choiceId") long choiceId) {
+        return service.removeFilamentChoice(id, fileId, choiceId, currentUser.caller());
     }
 
     /** Every file of the request in one ZIP, under its original name, plus its links in a text file (#59). */
