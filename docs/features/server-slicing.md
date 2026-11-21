@@ -6,6 +6,8 @@ Uploads are sliced on the server with [OrcaSlicer](https://github.com/OrcaSlicer
 
 ## Settings (`/admin/settings`)
 
+The page has one tab per card (#11): *Printers*, *Slicing*, *Uploads* and [*Spoolman*](spoolman.md); `?tab=` opens one.
+
 **Printers** card (also used for the [fit check](model-info.md), with or without slicing):
 
 - A list of the printers you own; **Add printer**, **Edit**, **Remove** and **Make default** per printer. The first printer you add becomes the default. Removing the default makes the oldest remaining printer the default; the last printer can't be removed while slicing is on.
@@ -77,8 +79,8 @@ Issue: #21. The admin can re-slice one file with chosen settings, to see what a 
 
 See [PrintBridge-Slicer/README.md](../../PrintBridge-Slicer/README.md): OrcaSlicer's command line behind a small HTTP API, about 1.6 GB, x86_64 only.
 
-- Local: `cd local && docker compose --profile slicer up -d`, with `SLICER_URL=http://localhost:18000` for the backend.
-- Production: `docker compose --profile slicer up -d` in `deploy/` and `SLICER_URL=http://slicer:8000` (see [deployment](../deployment.md#server-slicing-optional)). The service has no authentication: it gets no published port, only the backend reaches it.
+- Local: `cd local && docker compose up -d` starts it; dev mode uses `SLICER_URL=http://localhost:18000`.
+- Production: `docker compose up -d` in `deploy/` starts it, and `SLICER_URL` defaults to `http://slicer:8000` (see [deployment](../deployment.md#server-slicing)). The service has no authentication: it gets no published port, only the backend reaches it.
 
 Projects saved by Bambu Studio 2.x can hold values OrcaSlicer rejects once a process profile is loaded over them (`raft_first_layer_expansion: -1`); the service fills in OrcaSlicer's default for those.
 

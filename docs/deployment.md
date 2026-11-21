@@ -9,9 +9,12 @@ How to run PrintBridge from the published images with the compose file in [`depl
 | `frontend` | `beauver/printbridge-frontend` (nginx: the web app, and `/api` forwarded to the backend) | the published port |
 | `backend` | `beauver/printbridge-backend` | the compose network only |
 | `postgres` | `postgres:17-alpine` | the compose network only |
-| `slicer` (optional) | `beauver/printbridge-slicer` | the compose network only |
+| `slicer` | `beauver/printbridge-slicer` | the compose network only |
+| `spoolman` | `ghcr.io/donkie/spoolman` | `SPOOLMAN_BIND:SPOOLMAN_PORT` (default `127.0.0.1:7912`), for its own web UI |
 
-Only the frontend has a port. The slicer has no authentication, so it must stay that way.
+`docker compose up -d` starts all of them. Server slicing and Spoolman still stay off until the admin switches them on in *Settings*. To leave the slicer or Spoolman out, start with `docker compose up -d --scale slicer=0` (or `spoolman=0`).
+
+Only the frontend has a public port. The slicer has no authentication, so it must stay that way. Spoolman has none either: its port is bound to `127.0.0.1` by default; put a proxy with a login in front before opening it up.
 
 Data lives in two named volumes and one folder:
 
@@ -20,6 +23,7 @@ Data lives in two named volumes and one folder:
 | volume `postgres-data` | the database |
 | volume `uploads` | the uploaded model files |
 | `deploy/keys/` | the JWT key pair |
+| volume `spoolman-data` | the bundled Spoolman's database |
 
 ## First start
 
@@ -77,19 +81,21 @@ All in `deploy/.env`; the file explains each one. The ones that matter most:
 | `HTTP_BIND`, `HTTP_PORT` | `127.0.0.1`, `8080` | Where the app listens on the host. |
 | `PRINTBRIDGE_VERSION` | `latest` | Image tag for all three images. |
 | `UPLOAD_MAX_SIZE_MB` | `100` | Ceiling per uploaded file, for nginx and the backend. The admin sets the actual limit in *Settings → Uploads*, up to this. |
-| `SLICER_URL` | empty | Set to `http://slicer:8000` to use the slicer. |
+| `SLICER_URL` | `http://slicer:8000` | The bundled slicer; empty to not use one. |
+| `SPOOLMAN_URL` | `http://spoolman:8000` | The bundled Spoolman, or your own as the backend container reaches it; empty to not use one. |
+| `SPOOLMAN_CACHE_TTL_SECONDS` | `60` | How long the filament list from Spoolman is kept. |
 | `AUTH_COOKIE_SECURE` | `true` | `false` only for a test without HTTPS. |
 | `SOURCE_URL` | this repository | Where the footer's source link points; change it if you run a changed version for others (AGPL-3.0). |
 
 Other backend settings (token lifetimes, `RATE_LIMIT_ENABLED`, ...) are listed in `PrintBridge-Backend/.env.example`; add them under `backend: environment:` in the compose file if you need them.
 
-## Server slicing (optional)
+## Server slicing
 
-```sh
-docker compose --profile slicer up -d
-```
+The slicer starts with everything else. Switch slicing on in *Settings → Slicing* after adding your printers. The image is about 1.6 GB and x86_64 only (on ARM, start with `--scale slicer=0`). See [server slicing](features/server-slicing.md).
 
-Then set `SLICER_URL=http://slicer:8000` in `.env`, run `docker compose up -d` again and switch slicing on in the admin *Settings* page. The image is about 1.6 GB and x86_64 only. See [server slicing](features/server-slicing.md).
+## Spoolman
+
+PrintBridge reads filaments and stock from [Spoolman](https://github.com/Donkie/Spoolman) (read-only). The bundled one starts with everything else: manage your spools in its web UI (`http://127.0.0.1:7912`) and switch the integration on in *Settings → Spoolman*. If you already run your own, set `SPOOLMAN_URL` to an address the backend container can reach and start with `--scale spoolman=0`. See [Spoolman filaments](features/spoolman.md).
 
 ## Updating
 
