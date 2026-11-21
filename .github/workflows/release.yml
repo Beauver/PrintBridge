@@ -58,7 +58,7 @@ jobs:
         with:
           distribution: temurin
           java-version: 21
-      - uses: gradle/actions/setup-gradle@v4
+      - uses: gradle/actions/setup-gradle@67621b124fd2e251c5e8a0e6e3b91318f2287669
         if: matrix.image == 'printbridge-backend'
       - name: Build backend app
         if: matrix.image == 'printbridge-backend'
