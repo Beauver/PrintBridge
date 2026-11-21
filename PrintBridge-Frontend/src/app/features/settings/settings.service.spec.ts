@@ -37,6 +37,17 @@ describe('SettingsService', () => {
     uploadsUpdate.flush({});
   });
 
+  it('calls the Spoolman settings and status', () => {
+    const spoolman = { enabled: true, colorSelection: true };
+    service.updateSpoolman(spoolman).subscribe();
+    const update = http.expectOne({ method: 'PUT', url: '/api/settings/spoolman' });
+    expect(update.request.body).toEqual(spoolman);
+    update.flush({});
+
+    service.spoolmanStatus().subscribe();
+    http.expectOne({ method: 'GET', url: '/api/spoolman/status' }).flush({});
+  });
+
   it('calls the printers API', () => {
     const printer: PrinterInput = {
       model: 'Bambu Lab P1S',

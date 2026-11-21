@@ -19,6 +19,24 @@
   @if (open()) {
     <div class="card-body" data-cy="link-card-body">
       <ng-content />
+      @if (notEnoughFilament(); as message) {
+        <div class="alert alert-warning py-2 small" data-cy="link-card-not-enough">
+          {{ message }}
+        </div>
+      }
+      @if (showFilament()) {
+        <p class="mb-2" data-cy="link-card-filament">
+          <span class="me-2">Filament</span>
+          <app-filament-picker
+            [slot]="wholeItemSlot"
+            [choice]="choice()"
+            [editable]="filamentSelection()"
+            [showLabel]="true"
+            (chosen)="chooseFilament($event)"
+            (reset)="resetFilament($event)"
+          />
+        </p>
+      }
       <p class="text-body-secondary small mb-0">
         No preview or model details for links; the model is downloaded from the site.
       </p>

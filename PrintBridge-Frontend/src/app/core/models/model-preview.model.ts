@@ -29,3 +29,15 @@ export interface PreviewMesh {
   plates: PreviewPlate[];
   parts: PreviewPart[];
 }
+
+/**
+ * Draw parts of `plate` with colour `from` in colour `to` instead (#11: the filament chosen from
+ * Spoolman). `plate` null: the whole file, for parts without a colour of their own.
+ */
+export interface PreviewColor {
+  plate: number | null;
+  /** "#RRGGBB" as the file has it; null for the whole file. */
+  from: string | null;
+  /** "#RRGGBB" */
+  to: string;
+}

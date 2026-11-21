@@ -19,7 +19,13 @@ import {
   WebGLRenderer,
 } from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
-import { PreviewBed, PreviewMesh } from '../../core/models/model-preview.model';
+import {
+  PreviewBed,
+  PreviewColor,
+  PreviewMesh,
+  PreviewPart,
+} from '../../core/models/model-preview.model';
+import { chosenColor } from './preview-colors';
 import { PreviewSceneHandle } from './preview-scene-factory';
 
 /** Colour for STL files and parts without a known filament. */
@@ -29,8 +35,20 @@ const GRID_STEP = 10;
 const GRID_COLOR = '#9aa0a6';
 const BED_EDGE_COLOR = '#5f6368';
 
-/** The parts of one plate as Three.js meshes, coloured by filament. */
-export function plateObjects(mesh: PreviewMesh, plate: number): Group {
+/** What a part is drawn in: the chosen filament's colour, else its own, else neutral. */
+export function partColor(part: PreviewPart, colors: readonly PreviewColor[]): string {
+  return chosenColor(part, colors) ?? part.color ?? NEUTRAL_COLOR;
+}
+
+/**
+ * The parts of one plate as Three.js meshes, coloured by filament. Each mesh keeps its part in
+ * `userData.part`, so it can be recoloured later.
+ */
+export function plateObjects(
+  mesh: PreviewMesh,
+  plate: number,
+  colors: readonly PreviewColor[] = [],
+): Group {
   const group = new Group();
   for (const part of mesh.parts) {
     if (part.plate !== plate) {
@@ -41,14 +59,26 @@ export function plateObjects(mesh: PreviewMesh, plate: number): Group {
     geometry.setIndex(new BufferAttribute(part.indices, 1));
     // Flat shading: STL corners are shared between faces, smooth normals would blur the edges.
     const material = new MeshStandardMaterial({
-      color: part.color ?? NEUTRAL_COLOR,
+      color: partColor(part, colors),
       flatShading: true,
       roughness: 0.7,
       metalness: 0.05,
     });
-    group.add(new Mesh(geometry, material));
+    const object = new Mesh(geometry, material);
+    object.userData['part'] = part;
+    group.add(object);
   }
   return group;
+}
+
+/** Gives every part mesh in `root` its colour for `colors`. */
+export function recolorParts(root: Object3D, colors: readonly PreviewColor[]): void {
+  root.traverse((object) => {
+    const part = object.userData['part'] as PreviewPart | undefined;
+    if (object instanceof Mesh && part && object.material instanceof MeshStandardMaterial) {
+      object.material.color.set(partColor(part, colors));
+    }
+  });
 }
 
 /** The bed as a grid of 10 mm lines on z = 0, with its edge drawn darker. */
@@ -121,10 +151,10 @@ export class PreviewScene implements PreviewSceneHandle {
     this.resize();
   }
 
-  show(mesh: PreviewMesh, plate: number): void {
+  show(mesh: PreviewMesh, plate: number, colors: readonly PreviewColor[]): void {
     this.clear();
     const content = new Group();
-    const model = plateObjects(mesh, plate);
+    const model = plateObjects(mesh, plate, colors);
     content.add(model);
     if (mesh.bed) {
       content.add(bedLines(mesh.bed));
@@ -143,6 +173,14 @@ export class PreviewScene implements PreviewSceneHandle {
     this.camera.far = placement.position.distanceTo(placement.target) * 20;
     this.camera.updateProjectionMatrix();
     this.controls.update();
+    this.render();
+  }
+
+  recolor(colors: readonly PreviewColor[]): void {
+    if (!this.content) {
+      return;
+    }
+    recolorParts(this.content, colors);
     this.render();
   }
 

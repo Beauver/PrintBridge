@@ -42,6 +42,12 @@ export interface UploadLimits extends UploadSettings {
   ceilingMb: number;
 }
 
+/** The Spoolman switches (#11); colour selection needs the integration. */
+export interface SpoolmanSettings {
+  enabled: boolean;
+  colorSelection: boolean;
+}
+
 export interface Settings {
   slicing: SlicingSettings;
   /** For STL files and projects made for a printer that isn't owned; null without printers. */
@@ -49,4 +55,5 @@ export interface Settings {
   /** In the order they were added. */
   printers: Printer[];
   uploads: UploadLimits;
+  spoolman: SpoolmanSettings;
 }

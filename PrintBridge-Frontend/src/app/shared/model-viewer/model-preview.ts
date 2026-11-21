@@ -1,7 +1,7 @@
-import { Component, effect, input, signal, untracked } from '@angular/core';
+import { Component, effect, input, output, signal, untracked } from '@angular/core';
 import { Observable } from 'rxjs';
 import { errorMessage } from '../../core/http/api-error';
-import { PreviewMesh } from '../../core/models/model-preview.model';
+import { PreviewColor, PreviewMesh } from '../../core/models/model-preview.model';
 import { ModelViewer } from './model-viewer';
 
 /**
@@ -19,6 +19,10 @@ export class ModelPreview {
   readonly loader = input.required<() => Observable<PreviewMesh>>();
   /** Image shown until the preview is loaded, e.g. the plate image of a Bambu file. */
   readonly placeholder = input<string | null>(null);
+  /** Filaments chosen for the file's colours (#11), passed on to the viewer. */
+  readonly colors = input<readonly PreviewColor[]>([]);
+  /** The plate the viewer shows; projected content appears under its plate buttons. */
+  readonly plateChange = output<number>();
 
   protected readonly mesh = signal<PreviewMesh | null>(null);
   protected readonly loading = signal(false);
@@ -48,5 +52,9 @@ export class ModelPreview {
         this.error.set(errorMessage(err, 'No preview available for this file'));
       },
     });
+  }
+
+  protected onPlateChange(plate: number): void {
+    this.plateChange.emit(plate);
   }
 }

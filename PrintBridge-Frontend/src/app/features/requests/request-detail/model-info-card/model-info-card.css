@@ -1,17 +1,16 @@
-/* Filament colour dot; the colour itself comes from the file. */
-.swatch {
-  display: inline-block;
-  width: 0.9rem;
-  height: 0.9rem;
-  border-radius: 50%;
-  border: 1px solid var(--bs-border-color);
-  vertical-align: -0.1rem;
-  background-color: var(--bs-secondary-bg);
-}
-
+/* The colour circles (filament pickers, #11) of a plate. */
 .filaments {
   display: inline-flex;
+  align-items: center;
   flex-wrap: wrap;
+  gap: 0.25rem;
+}
+
+/* A plate's colours in the table: four per row, then the next row. */
+.plate-colours {
+  display: inline-grid;
+  grid-template-columns: repeat(4, max-content);
+  align-items: center;
   gap: 0.25rem;
 }
 
@@ -36,4 +35,12 @@
 
 .toggle {
   min-width: 0;
+}
+
+/* The colour rows under the preview's plate buttons: label, then its circles. */
+.preview-colours {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  align-items: center;
+  gap: 0.25rem 0.75rem;
 }

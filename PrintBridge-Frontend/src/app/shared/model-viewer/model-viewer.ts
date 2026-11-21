@@ -8,10 +8,12 @@ import {
   inject,
   input,
   linkedSignal,
+  output,
   signal,
+  untracked,
   viewChild,
 } from '@angular/core';
-import { PreviewMesh } from '../../core/models/model-preview.model';
+import { PreviewColor, PreviewMesh } from '../../core/models/model-preview.model';
 import { PREVIEW_SCENE_FACTORY, PreviewSceneHandle } from './preview-scene-factory';
 
 /** A plate button: "1. Lid", "Plate 2", greyed out when empty. */
@@ -23,7 +25,8 @@ export interface PlateOption {
 
 /**
  * Shows a preview mesh in 3D, one plate at a time (#13). Starts at the first plate with
- * objects; plate buttons only appear for files with more than one plate.
+ * objects; plate buttons only appear for files with more than one plate. Projected content shows
+ * under the plate buttons (the card puts the plate's colour pickers there, #11).
  */
 @Component({
   selector: 'app-model-viewer',
@@ -34,6 +37,10 @@ export class ModelViewer {
   private readonly factory = inject(PREVIEW_SCENE_FACTORY);
 
   readonly mesh = input.required<PreviewMesh>();
+  /** Filaments chosen for the file's colours (#11); changing them keeps the camera where it is. */
+  readonly colors = input<readonly PreviewColor[]>([]);
+  /** The plate on screen, also the first one; the page can show controls for it (#11). */
+  readonly plateChange = output<number>();
 
   private readonly host = viewChild.required<ElementRef<HTMLElement>>('host');
   private readonly scene = signal<PreviewSceneHandle | null>(null);
@@ -95,7 +102,22 @@ export class ModelViewer {
       const scene = this.scene();
       const mesh = this.mesh();
       const plate = this.selectedPlate();
-      scene?.show(mesh, plate);
+      const colors = untracked(() => {
+        return this.colors();
+      });
+      scene?.show(mesh, plate, colors);
+    });
+    effect(() => {
+      const plate = this.selectedPlate();
+      untracked(() => {
+        this.plateChange.emit(plate);
+      });
+    });
+    effect(() => {
+      const colors = this.colors();
+      untracked(() => {
+        return this.scene();
+      })?.recolor(colors);
     });
     inject(DestroyRef).onDestroy(() => {
       this.destroyed = true;

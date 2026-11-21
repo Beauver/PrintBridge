@@ -69,18 +69,33 @@ describe('PreviewScene', () => {
   it('shows a plate with the bed and replaces it with the next one', async () => {
     const { scene } = await create();
 
-    scene.show(TRIANGLE_MESH, 1);
+    scene.show(TRIANGLE_MESH, 1, []);
     const shown = sceneOf().children.length;
-    scene.show(TRIANGLE_MESH, 2);
+    scene.show(TRIANGLE_MESH, 2, []);
 
     expect(sceneOf().children.length).toBe(shown);
-    scene.show({ ...TRIANGLE_MESH, bed: null }, 2);
+    scene.show({ ...TRIANGLE_MESH, bed: null }, 2, []);
     expect(renderer.render).toHaveBeenCalled();
+  });
+
+  it('recolours what is shown and renders again', async () => {
+    const { scene } = await create();
+    const black = [{ plate: 1, from: '#FF0000', to: '#000000' }];
+    // Nothing shown yet: nothing to recolour or render.
+    const before = renderer.render.mock.calls.length;
+    scene.recolor(black);
+    expect(renderer.render.mock.calls.length).toBe(before);
+
+    scene.show(TRIANGLE_MESH, 1, []);
+    const shown = renderer.render.mock.calls.length;
+    scene.recolor(black);
+
+    expect(renderer.render.mock.calls.length).toBe(shown + 1);
   });
 
   it('cleans everything up', async () => {
     const { scene, host } = await create();
-    scene.show(TRIANGLE_MESH, 1);
+    scene.show(TRIANGLE_MESH, 1, []);
 
     scene.dispose();
 

@@ -1,5 +1,7 @@
 @if (mesh(); as mesh) {
-  <app-model-viewer [mesh]="mesh" />
+  <app-model-viewer [mesh]="mesh" [colors]="colors()" (plateChange)="onPlateChange($event)">
+    <ng-content />
+  </app-model-viewer>
 } @else {
   @if (placeholder(); as image) {
     <img
