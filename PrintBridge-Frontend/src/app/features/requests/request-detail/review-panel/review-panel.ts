@@ -70,6 +70,15 @@ export class ReviewPanel {
     return this.request().paidAt !== null;
   });
 
+  /** The estimate as the field's hint (#72), else an example of the format. */
+  protected readonly pricePlaceholder = computed(() => {
+    const estimate = this.request().estimatedPrice;
+    if (estimate === null) {
+      return '69,42';
+    }
+    return formatPriceInput(estimate.amount);
+  });
+
   /** Paying needs a price (the backend refuses it otherwise). */
   protected readonly needsPrice = computed(() => {
     return this.request().finalPrice === null;
@@ -118,7 +127,17 @@ export class ReviewPanel {
     });
   }
 
+  /** Saves the typed price; an empty field saves the estimate (#72) when there is one. */
   protected savePrice(): void {
+    const estimate = this.request().estimatedPrice;
+    if (this.price.value.trim() === '' && estimate !== null) {
+      this.save(
+        this.requestsService.changePrice(this.request().id, estimate.amount),
+        `Price set to the estimate, ${formatEuro(estimate.amount)}.`,
+        'Could not save the price.',
+      );
+      return;
+    }
     this.price.markAsTouched();
     const price = parsePrice(this.price.value);
     if (this.price.invalid || price === null) {

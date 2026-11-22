@@ -1,5 +1,7 @@
 # PrintBridge for real use: the published images behind one port. See docs/deployment.md.
 # Usage: cd deploy && cp .env.example .env (edit it) && docker compose up -d
+# That starts everything, the slicer and Spoolman included; leave one out with
+# `docker compose up -d --scale slicer=0` (or spoolman=0).
 # Not "printbridge": that is the development stack in local/, whose volumes this must not share.
 name: printbridge-app
 
@@ -34,7 +36,10 @@ services:
       # Browsers send this origin with their requests; it has to be the address users open.
       FRONTEND_ORIGIN: ${PUBLIC_URL:?Set PUBLIC_URL in .env}
       AUTH_COOKIE_SECURE: ${AUTH_COOKIE_SECURE:-true}
-      SLICER_URL: ${SLICER_URL:-}
+      # The bundled services by default; both features stay off until switched on in Settings.
+      SLICER_URL: ${SLICER_URL-http://slicer:8000}
+      SPOOLMAN_URL: ${SPOOLMAN_URL-http://spoolman:8000}
+      SPOOLMAN_CACHE_TTL_SECONDS: ${SPOOLMAN_CACHE_TTL_SECONDS:-60}
       SOURCE_URL: ${SOURCE_URL:-https://github.com/Beauver/PrintBridge}
       TZ: ${TZ:-UTC}
     volumes:
@@ -57,16 +62,29 @@ services:
       timeout: 3s
       retries: 10
 
-  # Optional: server slicing (OrcaSlicer, ~1.6 GB, x86_64 only). Start with
-  # `docker compose --profile slicer up -d` and set SLICER_URL=http://slicer:8000 in .env.
+  # Server slicing (OrcaSlicer, ~1.6 GB, x86_64 only); switch it on in Settings -> Slicing.
   # It has no authentication, so it gets no published port: only the backend can reach it.
   slicer:
-    profiles: [slicer]
     image: beauver/printbridge-slicer:${PRINTBRIDGE_VERSION:-latest}
     restart: unless-stopped
     environment:
       TZ: ${TZ:-UTC}
 
+  # Spoolman, the filament inventory PrintBridge reads (#11); switch it on in Settings -> Spoolman.
+  # Already run your own? Point SPOOLMAN_URL at it and use --scale spoolman=0. You manage your
+  # spools in its own web UI on SPOOLMAN_BIND:SPOOLMAN_PORT; it has no authentication, so keep it
+  # on 127.0.0.1 or behind a proxy with a login.
+  spoolman:
+    image: ghcr.io/donkie/spoolman:${SPOOLMAN_VERSION:-latest}
+    restart: unless-stopped
+    environment:
+      TZ: ${TZ:-UTC}
+    ports:
+      - "${SPOOLMAN_BIND:-127.0.0.1}:${SPOOLMAN_PORT:-7912}:8000"
+    volumes:
+      - spoolman-data:/home/app/.local/share/spoolman
+
 volumes:
   postgres-data:
   uploads:
+  spoolman-data:

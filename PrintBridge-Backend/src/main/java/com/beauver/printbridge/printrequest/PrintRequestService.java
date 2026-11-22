@@ -6,9 +6,16 @@ import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
 import com.beauver.printbridge.common.transaction.Transactions;
+import com.beauver.printbridge.filamentchoice.ChoiceItem;
+import com.beauver.printbridge.filamentchoice.FilamentChoiceService;
+import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceRequest;
 import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelfile.ModelFileValidator;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
+import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
+import com.beauver.printbridge.pricing.PriceEstimate;
+import com.beauver.printbridge.pricing.PricedItem;
+import com.beauver.printbridge.pricing.PricingService;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.printrequest.file.FileBundle;
 import com.beauver.printbridge.printrequest.file.ItemStatus;
@@ -18,6 +25,7 @@ import com.beauver.printbridge.printrequest.file.RequestFileKind;
 import com.beauver.printbridge.printrequest.file.StoredFile;
 import com.beauver.printbridge.printrequest.file.UploadedModel;
 import com.beauver.printbridge.settings.SettingsService;
+import com.beauver.printbridge.settings.SpoolmanSettings;
 import com.beauver.printbridge.settings.UploadConfig;
 import com.beauver.printbridge.settings.UploadLimits;
 import com.beauver.printbridge.slicing.CustomResliceService;
@@ -39,6 +47,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -94,8 +103,14 @@ public class PrintRequestService {
     @Inject
     CustomResliceService customReslice;
 
+    @Inject
+    FilamentChoiceService filamentChoices;
+
+    @Inject
+    PricingService pricing;
+
     public UploadConfigDto uploadConfig() {
-        UploadLimits limits = settings.uploads();
+        UploadLimits limits = settings.getUploads();
         return new UploadConfigDto(limits.maxFileSizeBytes(), limits.maxFiles(),
                 allowedTypes().stream().map(ModelFileType::extension).toList());
     }
@@ -110,11 +125,23 @@ public class PrintRequestService {
         return summaries(requests.searchNewestFirst(statuses, search));
     }
 
-    /** List rows with the progress of their items (#61), loaded in one query. */
+    /**
+     * List rows with the progress of their items (#61) and the estimated price (#72). The items of
+     * every request that still needs an estimate are described together, so a list costs a few
+     * queries, not a few per request.
+     */
     private List<PrintRequestSummaryDto> summaries(List<PrintRequest> found) {
         Map<Long, ItemProgress> progress = requests.itemProgress(found.stream().map(r -> r.id).toList());
+        List<Long> unpriced = found.stream().filter(PrintRequestService::needsEstimate).map(r -> r.id).toList();
+        List<RequestFile> files = requests.filesOf(unpriced);
+        Map<Long, List<RequestFileDto>> filesByRequest = new HashMap<>();
+        List<RequestFileDto> described = describeFiles(files, false);
+        for (int i = 0; i < files.size(); i++) {
+            filesByRequest.computeIfAbsent(files.get(i).request.id, id -> new ArrayList<>()).add(described.get(i));
+        }
         return found.stream()
-                .map(r -> mapper.toSummary(r, progress.getOrDefault(r.id, ItemProgress.NONE)))
+                .map(r -> mapper.toSummary(r, progress.getOrDefault(r.id, ItemProgress.NONE),
+                        estimate(r, filesByRequest.getOrDefault(r.id, List.of()))))
                 .toList();
     }
 
@@ -235,7 +262,7 @@ public class PrintRequestService {
 
     private void checkMayAddFile(PrintRequest request, Caller caller) {
         checkMayChangeFiles(request, caller);
-        int maxFiles = settings.uploads().maxFiles();
+        int maxFiles = settings.getUploads().maxFiles();
         if (request.files.size() >= maxFiles) {
             throw new InvalidInputException("A request can hold at most " + maxFiles + " files and links");
         }
@@ -303,6 +330,53 @@ public class PrintRequestService {
     }
 
     /**
+     * Chooses a Spoolman filament for one colour of a plate of a file, or for a whole file without
+     * colours or a link (#11). Allowed while colour selection is on, like the quantity: the owner
+     * while the request is SUBMITTED, the admin until it is final.
+     */
+    @Transactional
+    public PrintRequestDto chooseFilament(long requestId, long fileId, FilamentChoiceRequest choice, Caller caller) {
+        PrintRequest request = findVisible(requestId, caller);
+        checkMayChooseFilaments(request, caller);
+        RequestFile file = fileOf(request, fileId);
+        ModelInfoDto info = null;
+        if (!file.isLink()) {
+            info = modelInfo.describe(List.of(file.id), caller.admin()).get(file.id);
+        }
+        filamentChoices.choose(file.id, info, choice);
+        return describe(request, caller.admin());
+    }
+
+    /** Removes a chosen filament (#11): the colour goes back to the file's own. Same rules as choosing. */
+    @Transactional
+    public PrintRequestDto removeFilamentChoice(long requestId, long fileId, long choiceId, Caller caller) {
+        PrintRequest request = findVisible(requestId, caller);
+        checkMayChooseFilaments(request, caller);
+        filamentChoices.remove(fileOf(request, fileId).id, choiceId);
+        return describe(request, caller.admin());
+    }
+
+    private void checkMayChooseFilaments(PrintRequest request, Caller caller) {
+        if (!settings.getSpoolman().colorSelection()) {
+            throw new ConflictException("Choosing filaments from Spoolman is switched off");
+        }
+        if (!mayChooseFilaments(request, caller.admin())) {
+            if (caller.admin()) {
+                throw new ConflictException("This request is " + request.status + " and can no longer be changed");
+            }
+            throw new ConflictException("Filaments can only be chosen while the request is submitted");
+        }
+    }
+
+    /** Like the quantity: the owner while SUBMITTED, the admin until the request is final. */
+    private static boolean mayChooseFilaments(PrintRequest request, boolean admin) {
+        if (admin) {
+            return !request.status.isFinal();
+        }
+        return request.status == RequestStatus.SUBMITTED;
+    }
+
+    /**
      * Every file of a request for one ZIP download, under its original name. Duplicate names
      * get a number ({@code part (2).stl}). Links (#59) are listed in a text file.
      */
@@ -355,10 +429,43 @@ public class PrintRequestService {
      * @param admin whether the caller is the admin (sees slicing errors)
      */
     private PrintRequestDto describe(PrintRequest request, boolean admin) {
+        List<RequestFileDto> files = describeFiles(request.files, admin);
+        SpoolmanSettings spoolman = settings.getSpoolman();
+        boolean filamentSelection = spoolman.colorSelection() && mayChooseFilaments(request, admin);
+        return mapper.toDto(request, files, RequestTotals.of(files), filamentSelection, spoolman.notEnoughMessage(),
+                spoolman.noMatchMessage(), estimate(request, files));
+    }
+
+    /**
+     * Files and links as the API returns them, in the same order: model details with the grams
+     * estimated from the chosen filaments' densities (#72), and the chosen filaments (#11).
+     */
+    private List<RequestFileDto> describeFiles(List<RequestFile> files, boolean admin) {
         // Links have no model details (#59).
-        List<Long> fileIds = request.files.stream().filter(file -> !file.isLink()).map(file -> file.id).toList();
-        List<RequestFileDto> files = mapper.toFileDtos(request.files, modelInfo.describe(fileIds, admin));
-        return mapper.toDto(request, files, RequestTotals.of(files));
+        List<Long> fileIds = files.stream().filter(file -> !file.isLink()).map(file -> file.id).toList();
+        Map<Long, ModelInfoDto> infos = modelInfo.describe(fileIds, admin, filamentChoices.densities(fileIds));
+        List<ChoiceItem> items = files.stream()
+                .map(file -> new ChoiceItem(file.id, file.quantity, file.isDeclined()))
+                .toList();
+        return mapper.toFileDtos(files, infos, filamentChoices.describe(items, infos),
+                filamentChoices.unmatched(fileIds, infos));
+    }
+
+    /** No estimate once the admin set the final price, or for a declined request. */
+    private static boolean needsEstimate(PrintRequest request) {
+        return request.finalPrice == null && request.status != RequestStatus.DECLINED;
+    }
+
+    /** The automatic price (#72) while there is no final price; {@code null} when there is none. */
+    private PriceEstimate estimate(PrintRequest request, List<RequestFileDto> files) {
+        if (!needsEstimate(request)) {
+            return null;
+        }
+        List<PricedItem> items = files.stream()
+                .map(file -> new PricedItem(file.quantity(), file.status() == ItemStatus.DECLINED, file.modelInfo(),
+                        file.filamentChoices()))
+                .toList();
+        return pricing.estimate(items).orElse(null);
     }
 
     /** Adds the row of an upload that passed {@link #checkUpload} and is already in storage. */
@@ -677,7 +784,7 @@ public class PrintRequestService {
         if (upload.size() <= 0) {
             throw new InvalidInputException("The file is empty");
         }
-        UploadLimits limits = settings.uploads();
+        UploadLimits limits = settings.getUploads();
         if (upload.size() > limits.maxFileSizeBytes()) {
             throw new InvalidInputException("The file is larger than " + limits.maxFileSizeMb() + " MB");
         }

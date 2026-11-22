@@ -10,6 +10,7 @@ import {
 } from '../app/core/models/print-request.model';
 import { Printer, Settings } from '../app/core/models/settings.model';
 import { SlicerPrinter } from '../app/core/models/slicer.model';
+import { FilamentChoice, SpoolmanFilament } from '../app/core/models/spoolman.model';
 
 export const ADMIN: User = {
   id: 1,
@@ -43,6 +44,8 @@ export const UPLOADED_FILE: UploadedFile = {
   declineReason: null,
   nextStatuses: ['ACCEPTED', 'DECLINED'],
   createdAt: '2026-02-01T10:00:00Z',
+  filamentChoices: [],
+  unmatchedColors: [],
   modelInfo: {
     status: 'PENDING',
     plates: [],
@@ -65,6 +68,8 @@ export const LINK: RequestLink = {
   nextStatuses: ['ACCEPTED', 'DECLINED'],
   createdAt: '2026-02-01T10:00:00Z',
   modelInfo: null,
+  filamentChoices: [],
+  unmatchedColors: [],
 };
 
 export const REQUEST: PrintRequest = {
@@ -93,6 +98,10 @@ export const REQUEST: PrintRequest = {
     fits: null,
   },
   nextStatuses: ['IN_REVIEW', 'ACCEPTED', 'DECLINED'],
+  filamentSelection: false,
+  notEnoughFilamentMessage: 'Order it',
+  noMatchMessage: 'Pick another',
+  estimatedPrice: null,
 };
 
 export const REQUEST_SUMMARY: PrintRequestSummary = {
@@ -105,6 +114,7 @@ export const REQUEST_SUMMARY: PrintRequestSummary = {
   createdAt: '2026-02-01T10:00:00Z',
   itemsCompleted: 0,
   itemsActive: 1,
+  estimatedPrice: null,
 };
 
 /** Server slicing switched off, file never queued. */
@@ -155,6 +165,16 @@ export const NO_SETTINGS: Settings = {
   defaultPrinterId: null,
   printers: [],
   uploads: { maxFiles: 10, maxFileSizeMb: 100, ceilingMb: 100 },
+  spoolman: {
+    enabled: false,
+    colorSelection: false,
+    prices: false,
+    autoMatch: false,
+    matchTolerance: 20,
+    notEnoughMessage: 'Order it',
+    noMatchMessage: 'Pick another',
+  },
+  pricing: { markup: 1, pricePer100Grams: 0 },
 };
 
 /** The P1S as the slicer lists it (0.2, 0.4 and 0.6 mm nozzles). */
@@ -236,3 +256,36 @@ export function encodeMesh(mesh: PreviewMesh): ArrayBuffer {
   }
   return buffer;
 }
+
+/** A red PLA in Spoolman with 412 g left (#11). */
+export const SPOOLMAN_RED: SpoolmanFilament = {
+  id: 3,
+  name: 'PLA Basic Red',
+  vendor: 'Acme',
+  material: 'PLA',
+  color: '#FF0000',
+  colors: [],
+  gramsLeft: 412,
+};
+
+/** Red PLA chosen for the white PLA on plate 1, with enough left. */
+export const RED_FOR_WHITE: FilamentChoice = {
+  id: 12,
+  wholeItem: false,
+  plateIndex: 1,
+  originalType: 'PLA',
+  originalColor: '#FFFFFF',
+  spoolmanFilamentId: 3,
+  name: 'PLA Basic Red',
+  vendor: 'Acme',
+  material: 'PLA',
+  color: '#FF0000',
+  colors: [],
+  chosenAt: '2026-02-01T10:00:00Z',
+  orphaned: false,
+  inSpoolman: true,
+  gramsLeft: 412,
+  gramsNeeded: 33.69,
+  notEnough: false,
+  source: 'MANUAL',
+};

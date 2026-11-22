@@ -5,6 +5,11 @@
   } @else {
     <span data-cy="price-amount">{{ price }}</span>
   }
+} @else if (estimated(); as estimate) {
+  <span data-cy="price-estimate">{{ estimate.text }}</span>
+  <span class="text-body-secondary small ms-1" data-cy="price-estimate-note">{{
+    estimate.note
+  }}</span>
 } @else {
   <span class="text-body-secondary" data-cy="price-pending">Price pending</span>
 }

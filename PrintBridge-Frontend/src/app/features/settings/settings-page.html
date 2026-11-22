@@ -8,21 +8,61 @@
     </div>
   }
 
+  <ul class="nav nav-tabs mb-3" role="tablist" data-cy="settings-tabs">
+    @for (tab of tabs; track tab.id) {
+      <li class="nav-item" role="presentation">
+        <button
+          type="button"
+          class="nav-link"
+          role="tab"
+          [class.active]="activeTab() === tab.id"
+          [attr.aria-selected]="activeTab() === tab.id"
+          (click)="selectTab(tab.id)"
+          [attr.data-cy]="'settings-tab-' + tab.id"
+        >
+          {{ tab.label }}
+        </button>
+      </li>
+    }
+  </ul>
+
   @if (loading()) {
     <div class="text-body-secondary" data-cy="settings-loading">
       <span class="spinner-border spinner-border-sm me-2" aria-hidden="true"></span>Loading…
     </div>
   } @else if (settings(); as settings) {
-    <app-printers-card
-      [settings]="settings"
-      [slicerPrinters]="slicerPrinters()"
-      (changed)="onChanged($event)"
-    />
-    <app-slicing-settings
-      [settings]="settings.slicing"
-      [status]="slicerStatus()"
-      (saved)="onChanged($event)"
-    />
-    <app-upload-settings [settings]="settings.uploads" (saved)="onChanged($event)" />
+    @switch (activeTab()) {
+      @case ('printers') {
+        <app-printers-card
+          [settings]="settings"
+          [slicerPrinters]="slicerPrinters()"
+          (changed)="onChanged($event)"
+        />
+      }
+      @case ('slicing') {
+        <app-slicing-settings
+          [settings]="settings.slicing"
+          [status]="slicerStatus()"
+          (saved)="onChanged($event)"
+        />
+      }
+      @case ('uploads') {
+        <app-upload-settings [settings]="settings.uploads" (saved)="onChanged($event)" />
+      }
+      @case ('pricing') {
+        <app-pricing-settings
+          [settings]="settings.pricing"
+          [spoolmanPrices]="settings.spoolman.enabled && settings.spoolman.prices"
+          (saved)="onChanged($event)"
+        />
+      }
+      @case ('spoolman') {
+        <app-spoolman-settings
+          [settings]="settings.spoolman"
+          [status]="spoolmanStatus()"
+          (saved)="onChanged($event)"
+        />
+      }
+    }
   }
 </div>

@@ -10,6 +10,7 @@ import java.time.Instant;
  *
  * @param itemsCompleted files and links that are completed (#61)
  * @param itemsActive    files and links that aren't declined
+ * @param estimatedPrice the automatic price while there is no final price (#72); {@code null} otherwise
  */
 public record PrintRequestSummaryDto(
         Long id,
@@ -20,5 +21,6 @@ public record PrintRequestSummaryDto(
         String ownerUsername,
         Instant createdAt,
         int itemsCompleted,
-        int itemsActive) {
+        int itemsActive,
+        EstimatedPriceDto estimatedPrice) {
 }

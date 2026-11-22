@@ -37,6 +37,33 @@ describe('SettingsService', () => {
     uploadsUpdate.flush({});
   });
 
+  it('saves the pricing', () => {
+    const pricing = { markup: 1.5, pricePer100Grams: 2.5 };
+    service.updatePricing(pricing).subscribe();
+    const update = http.expectOne({ method: 'PUT', url: '/api/settings/pricing' });
+    expect(update.request.body).toEqual(pricing);
+    update.flush({});
+  });
+
+  it('calls the Spoolman settings and status', () => {
+    const spoolman = {
+      enabled: true,
+      colorSelection: true,
+      prices: false,
+      autoMatch: false,
+      matchTolerance: 20,
+      notEnoughMessage: 'Order it',
+      noMatchMessage: 'Pick another',
+    };
+    service.updateSpoolman(spoolman).subscribe();
+    const update = http.expectOne({ method: 'PUT', url: '/api/settings/spoolman' });
+    expect(update.request.body).toEqual(spoolman);
+    update.flush({});
+
+    service.spoolmanStatus().subscribe();
+    http.expectOne({ method: 'GET', url: '/api/spoolman/status' }).flush({});
+  });
+
   it('calls the printers API', () => {
     const printer: PrinterInput = {
       model: 'Bambu Lab P1S',

@@ -1,5 +1,6 @@
 package com.beauver.printbridge.slicing;
 
+import com.beauver.printbridge.modelfile.FilePlatesChanged;
 import com.beauver.printbridge.slicing.client.SliceResponse;
 import com.beauver.printbridge.slicing.client.SlicerClient;
 import com.beauver.printbridge.slicing.client.SlicerException;
@@ -7,6 +8,7 @@ import io.quarkus.logging.Log;
 import io.quarkus.runtime.Startup;
 import jakarta.annotation.PreDestroy;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import org.eclipse.microprofile.config.inject.ConfigProperty;
 
@@ -21,6 +23,10 @@ import java.util.concurrent.atomic.AtomicBoolean;
  */
 @ApplicationScoped
 public class SliceWorker {
+
+    /** Fired after a slice is saved: its colours may differ from the file's (#76). */
+    @Inject
+    Event<FilePlatesChanged> platesChanged;
 
     @Inject
     SlicingService service;
@@ -69,6 +75,7 @@ public class SliceWorker {
         try {
             SliceResponse response = client.slice(job.file(), job.plan(), job.timeout());
             service.complete(job.fileId(), job.plan(), response);
+            platesChanged.fire(new FilePlatesChanged(job.fileId()));
         } catch (SlicerException e) {
             service.fail(job.fileId(), e.getMessage());
         } catch (RuntimeException e) {

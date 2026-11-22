@@ -1,0 +1,121 @@
+<span
+  class="picker"
+  ngbDropdown
+  container="body"
+  autoClose="outside"
+  [placement]="placement"
+  (openChange)="onOpenChange($event)"
+>
+  @if (editable()) {
+    <!-- A themed button around the circle, so it reads as clickable on any filament colour; the
+         caret is Bootstrap's dropdown-toggle (ngbDropdownAnchor adds the class). -->
+    <button
+      type="button"
+      class="btn btn-sm picker-button"
+      [class.btn-outline-secondary]="!unmatched()"
+      [class.btn-outline-danger]="unmatched()"
+      [title]="title()"
+      [attr.aria-label]="title()"
+      [attr.aria-expanded]="open()"
+      ngbDropdownAnchor
+      (click)="toggle()"
+      data-cy="filament-picker-circle"
+    >
+      <span class="swatch" [class.unknown]="!background()" [style.background]="background()"></span>
+    </button>
+  } @else {
+    <span
+      class="swatch"
+      [class.unknown]="!background()"
+      [class.unmatched]="unmatched()"
+      [style.background]="background()"
+      [title]="title()"
+      data-cy="filament-picker-circle"
+    ></span>
+  }
+  @if (notEnough()) {
+    <span
+      class="text-warning-emphasis small"
+      title="Not enough filament in stock"
+      aria-label="Not enough filament"
+      data-cy="filament-picker-not-enough"
+      >&#9888;</span
+    >
+  }
+  @if (showLabel()) {
+    <span class="small" data-cy="filament-picker-label">{{ label() }}</span>
+  }
+
+  <div ngbDropdownMenu class="shadow p-2 menu" data-cy="filament-picker-menu">
+    @if (open()) {
+      <input
+        type="search"
+        class="form-control form-control-sm mb-2"
+        placeholder="Search vendor, name or material"
+        aria-label="Search filaments"
+        [value]="search()"
+        (input)="onSearch($event)"
+        data-cy="filament-picker-search"
+      />
+      @if (loading()) {
+        <div class="small text-body-secondary px-2" data-cy="filament-picker-loading">
+          <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Loading
+          filaments…
+        </div>
+      } @else if (error(); as message) {
+        <div class="small text-danger px-2" data-cy="filament-picker-error">
+          {{ message }}
+          <button type="button" class="btn btn-link btn-sm p-0 ms-1" (click)="retry()">
+            Try again
+          </button>
+        </div>
+      } @else if (empty()) {
+        <div class="small text-body-secondary px-2" data-cy="filament-picker-empty">
+          No filaments in Spoolman
+        </div>
+      } @else {
+        <div class="options">
+          @for (option of options(); track option.filament.id) {
+            <button
+              type="button"
+              class="dropdown-item d-flex align-items-center gap-2 small"
+              [class.active]="choice()?.spoolmanFilamentId === option.filament.id"
+              (click)="pick(option.filament)"
+              data-cy="filament-picker-option"
+            >
+              <span
+                class="swatch"
+                [class.unknown]="!option.background"
+                [style.background]="option.background"
+              ></span>
+              <span class="me-auto text-wrap">{{ option.name }}</span>
+              @if (option.notEnough) {
+                <span class="badge text-bg-warning" data-cy="filament-picker-option-not-enough"
+                  >Not enough in stock</span
+                >
+              }
+              @if (option.left) {
+                <span class="text-body-secondary text-nowrap">{{ option.left }}</span>
+              }
+            </button>
+          } @empty {
+            <div class="small text-body-secondary px-2" data-cy="filament-picker-no-match">
+              No filaments match
+            </div>
+          }
+        </div>
+      }
+      @if (choice()) {
+        <div class="dropdown-divider"></div>
+        <button
+          type="button"
+          class="dropdown-item small"
+          (click)="useFileColour()"
+          data-cy="filament-picker-reset"
+        >
+          Use file colour
+        </button>
+      }
+    }
+  </div>
+</span>

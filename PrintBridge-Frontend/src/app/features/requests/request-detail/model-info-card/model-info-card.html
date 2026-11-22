@@ -47,6 +47,26 @@
     <div class="card-body" data-cy="model-info-body">
       <ng-content />
 
+      @if (notEnoughFilament(); as message) {
+        <div class="alert alert-warning py-2 small" data-cy="model-info-not-enough">
+          {{ message }}
+        </div>
+      }
+      @if (showWholeItem()) {
+        <p class="mb-2" data-cy="model-info-whole-filament">
+          <span class="me-2">Filament</span>
+          <app-filament-picker
+            [slot]="wholeItemSlot"
+            [choice]="wholeItemChoice()"
+            [editable]="filamentSelection()"
+            [gramsNeeded]="wholeItemGrams()"
+            [showLabel]="true"
+            (chosen)="chooseFilament($event)"
+            (reset)="resetFilament($event)"
+          />
+        </p>
+      }
+
       @if (slicingError(); as error) {
         <div class="alert alert-warning py-2 small" data-cy="model-info-slicing-error">
           Slicing failed: {{ error }}
@@ -98,23 +118,118 @@
               <dd class="col-sm-9" data-cy="model-info-sliced-for">{{ slicedFor() }}</dd>
             }
             @if (!showPlates() && filaments().length > 0) {
-              <dt class="col-sm-3">Filaments</dt>
-              <dd class="col-sm-9">
-                <span class="filaments">
-                  @for (filament of filaments(); track $index) {
-                    <span
-                      class="swatch"
-                      [style.background-color]="filament.color"
-                      [title]="filamentLabel(filament)"
-                    ></span>
-                    <span class="small me-2">{{ filamentLabel(filament) }}</span>
+              @if (singlePlate(); as plate) {
+                <dt class="col-sm-3">Filaments</dt>
+                <dd class="col-sm-9">
+                  <span class="filaments">
+                    @for (filament of filaments(); track $index) {
+                      <app-filament-picker
+                        [slot]="slotOf(plate, filament)"
+                        [choice]="choiceFor(slotOf(plate, filament))"
+                        [editable]="filamentSelection()"
+                        [gramsNeeded]="gramsNeeded(plate, filament)"
+                        [unmatched]="isUnmatched(slotOf(plate, filament))"
+                        (chosen)="chooseFilament($event)"
+                        (reset)="resetFilament($event)"
+                      />
+                      @if (isAutomatic(slotOf(plate, filament))) {
+                        <span class="small text-body-secondary me-1" data-cy="model-info-auto"
+                          >auto</span
+                        >
+                      }
+                      <!-- Once something is chosen the circles speak for themselves (names in the tooltip); the file's own colours move to the row below. -->
+                      @if (!hasChoiceOn(plate)) {
+                        <span class="small me-2" data-cy="model-info-filament-label">{{
+                          filamentLabel(filament)
+                        }}</span>
+                      }
+                    }
+                  </span>
+                  @if (noMatchOn(plate); as message) {
+                    <div class="small text-danger-emphasis mt-1" data-cy="model-info-no-match">
+                      {{ message }}
+                    </div>
                   }
-                </span>
-              </dd>
+                </dd>
+                @if (hasChoiceOn(plate)) {
+                  <dt class="col-sm-3">Old colours</dt>
+                  <dd class="col-sm-9">
+                    <span class="filaments" data-cy="model-info-old-colours">
+                      @for (filament of plate.filaments; track $index) {
+                        <app-filament-picker [slot]="slotOf(plate, filament)" />
+                        <span class="small text-body-secondary me-2">{{
+                          filament.color ?? 'unknown'
+                        }}</span>
+                      }
+                    </span>
+                  </dd>
+                }
+              }
             }
           </dl>
           <div class="mt-3" data-cy="model-info-preview">
-            <app-model-preview [loader]="previewLoader()" [placeholder]="placeholder()" />
+            <app-model-preview
+              [loader]="previewLoader()"
+              [placeholder]="placeholder()"
+              [colors]="previewColors()"
+              (plateChange)="onPreviewPlate($event)"
+            >
+              @if (previewPlateColours(); as plate) {
+                <div class="preview-colours mb-2 small" data-cy="model-info-preview-colours">
+                  <span class="text-body-secondary">Colours</span>
+                  <span class="filaments">
+                    @for (filament of plate.filaments; track $index) {
+                      <app-filament-picker
+                        [slot]="slotOf(plate, filament)"
+                        [choice]="choiceFor(slotOf(plate, filament))"
+                        [editable]="filamentSelection()"
+                        [gramsNeeded]="gramsNeeded(plate, filament)"
+                        [unmatched]="isUnmatched(slotOf(plate, filament))"
+                        (chosen)="chooseFilament($event)"
+                        (reset)="resetFilament($event)"
+                      />
+                      @if (isAutomatic(slotOf(plate, filament))) {
+                        <span class="small text-body-secondary me-1" data-cy="model-info-auto"
+                          >auto</span
+                        >
+                      }
+                    }
+                  </span>
+                  @if (hasChoiceOn(plate)) {
+                    <span class="text-body-secondary">Old colours</span>
+                    <span class="filaments" data-cy="model-info-old-colours">
+                      @for (filament of plate.filaments; track $index) {
+                        <app-filament-picker [slot]="slotOf(plate, filament)" />
+                        <span class="small text-body-secondary me-2">{{
+                          filament.color ?? 'unknown'
+                        }}</span>
+                      }
+                    </span>
+                  }
+                </div>
+                @if (noMatchOn(plate); as message) {
+                  <p class="small text-danger-emphasis mb-2" data-cy="model-info-preview-no-match">
+                    {{ message }}
+                  </p>
+                }
+              } @else if (showWholeItem()) {
+                <div
+                  class="d-flex align-items-center gap-2 mb-2 small"
+                  data-cy="model-info-preview-whole-filament"
+                >
+                  <span class="text-body-secondary">Filament</span>
+                  <app-filament-picker
+                    [slot]="wholeItemSlot"
+                    [choice]="wholeItemChoice()"
+                    [editable]="filamentSelection()"
+                    [gramsNeeded]="wholeItemGrams()"
+                    [showLabel]="true"
+                    (chosen)="chooseFilament($event)"
+                    (reset)="resetFilament($event)"
+                  />
+                </div>
+              }
+            </app-model-preview>
           </div>
 
           @if (!showPlates() && singlePlate()?.sliceError; as reason) {
@@ -153,6 +268,11 @@
                             Refused: {{ plate.sliceError }}
                           </div>
                         }
+                        @if (noMatchOn(plate); as message) {
+                          <div class="small text-danger-emphasis" data-cy="model-info-no-match">
+                            {{ message }}
+                          </div>
+                        }
                       </td>
                       <td class="text-nowrap">
                         @if (plateDimensions(plate); as size) {
@@ -167,14 +287,18 @@
                       <td class="text-nowrap">{{ plateGrams(plate) ?? '–' }}</td>
                       <td class="text-nowrap">{{ plateTime(plate) ?? '–' }}</td>
                       <td>
-                        <span class="filaments">
+                        <span class="plate-colours">
                           @for (filament of plate.filaments; track $index) {
-                            <span
-                              class="swatch"
-                              [style.background-color]="filament.color"
-                              [title]="filamentLabel(filament)"
+                            <app-filament-picker
+                              [slot]="slotOf(plate, filament)"
+                              [choice]="choiceFor(slotOf(plate, filament))"
+                              [editable]="filamentSelection()"
+                              [gramsNeeded]="gramsNeeded(plate, filament)"
+                              [unmatched]="isUnmatched(slotOf(plate, filament))"
+                              (chosen)="chooseFilament($event)"
+                              (reset)="resetFilament($event)"
                               data-cy="model-info-swatch"
-                            ></span>
+                            />
                           }
                         </span>
                       </td>
@@ -182,6 +306,33 @@
                   }
                 </tbody>
               </table>
+            </div>
+          }
+
+          @if (orphanedChoices().length > 0) {
+            <div class="mt-3" data-cy="model-info-orphaned">
+              <h3 class="h6 mb-1">No longer in this file</h3>
+              <p class="small text-body-secondary mb-1">
+                These filaments were chosen for colours the file doesn't have anymore.
+              </p>
+              <ul class="list-unstyled mb-0">
+                @for (choice of orphanedChoices(); track choice.id) {
+                  <li class="d-flex align-items-center gap-2 small" data-cy="model-info-orphan">
+                    <app-filament-picker [slot]="choice" [choice]="choice" [showLabel]="true" />
+                    <span class="text-body-secondary">{{ orphanLabel(choice) }}</span>
+                    @if (filamentSelection()) {
+                      <button
+                        type="button"
+                        class="btn btn-link btn-sm p-0"
+                        (click)="resetFilament(choice.id)"
+                        data-cy="model-info-orphan-remove"
+                      >
+                        Remove
+                      </button>
+                    }
+                  </li>
+                }
+              </ul>
             </div>
           }
 

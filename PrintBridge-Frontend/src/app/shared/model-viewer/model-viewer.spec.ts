@@ -5,7 +5,11 @@ import { ModelViewer } from './model-viewer';
 import { PREVIEW_SCENE_FACTORY, PreviewSceneHandle } from './preview-scene-factory';
 
 describe('ModelViewer', () => {
-  let scene: { show: ReturnType<typeof vi.fn>; dispose: ReturnType<typeof vi.fn> };
+  let scene: {
+    show: ReturnType<typeof vi.fn>;
+    recolor: ReturnType<typeof vi.fn>;
+    dispose: ReturnType<typeof vi.fn>;
+  };
   let factory: { isAvailable: ReturnType<typeof vi.fn>; create: ReturnType<typeof vi.fn> };
 
   async function create(mesh: PreviewMesh = TRIANGLE_MESH) {
@@ -18,7 +22,7 @@ describe('ModelViewer', () => {
   }
 
   beforeEach(() => {
-    scene = { show: vi.fn(), dispose: vi.fn() };
+    scene = { show: vi.fn(), recolor: vi.fn(), dispose: vi.fn() };
     factory = {
       isAvailable: vi.fn().mockReturnValue(true),
       create: vi.fn().mockResolvedValue(scene),
@@ -41,7 +45,7 @@ describe('ModelViewer', () => {
     ]);
     expect(viewer['showPlateButtons']()).toBe(true);
     expect(viewer['selectedPlate']()).toBe(2);
-    expect(scene.show).toHaveBeenLastCalledWith(onSecond, 2);
+    expect(scene.show).toHaveBeenLastCalledWith(onSecond, 2, []);
     expect(viewer['ready']()).toBe(true);
   });
 
@@ -51,7 +55,7 @@ describe('ModelViewer', () => {
     fixture.componentInstance['selectPlate'](2);
     fixture.detectChanges();
 
-    expect(scene.show).toHaveBeenLastCalledWith(TRIANGLE_MESH, 2);
+    expect(scene.show).toHaveBeenLastCalledWith(TRIANGLE_MESH, 2, []);
   });
 
   it('has no plate buttons for a single plate and falls back to plate 1', async () => {
@@ -99,5 +103,37 @@ describe('ModelViewer', () => {
     factory.isAvailable.mockReturnValue(true);
     factory.create.mockRejectedValue(new Error('offline'));
     expect((await create()).componentInstance['webGl']()).toBe(false);
+  });
+
+  it('recolours chosen filaments without showing the plate again', async () => {
+    const fixture = await create();
+    const shows = scene.show.mock.calls.length;
+    const black = [{ wholeFile: false, plate: 1, from: '#FF0000', to: '#000000' }];
+
+    fixture.componentRef.setInput('colors', black);
+    fixture.detectChanges();
+
+    expect(scene.recolor).toHaveBeenLastCalledWith(black);
+    expect(scene.show).toHaveBeenCalledTimes(shows);
+
+    // Another plate is drawn in the chosen colours straight away.
+    fixture.componentInstance['selectPlate'](2);
+    fixture.detectChanges();
+    expect(scene.show).toHaveBeenLastCalledWith(TRIANGLE_MESH, 2, black);
+  });
+
+  it('reports the plate on screen', async () => {
+    const fixture = TestBed.createComponent(ModelViewer);
+    const plates: number[] = [];
+    fixture.componentInstance.plateChange.subscribe((plate) => {
+      plates.push(plate);
+    });
+    fixture.componentRef.setInput('mesh', TRIANGLE_MESH);
+    fixture.detectChanges();
+
+    fixture.componentInstance['selectPlate'](2);
+    fixture.detectChanges();
+
+    expect(plates).toEqual([1, 2]);
   });
 });

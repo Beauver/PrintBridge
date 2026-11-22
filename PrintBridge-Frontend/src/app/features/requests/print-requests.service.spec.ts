@@ -234,6 +234,23 @@ describe('PrintRequestsService', () => {
     expect(quantity.request.body).toEqual({ quantity: 5 });
     quantity.flush(REQUEST);
 
+    const choice = {
+      wholeItem: false,
+      plateIndex: 1,
+      originalType: 'PLA',
+      originalColor: '#FFFFFF',
+      spoolmanFilamentId: 3,
+    };
+    service.chooseFilament(4, 7, choice).subscribe();
+    const chosen = http.expectOne({ method: 'PUT', url: '/api/requests/4/files/7/filaments' });
+    expect(chosen.request.body).toEqual(choice);
+    chosen.flush(REQUEST);
+
+    service.removeFilamentChoice(4, 7, 12).subscribe();
+    http
+      .expectOne({ method: 'DELETE', url: '/api/requests/4/files/7/filaments/12' })
+      .flush(REQUEST);
+
     service.downloadAll(4).subscribe((blob) => {
       expect(blob).toBeInstanceOf(Blob);
     });

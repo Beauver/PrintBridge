@@ -1,8 +1,10 @@
 package com.beauver.printbridge.settings;
 
+import com.beauver.printbridge.settings.dto.PricingSettingsDto;
 import com.beauver.printbridge.settings.dto.PrinterInputDto;
 import com.beauver.printbridge.settings.dto.SettingsDto;
 import com.beauver.printbridge.settings.dto.SlicingSettingsDto;
+import com.beauver.printbridge.settings.dto.SpoolmanSettingsDto;
 import com.beauver.printbridge.settings.dto.UploadSettingsDto;
 import com.beauver.printbridge.user.Role;
 import jakarta.annotation.security.RolesAllowed;
@@ -38,6 +40,18 @@ public class SettingsResource {
     @Path("/uploads")
     public SettingsDto updateUploads(@Valid @NotNull UploadSettingsDto uploads) {
         return service.updateUploads(uploads);
+    }
+
+    @PUT
+    @Path("/spoolman")
+    public SettingsDto updateSpoolman(@Valid @NotNull SpoolmanSettingsDto spoolman) {
+        return service.updateSpoolman(spoolman);
+    }
+
+    @PUT
+    @Path("/pricing")
+    public SettingsDto updatePricing(@Valid @NotNull PricingSettingsDto pricing) {
+        return service.updatePricing(pricing);
     }
 
     @POST

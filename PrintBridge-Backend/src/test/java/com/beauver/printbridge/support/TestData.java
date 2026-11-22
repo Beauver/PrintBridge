@@ -53,7 +53,11 @@ public class TestData {
         em.createNativeQuery("TRUNCATE users, refresh_tokens, print_requests, request_files, model_info "
                 + "RESTART IDENTITY CASCADE").executeUpdate();
         em.createNativeQuery("UPDATE app_settings SET slicing_enabled = FALSE, slicing_timeout_minutes = 10, "
-                + "default_printer_id = NULL, upload_max_files = NULL, upload_max_file_size_mb = NULL").executeUpdate();
+                + "default_printer_id = NULL, upload_max_files = NULL, upload_max_file_size_mb = NULL, "
+                + "spoolman_enabled = FALSE, spoolman_color_selection = FALSE, "
+                + "spoolman_not_enough_message = NULL, spoolman_auto_match = FALSE, spoolman_match_tolerance = 20, "
+                + "spoolman_no_match_message = NULL, spoolman_prices = FALSE, pricing_markup = 1, "
+                + "price_per_100_grams = 0").executeUpdate();
         // Not TRUNCATE: app_settings references printers, and its row must stay.
         em.createNativeQuery("DELETE FROM printers").executeUpdate();
         em.createNativeQuery("ALTER SEQUENCE printers_id_seq RESTART").executeUpdate();
@@ -95,6 +99,32 @@ public class TestData {
         em.createNativeQuery("UPDATE app_settings SET upload_max_files = ?1, upload_max_file_size_mb = ?2")
                 .setParameter(1, maxFiles)
                 .setParameter(2, maxFileSizeMb)
+                .executeUpdate();
+    }
+
+    /** Writes the Spoolman switches straight to the table, past the checks of the settings endpoint. */
+    @Transactional
+    public void setSpoolman(boolean enabled, boolean colorSelection) {
+        setSpoolman(enabled, colorSelection, false);
+    }
+
+    /** Switches automatic matching (#76) with its tolerance, past the checks of the settings endpoint. */
+    @Transactional
+    public void setAutoMatch(boolean autoMatch, int tolerance) {
+        em.createNativeQuery("UPDATE app_settings SET spoolman_auto_match = ?1, spoolman_match_tolerance = ?2")
+                .setParameter(1, autoMatch)
+                .setParameter(2, tolerance)
+                .executeUpdate();
+    }
+
+    /** Also whether the price estimate uses Spoolman's prices (#72). */
+    @Transactional
+    public void setSpoolman(boolean enabled, boolean colorSelection, boolean prices) {
+        em.createNativeQuery("UPDATE app_settings SET spoolman_enabled = ?1, spoolman_color_selection = ?2, "
+                        + "spoolman_prices = ?3")
+                .setParameter(1, enabled)
+                .setParameter(2, colorSelection)
+                .setParameter(3, prices)
                 .executeUpdate();
     }
 

@@ -60,7 +60,7 @@ class SettingsResourceTest {
                 .body("defaultPrinterId", nullValue())
                 .body("slicing.enabled", is(false))
                 .body("slicing.timeoutMinutes", is(10));
-        SlicingSettings slicing = settings.slicing();
+        SlicingSettings slicing = settings.getSlicing();
         assertFalse(slicing.enabled());
         assertTrue(slicing.printers().isEmpty());
         assertNull(slicing.defaultPrinter());
@@ -82,7 +82,7 @@ class SettingsResourceTest {
                 .body("uploads.maxFiles", is(50))
                 .body("uploads.maxFileSizeMb", is(1));
         put("uploads", Map.of("maxFiles", 1, "maxFileSizeMb", 1)).statusCode(200).body("uploads.maxFiles", is(1));
-        assertEquals(1, settings.uploads().maxFiles());
+        assertEquals(1, settings.getUploads().maxFiles());
 
         put("uploads", Map.of("maxFiles", 0, "maxFileSizeMb", 1)).statusCode(400);
         put("uploads", Map.of("maxFiles", 51, "maxFileSizeMb", 1)).statusCode(400);
@@ -98,7 +98,7 @@ class SettingsResourceTest {
     @Test
     void savedSizeAboveALowerCeilingIsCapped() {
         data.setUploadLimits(null, 5);
-        UploadLimits limits = settings.uploads();
+        UploadLimits limits = settings.getUploads();
         assertEquals(10, limits.maxFiles());
         assertEquals(1, limits.maxFileSizeMb());
         assertEquals(1024 * 1024, limits.maxFileSizeBytes());
@@ -126,7 +126,7 @@ class SettingsResourceTest {
                 .body("printers[1].ownedNozzles", empty())
                 .body("printers[1].process", nullValue());
 
-        SlicingSettings slicing = settings.slicing();
+        SlicingSettings slicing = settings.getSlicing();
         PrinterSettings p1s = slicing.defaultPrinter();
         assertEquals("Bambu Lab P1S", p1s.model());
         assertEquals(new BuildPlate(256, 256, 250), p1s.buildPlate());
@@ -157,7 +157,7 @@ class SettingsResourceTest {
         given().auth().oauth2(adminToken).contentType(ContentType.JSON).post("/api/settings/printers")
                 .then().statusCode(400);
 
-        assertEquals(1, settings.slicing().printers().size());
+        assertEquals(1, settings.getSlicing().printers().size());
     }
 
     @Test
@@ -188,7 +188,7 @@ class SettingsResourceTest {
 
         addPrinter(TestData.printer("Bambu Lab A1 mini", 180, 180, 180)).statusCode(400)
                 .body("message", is("Choose nozzles and profiles for this printer while server slicing is on"));
-        SlicingSettings saved = settings.slicing();
+        SlicingSettings saved = settings.getSlicing();
         assertTrue(saved.enabled());
         assertEquals(Duration.ofMinutes(5), saved.timeout());
         assertEquals(1, saved.printers().size());

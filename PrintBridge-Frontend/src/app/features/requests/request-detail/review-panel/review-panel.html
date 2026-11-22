@@ -22,7 +22,7 @@
             inputmode="decimal"
             autocomplete="off"
             class="form-control"
-            placeholder="69,42"
+            [placeholder]="pricePlaceholder()"
             [formControl]="price"
             [class.is-invalid]="priceError()"
             (keydown.enter)="savePrice()"

@@ -22,18 +22,18 @@ class RequestTotalsTest {
         ModelInfoDto info = new ModelInfoDto(ModelInfoStatus.ANALYZED, ModelSource.MESH, 1.0, grams, weight, seconds,
                 fits, null, List.of(), null);
         return new RequestFileDto(1L, RequestFileKind.FILE, "a.stl", ModelFileType.STL, 10L, null, null, quantity,
-                ItemStatus.PENDING, null, List.of(), Instant.EPOCH, info);
+                ItemStatus.PENDING, null, List.of(), Instant.EPOCH, info, List.of(), List.of());
     }
 
     private static RequestFileDto pending(int quantity) {
         return new RequestFileDto(2L, RequestFileKind.FILE, "b.stl", ModelFileType.STL, 10L, null, null, quantity,
                 ItemStatus.PENDING, null, List.of(), Instant.EPOCH,
-                ModelInfoDto.withStatus(ModelInfoStatus.PENDING, null));
+                ModelInfoDto.withStatus(ModelInfoStatus.PENDING, null), List.of(), List.of());
     }
 
     private static RequestFileDto link(int quantity) {
         return new RequestFileDto(3L, RequestFileKind.LINK, null, null, null, "https://example.com/model", null,
-                quantity, ItemStatus.PENDING, null, List.of(), Instant.EPOCH, null);
+                quantity, ItemStatus.PENDING, null, List.of(), Instant.EPOCH, null, List.of(), List.of());
     }
 
     @Test
@@ -133,7 +133,7 @@ class RequestTotalsTest {
     private static RequestFileDto with(RequestFileDto entry, ItemStatus status) {
         return new RequestFileDto(entry.id(), entry.kind(), entry.originalFilename(), entry.type(), entry.sizeBytes(),
                 entry.url(), entry.linkName(), entry.quantity(), status, null, List.of(), entry.createdAt(),
-                entry.modelInfo());
+                entry.modelInfo(), List.of(), List.of());
     }
 
     @Test

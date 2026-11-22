@@ -15,6 +15,7 @@
     }
   </div>
 }
+<ng-content />
 @if (webGl()) {
   <div #host class="viewer border rounded position-relative" data-cy="viewer-canvas">
     @if (!ready()) {
