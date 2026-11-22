@@ -25,13 +25,14 @@ Flow:
 
 **Rotation:** every refresh revokes the used token and issues a new one. Presenting an already used token again revokes all of that user's refresh tokens, because it suggests the token was stolen.
 
-**Several tabs:** tabs that load together all send the same cookie. The token's row is locked while a refresh runs, so they are handled one after the other, and a token that was replaced less than 10 seconds ago (`REFRESH_TOKEN_GRACE`) is still accepted: each tab gets its own new token. Only hashes are stored, so the first tab's token can't be handed out again; the browser keeps the cookie that arrives last and the others expire unused. `refresh_tokens.rotated_at` marks a token as replaced, as opposed to revoked by logout or password reset.
+**Several tabs:** tabs that load together all send the same cookie. The token's row is locked while a refresh runs, so they are handled one after the other, and a token that was replaced less than 10 seconds ago (`REFRESH_TOKEN_GRACE`) is still accepted: each tab gets its own new token. Only hashes are stored, so the first tab's token can't be handed out again; the browser keeps the cookie that arrives last and the others expire unused. `refresh_tokens.rotated_at` marks a token as replaced, as opposed to revoked by logout.
 
 **Clean-up:** when a user gets a new refresh token (login, refresh), their expired ones are deleted. Revoked tokens stay until they expire, because detecting reuse needs them. Tokens of a user who never comes back stay until the user is deleted.
 
 **Revocation:**
 - Logout revokes the current refresh token and clears the cookie. Tokens of that user replaced a moment ago stop being accepted too.
-- Password reset revokes all refresh tokens (also ending the 10 seconds above) and sets `users.credentials_changed_at`; access tokens issued before that are rejected straight away (`TokenValidityFilter`).
+- A password change (by an admin, or by the user on *My account*) deletes all of the user's refresh tokens and sets `users.credentials_changed_at`; access tokens issued before that are rejected straight away (`TokenValidityFilter`). The tokens are deleted rather than revoked: a revoked token presented again counts as reuse and would revoke every token, including the new session the user gets when changing their own password. A deleted token is simply unknown (`401`).
+- Changing your own password answers with a new session (access token + refresh cookie), so the browser that made the change stays logged in; every other session ends.
 - Deleting a user deletes their refresh tokens (cascade); their access tokens are rejected straight away.
 
 ## Passwords
@@ -45,6 +46,7 @@ Two limits on `POST /api/auth/login`, both answered with `429`, a `Retry-After` 
 | Limit | Counted by | Counts |
 |---|---|---|
 | 10 per minute | client address (`@RateLimit` on the endpoint) | every login request, also successful and invalid ones |
+| 10 per minute | user (`@RateLimit` on `PUT /auth/me`) | every update of your own account, which checks the current password |
 | 5 per 15 minutes | account and client address together (`AuthService`) | failed logins only; a successful login clears the count |
 
 - While an account and address are paused, the password isn't checked at all, so even the right one has to wait.
