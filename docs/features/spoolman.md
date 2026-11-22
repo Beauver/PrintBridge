@@ -1,6 +1,6 @@
 # Spoolman filaments
 
-Issue: #11. Density and a price indication from Spoolman follow in #72.
+Issue: #11. The chosen filaments' density and price feed the [price estimate](pricing.md) (#72).
 
 PrintBridge reads the owner's self-hosted [Spoolman](https://github.com/Donkie/Spoolman): every filament and what is left on its spools. Requesters choose a Spoolman filament for each colour of each plate of their files, and the owner sees what was chosen. PrintBridge never writes to Spoolman.
 
@@ -26,6 +26,7 @@ The Spoolman tab shows:
   - *Not configured: set SPOOLMAN_URL on the server.*
 - **Enable Spoolman integration:** read filaments and stock from Spoolman.
 - **Enable colour selection from Spoolman:** requesters choose filaments by clicking the colour circles.
+- **Use prices from Spoolman:** the [price estimate](pricing.md) uses each chosen filament's price per gram (#72). Like colour selection it needs the integration and goes off with it.
   - Only possible while the integration is on.
   - Switching the integration off switches this off too (the form does it, and the backend refuses colour selection without the integration).
 - **Warning when there isn't enough filament:** the text requesters see on a request whose chosen filament runs short (max 300 characters). Empty means the default text.
@@ -110,7 +111,6 @@ Status codes:
 
 ## Not included
 
-- Density for the estimates and a price indication (#72).
 - Writing to Spoolman, reserving or deducting spools.
 - Slicing with a profile matching the chosen filament.
 - Choosing on the *New request* form (files aren't analysed yet there).

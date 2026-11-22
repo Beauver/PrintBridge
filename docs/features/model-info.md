@@ -21,7 +21,7 @@ Issue: #12, extended by #15 ([server slicing](server-slicing.md)) and #23 (one c
 - **Where the numbers come from**, per plate, in this order:
   1. [server slicing](server-slicing.md), when it sliced that plate;
   2. the slice data saved in the file: a project sliced in Bambu Studio / OrcaSlicer and then saved has `Metadata/slice_info.config` with the time, weight and filaments per plate (MakerWorld downloads usually aren't sliced);
-  3. an estimate from the plate's volume: `~X g` = volume (cm³) × 1.24 g/cm³ (PLA) × 0.35. Both numbers are hardcoded (`FilamentEstimate`, `TODO: #72`). Estimates have no print time.
+  3. an estimate from the plate's volume: `~X g` = volume (cm³) × 1.24 g/cm³ (PLA) × 0.35. The density is the chosen Spoolman filament's for a one-colour plate or a whole-file choice, else PLA's 1.24 ([pricing](pricing.md), #72); the fill factor is fixed (`FilamentEstimate`). Estimates have no print time.
 - **Totals:** the grams of all plates with objects added up, shown as exact, `(partly estimated)` or `(estimate)`. The total print time only shows when every plate has one.
 - <a id="totals-of-a-request"></a>**Totals of a request** (#23), in the request's details card: every file's grams and print time times its quantity, added up. The grams are exact, `(partly estimated)` or `(estimate)` like a single file; files whose details aren't known yet (not analysed, unreadable) don't count, and the page says how many were left out. The time adds up the files that have one; while some don't (not sliced), it shows as `~… (partial time)`. [Links](print-requests.md#links) (#59) only count toward the copies; they mark the totals like a plate that couldn't be sliced: exact grams become `(partly estimated)` and the time `(partial time)`. [Declined items](admin-review.md#item-statuses) (#61) aren't counted at all.
 - **Badges** in a card's header, visible when collapsed too: *Slicing…*, *Slicing failed* and *Too big for …*.
@@ -60,4 +60,4 @@ Issue: #12, extended by #15 ([server slicing](server-slicing.md)) and #23 (one c
 
 ## Not included
 
-[3D preview and plate images](model-preview.md) are #13; mesh repair/watertight check, object/triangle counts, price calculation and Spoolman density (#72), model stats in the request lists.
+[3D preview and plate images](model-preview.md) are #13; mesh repair/watertight check, object/triangle counts, a configurable fill factor, model stats in the request lists.
