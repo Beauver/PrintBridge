@@ -42,6 +42,18 @@ public class AppSettings extends PanacheEntityBase {
     @Column(name = "spoolman_color_selection", nullable = false)
     public boolean spoolmanColorSelection;
 
+    /** Colours of new projects get the closest Spoolman filament (#76); needs {@link #spoolmanColorSelection}. */
+    @Column(name = "spoolman_auto_match", nullable = false)
+    public boolean spoolmanAutoMatch;
+
+    /** Largest colour difference (CIEDE2000 ΔE, 1–100) automatic matching accepts. */
+    @Column(name = "spoolman_match_tolerance", nullable = false)
+    public int spoolmanMatchTolerance = SpoolmanSettings.DEFAULT_MATCH_TOLERANCE;
+
+    /** The admin's warning for a colour without a close filament; {@code null} means the default text. */
+    @Column(name = "spoolman_no_match_message", length = 300)
+    public String spoolmanNoMatchMessage;
+
     /** The admin's warning for a filament that runs short; {@code null} means the default text. */
     @Column(name = "spoolman_not_enough_message", length = 300)
     public String spoolmanNotEnoughMessage;

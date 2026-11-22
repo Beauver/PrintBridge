@@ -1,5 +1,6 @@
 package com.beauver.printbridge.printrequest.dto;
 
+import com.beauver.printbridge.filamentchoice.dto.ColorSlotDto;
 import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceDto;
 import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
@@ -22,6 +23,8 @@ import java.util.List;
  * @param nextStatuses     statuses the admin may move it to; empty while the request is final
  * @param modelInfo        what the analyser read from the file; {@code null} for links
  * @param filamentChoices  the Spoolman filaments chosen for its colours, or for the whole item (#11)
+ * @param unmatchedColors  colours automatic matching found no close filament for, and nobody decided on
+ *                         since (#76)
  */
 public record RequestFileDto(
         Long id,
@@ -37,5 +40,6 @@ public record RequestFileDto(
         List<ItemStatus> nextStatuses,
         Instant createdAt,
         ModelInfoDto modelInfo,
-        List<FilamentChoiceDto> filamentChoices) {
+        List<FilamentChoiceDto> filamentChoices,
+        List<ColorSlotDto> unmatchedColors) {
 }

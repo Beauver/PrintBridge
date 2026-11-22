@@ -120,7 +120,8 @@ public class SettingsService {
         boolean enabled = input.enabled();
         boolean colorSelection = input.colorSelection();
         boolean prices = input.prices();
-        if ((enabled || colorSelection || prices) && !spoolman.isConfigured()) {
+        boolean autoMatch = input.autoMatch();
+        if ((enabled || colorSelection || prices || autoMatch) && !spoolman.isConfigured()) {
             throw new InvalidInputException("Set SPOOLMAN_URL on the server before switching Spoolman on");
         }
         if (colorSelection && !enabled) {
@@ -129,12 +130,20 @@ public class SettingsService {
         if (prices && !enabled) {
             throw new InvalidInputException("Switch the Spoolman integration on before using its prices");
         }
+        if (autoMatch && !colorSelection) {
+            throw new InvalidInputException("Switch colour selection on before automatic matching");
+        }
         AppSettings settings = repository.get();
         boolean wasEnabled = settings.spoolmanEnabled;
         settings.spoolmanEnabled = enabled;
         settings.spoolmanColorSelection = colorSelection;
         settings.spoolmanPrices = prices;
-        settings.spoolmanNotEnoughMessage = customMessage(input.notEnoughMessage());
+        settings.spoolmanAutoMatch = autoMatch;
+        settings.spoolmanMatchTolerance = input.matchTolerance();
+        settings.spoolmanNotEnoughMessage = customMessage(input.notEnoughMessage(),
+                SpoolmanSettings.DEFAULT_NOT_ENOUGH_MESSAGE);
+        settings.spoolmanNoMatchMessage = customMessage(input.noMatchMessage(),
+                SpoolmanSettings.DEFAULT_NO_MATCH_MESSAGE);
         repository.flush();
         if (wasEnabled != enabled) {
             spoolmanToggled.fire(new SpoolmanToggled(enabled));
@@ -149,13 +158,16 @@ public class SettingsService {
     @Transactional
     public SpoolmanSettings getSpoolman() {
         AppSettings settings = repository.get();
-        String message = notEnoughMessage(settings);
+        String notEnough = message(settings.spoolmanNotEnoughMessage, SpoolmanSettings.DEFAULT_NOT_ENOUGH_MESSAGE);
+        String noMatch = message(settings.spoolmanNoMatchMessage, SpoolmanSettings.DEFAULT_NO_MATCH_MESSAGE);
         if (!spoolman.isConfigured()) {
-            return new SpoolmanSettings(false, false, false, message);
+            return new SpoolmanSettings(false, false, false, false, settings.spoolmanMatchTolerance, notEnough,
+                    noMatch);
         }
-        return new SpoolmanSettings(settings.spoolmanEnabled,
-                settings.spoolmanEnabled && settings.spoolmanColorSelection,
-                settings.spoolmanEnabled && settings.spoolmanPrices, message);
+        boolean colorSelection = settings.spoolmanEnabled && settings.spoolmanColorSelection;
+        return new SpoolmanSettings(settings.spoolmanEnabled, colorSelection,
+                settings.spoolmanEnabled && settings.spoolmanPrices, colorSelection && settings.spoolmanAutoMatch,
+                settings.spoolmanMatchTolerance, notEnough, noMatch);
     }
 
     /**
@@ -279,7 +291,7 @@ public class SettingsService {
     }
 
     private SettingsDto toDto(AppSettings settings) {
-        return mapper.toDto(settings, printers.listInOrder(), getUploads(settings), notEnoughMessage(settings));
+        return mapper.toDto(settings, printers.listInOrder(), getUploads(settings), getSpoolman());
     }
 
     private List<PrinterSettings> printerSettings() {
@@ -303,18 +315,18 @@ public class SettingsService {
         return new UploadLimits(maxFiles, maxFileSize, ceiling);
     }
 
-    /** The admin's text for a filament that runs short, else {@link SpoolmanSettings#DEFAULT_NOT_ENOUGH_MESSAGE}. */
-    private static String notEnoughMessage(AppSettings settings) {
-        if (settings.spoolmanNotEnoughMessage == null) {
-            return SpoolmanSettings.DEFAULT_NOT_ENOUGH_MESSAGE;
+    /** The admin's text, else the default. */
+    private static String message(String saved, String defaultText) {
+        if (saved == null) {
+            return defaultText;
         }
-        return settings.spoolmanNotEnoughMessage;
+        return saved;
     }
 
-    /** What to store for the warning text: {@code null} (the default) when empty or the default itself. */
-    private static String customMessage(String message) {
+    /** What to store for a warning text: {@code null} (the default) when empty or the default itself. */
+    private static String customMessage(String message, String defaultText) {
         String trimmed = blankToNull(message);
-        if (trimmed == null || trimmed.equals(SpoolmanSettings.DEFAULT_NOT_ENOUGH_MESSAGE)) {
+        if (trimmed == null || trimmed.equals(defaultText)) {
             return null;
         }
         return trimmed;

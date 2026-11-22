@@ -1,5 +1,6 @@
 package com.beauver.printbridge.pricing;
 
+import com.beauver.printbridge.filamentchoice.ChoiceSource;
 import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceDto;
 import com.beauver.printbridge.modelfile.analysis.ModelSource;
 import com.beauver.printbridge.modelinfo.ModelInfoStatus;
@@ -34,7 +35,7 @@ class PricingStrategyTest {
             type = "PLA";
         }
         return new FilamentChoiceDto(1L, plate == null, plate, type, color, filamentId, null, null, null, null,
-                List.of(), Instant.EPOCH, orphaned, null, null, null, false);
+                List.of(), Instant.EPOCH, orphaned, null, null, null, false, ChoiceSource.MANUAL);
     }
 
     private static Optional<PriceEstimate> perHundred(String price, PricedItem... items) {

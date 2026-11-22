@@ -11,7 +11,9 @@ import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.slicing.result.SliceResult;
 import com.beauver.printbridge.storage.FileStorage;
 import io.quarkus.logging.Log;
+import com.beauver.printbridge.modelfile.FilePlatesChanged;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
@@ -52,6 +54,10 @@ public class ModelInfoService {
     @Inject
     StoredModelFiles files;
 
+    /** Fired after an analysis is saved, so filaments can be matched to its colours (#76). */
+    @Inject
+    Event<FilePlatesChanged> platesChanged;
+
     @Inject
     SlicingService slicing;
 
@@ -73,6 +79,9 @@ public class ModelInfoService {
         }
         ModelInfo info = analysisOf(file.get());
         transactions.run(() -> save(info));
+        if (info.status == ModelInfoStatus.ANALYZED) {
+            platesChanged.fire(new FilePlatesChanged(fileId));
+        }
     }
 
     private Optional<StoredModelFile> withoutInfo(long fileId) {

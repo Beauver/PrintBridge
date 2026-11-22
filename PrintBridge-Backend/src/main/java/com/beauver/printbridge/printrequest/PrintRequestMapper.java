@@ -1,5 +1,6 @@
 package com.beauver.printbridge.printrequest;
 
+import com.beauver.printbridge.filamentchoice.dto.ColorSlotDto;
 import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceDto;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.pricing.PriceEstimate;
@@ -31,10 +32,11 @@ public class PrintRequestMapper {
      * @param estimate                 the automatic price (#72); {@code null} for none
      */
     public PrintRequestDto toDto(PrintRequest r, List<RequestFileDto> files, RequestTotalsDto totals,
-                                 boolean filamentSelection, String notEnoughFilamentMessage, PriceEstimate estimate) {
+                                 boolean filamentSelection, String notEnoughFilamentMessage, String noMatchMessage,
+                                 PriceEstimate estimate) {
         return new PrintRequestDto(r.id, r.name, r.description, r.status, r.finalPrice, r.declineReason, r.paidAt,
                 r.owner.id, r.owner.username, r.createdAt, r.updatedAt, files, totals, r.status.nextStatuses(),
-                filamentSelection, notEnoughFilamentMessage, toDto(estimate));
+                filamentSelection, notEnoughFilamentMessage, noMatchMessage, toDto(estimate));
     }
 
     public EstimatedPriceDto toDto(PriceEstimate estimate) {
@@ -47,20 +49,24 @@ public class PrintRequestMapper {
     /**
      * @param modelInfos      what is known about each file, by file id; links have none
      * @param filamentChoices the chosen filaments of each item, by item id; items without any are left out
+     * @param unmatched       the colours without a close filament (#76), by item id; likewise
      */
     public List<RequestFileDto> toFileDtos(List<RequestFile> files, Map<Long, ModelInfoDto> modelInfos,
-                                           Map<Long, List<FilamentChoiceDto>> filamentChoices) {
+                                           Map<Long, List<FilamentChoiceDto>> filamentChoices,
+                                           Map<Long, List<ColorSlotDto>> unmatched) {
         return files.stream()
-                .map(file -> toDto(file, modelInfos.get(file.id), filamentChoices.getOrDefault(file.id, List.of())))
+                .map(file -> toDto(file, modelInfos.get(file.id), filamentChoices.getOrDefault(file.id, List.of()),
+                        unmatched.getOrDefault(file.id, List.of())))
                 .toList();
     }
 
-    public RequestFileDto toDto(RequestFile f, ModelInfoDto modelInfo, List<FilamentChoiceDto> filamentChoices) {
+    public RequestFileDto toDto(RequestFile f, ModelInfoDto modelInfo, List<FilamentChoiceDto> filamentChoices,
+                                List<ColorSlotDto> unmatched) {
         List<ItemStatus> next = List.of();
         if (!f.request.status.isFinal()) {
             next = f.status.nextStatuses();
         }
         return new RequestFileDto(f.id, f.kind, f.originalFilename, f.fileType, f.sizeBytes, f.url, f.linkName,
-                f.quantity, f.status, f.declineReason, next, f.createdAt, modelInfo, filamentChoices);
+                f.quantity, f.status, f.declineReason, next, f.createdAt, modelInfo, filamentChoices, unmatched);
     }
 }

@@ -93,6 +93,15 @@ public class PrintRequestRepository implements PanacheRepository<PrintRequest> {
                 .getResultList();
     }
 
+    /** One file or link with its request loaded. */
+    public Optional<RequestFile> findFile(long fileId) {
+        return getEntityManager()
+                .createQuery("select f from RequestFile f join fetch f.request where f.id = :id", RequestFile.class)
+                .setParameter("id", fileId)
+                .getResultStream()
+                .findFirst();
+    }
+
     public List<Long> idsOfOwner(long ownerId) {
         return getEntityManager()
                 .createQuery("select r.id from PrintRequest r where r.owner.id = :owner", Long.class)

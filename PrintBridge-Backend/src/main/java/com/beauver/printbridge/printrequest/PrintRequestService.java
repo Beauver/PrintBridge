@@ -433,7 +433,7 @@ public class PrintRequestService {
         SpoolmanSettings spoolman = settings.getSpoolman();
         boolean filamentSelection = spoolman.colorSelection() && mayChooseFilaments(request, admin);
         return mapper.toDto(request, files, RequestTotals.of(files), filamentSelection, spoolman.notEnoughMessage(),
-                estimate(request, files));
+                spoolman.noMatchMessage(), estimate(request, files));
     }
 
     /**
@@ -447,7 +447,8 @@ public class PrintRequestService {
         List<ChoiceItem> items = files.stream()
                 .map(file -> new ChoiceItem(file.id, file.quantity, file.isDeclined()))
                 .toList();
-        return mapper.toFileDtos(files, infos, filamentChoices.describe(items, infos));
+        return mapper.toFileDtos(files, infos, filamentChoices.describe(items, infos),
+                filamentChoices.unmatched(fileIds, infos));
     }
 
     /** No estimate once the admin set the final price, or for a declined request. */
