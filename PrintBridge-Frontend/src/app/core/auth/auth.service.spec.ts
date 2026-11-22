@@ -39,6 +39,27 @@ describe('AuthService', () => {
     expect(service.isAdmin()).toBe(true);
   });
 
+  it('updates the own account and keeps the new session', () => {
+    const renamed = { ...ALICE, username: 'alicia' };
+    const update = {
+      username: 'alicia',
+      email: 'alice@example.com',
+      changePassword: false,
+      currentPassword: 'password1',
+    };
+    let user;
+    service.updateAccount(update).subscribe((updated) => {
+      user = updated;
+    });
+    const req = http.expectOne({ method: 'PUT', url: '/api/auth/me' });
+    expect(req.request.body).toEqual(update);
+    req.flush(authResponse(renamed, 'fresh-token'));
+
+    expect(user).toEqual(renamed);
+    expect(service.user()).toEqual(renamed);
+    expect(service.token()).toBe('fresh-token');
+  });
+
   it('shares one refresh request between concurrent callers', () => {
     const results: string[] = [];
     service.refresh().subscribe((r) => results.push(r.accessToken));

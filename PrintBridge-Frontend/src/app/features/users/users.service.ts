@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
-import { NewAccount, User } from '../../core/models/account.model';
+import { NewAccount, User, UserUpdate } from '../../core/models/account.model';
 
 /** Admin account management API. */
 @Injectable({ providedIn: 'root' })
@@ -16,8 +16,9 @@ export class UsersService {
     return this.http.post<User>('/api/users', account);
   }
 
-  resetPassword(id: number, password: string): Observable<void> {
-    return this.http.put<void>(`/api/users/${id}/password`, { password });
+  /** Updates another user; a new password logs them out everywhere. */
+  update(id: number, update: UserUpdate): Observable<User> {
+    return this.http.put<User>(`/api/users/${id}`, update);
   }
 
   delete(id: number): Observable<void> {

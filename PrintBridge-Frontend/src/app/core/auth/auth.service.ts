@@ -1,7 +1,7 @@
 import { HttpClient } from '@angular/common/http';
 import { computed, inject, Injectable, signal } from '@angular/core';
 import { finalize, firstValueFrom, map, Observable, shareReplay, tap } from 'rxjs';
-import { AuthResponse, NewAccount, User } from '../models/account.model';
+import { AccountUpdate, AuthResponse, NewAccount, User } from '../models/account.model';
 
 /**
  * Holds the logged-in user and the access token (in memory only). The refresh token is an
@@ -34,6 +34,21 @@ export class AuthService {
     return this.http.post<AuthResponse>('/api/setup', account).pipe(
       tap((response) => this.store(response)),
       map((response) => response.user),
+    );
+  }
+
+  /**
+   * Updates the logged-in user's own account. The answer is a new session, so this browser stays
+   * logged in after a password change (which logs out every other session).
+   */
+  updateAccount(update: AccountUpdate): Observable<User> {
+    return this.http.put<AuthResponse>('/api/auth/me', update).pipe(
+      tap((response) => {
+        this.store(response);
+      }),
+      map((response) => {
+        return response.user;
+      }),
     );
   }
 

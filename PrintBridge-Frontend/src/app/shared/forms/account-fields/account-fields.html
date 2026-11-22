@@ -1,0 +1,74 @@
+<div class="row g-3">
+  <div class="col-md-6">
+    <label class="form-label" [for]="idPrefix() + '-username'">Username</label>
+    <input
+      [id]="idPrefix() + '-username'"
+      class="form-control"
+      [formControl]="form().controls.username"
+      autocomplete="username"
+      [class.is-invalid]="fieldError(form().controls.username, 'Username')"
+      data-cy="account-username"
+    />
+    <div class="invalid-feedback">{{ fieldError(form().controls.username, 'Username') }}</div>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" [for]="idPrefix() + '-email'">Email</label>
+    <input
+      [id]="idPrefix() + '-email'"
+      type="email"
+      class="form-control"
+      [formControl]="form().controls.email"
+      autocomplete="email"
+      [class.is-invalid]="fieldError(form().controls.email, 'Email')"
+      data-cy="account-email"
+    />
+    <div class="invalid-feedback">{{ fieldError(form().controls.email, 'Email') }}</div>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" [for]="idPrefix() + '-password'">New password</label>
+    <input
+      [id]="idPrefix() + '-password'"
+      type="password"
+      class="form-control"
+      [formControl]="form().controls.password"
+      autocomplete="new-password"
+      [class.is-invalid]="fieldError(form().controls.password, 'Password')"
+      data-cy="account-new-password"
+    />
+    <div class="invalid-feedback">{{ fieldError(form().controls.password, 'Password') }}</div>
+    <div class="form-text">Leave empty to keep the current password.</div>
+  </div>
+  <div class="col-md-6">
+    <label class="form-label" [for]="idPrefix() + '-confirm'">Confirm new password</label>
+    <input
+      [id]="idPrefix() + '-confirm'"
+      type="password"
+      class="form-control"
+      [formControl]="form().controls.confirmPassword"
+      autocomplete="new-password"
+      [class.is-invalid]="
+        form().controls.confirmPassword.touched && form().hasError('passwordMismatch')
+      "
+      data-cy="account-confirm-password"
+    />
+    <div class="invalid-feedback">Passwords do not match</div>
+  </div>
+  @if (askCurrentPassword()) {
+    <div class="col-md-6">
+      <label class="form-label" [for]="idPrefix() + '-current'">Current password</label>
+      <input
+        [id]="idPrefix() + '-current'"
+        type="password"
+        class="form-control"
+        [formControl]="form().controls.currentPassword"
+        autocomplete="current-password"
+        [class.is-invalid]="fieldError(form().controls.currentPassword, 'Current password')"
+        data-cy="account-current-password"
+      />
+      <div class="invalid-feedback">
+        {{ fieldError(form().controls.currentPassword, 'Current password') }}
+      </div>
+      <div class="form-text">Needed to save changes to your own account.</div>
+    </div>
+  }
+</div>

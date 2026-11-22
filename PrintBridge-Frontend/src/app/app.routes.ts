@@ -48,6 +48,11 @@ export const routes: Routes = [
           ),
       },
       {
+        path: 'account',
+        title: 'My account · PrintBridge',
+        loadComponent: () => import('./features/account/account-page').then((m) => m.AccountPage),
+      },
+      {
         path: 'admin/requests',
         canActivate: [adminGuard],
         title: 'All requests · PrintBridge',

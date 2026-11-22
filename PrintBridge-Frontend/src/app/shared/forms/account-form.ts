@@ -5,6 +5,7 @@ import {
   ValidatorFn,
   Validators,
 } from '@angular/forms';
+import { AccountUpdate, UserUpdate } from '../../core/models/account.model';
 
 /** Same rules as the backend's NewAccountRequest. */
 export const USERNAME_VALIDATORS = [
@@ -40,6 +41,8 @@ export const PASSWORD_VALIDATORS = [
   Validators.minLength(8),
   maxUtf8Bytes(MAX_PASSWORD_BYTES),
 ];
+/** For a password that may stay empty (keep the current one), but has the usual rules otherwise. */
+const OPTIONAL_PASSWORD_VALIDATORS = [Validators.minLength(8), maxUtf8Bytes(MAX_PASSWORD_BYTES)];
 
 /** Group validator: `password` and `confirmPassword` must be equal. */
 export const passwordsMatch: ValidatorFn = (group: AbstractControl): ValidationErrors | null =>
@@ -58,4 +61,46 @@ export function newAccountForm(fb: FormBuilder) {
     },
     { validators: passwordsMatch },
   );
+}
+
+/**
+ * Form for updating an existing account: username and email filled in, password fields empty
+ * (empty keeps the current password). `currentPassword` is required when the user updates
+ * their own account.
+ */
+export function updateAccountForm(
+  fb: FormBuilder,
+  user: { username: string; email: string },
+  ownAccount: boolean,
+) {
+  const currentPasswordValidators = [];
+  if (ownAccount) {
+    currentPasswordValidators.push(Validators.required);
+  }
+  return fb.nonNullable.group(
+    {
+      username: [user.username, USERNAME_VALIDATORS],
+      email: [user.email, EMAIL_VALIDATORS],
+      password: ['', OPTIONAL_PASSWORD_VALIDATORS],
+      confirmPassword: [''],
+      currentPassword: ['', currentPasswordValidators],
+    },
+    { validators: passwordsMatch },
+  );
+}
+
+export type UpdateAccountForm = ReturnType<typeof updateAccountForm>;
+
+/** The request body for an admin update; the password only changes when one was typed. */
+export function toUserUpdate(form: UpdateAccountForm): UserUpdate {
+  const { username, email, password } = form.getRawValue();
+  if (password === '') {
+    return { username, email, changePassword: false };
+  }
+  return { username, email, changePassword: true, newPassword: password };
+}
+
+/** The request body for updating your own account. */
+export function toAccountUpdate(form: UpdateAccountForm): AccountUpdate {
+  return { ...toUserUpdate(form), currentPassword: form.controls.currentPassword.value };
 }

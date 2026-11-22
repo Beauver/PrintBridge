@@ -1,23 +1,29 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
+import { NgbModal, NgbModalRef } from '@ng-bootstrap/ng-bootstrap';
 import { of, throwError } from 'rxjs';
 import { AuthService } from '../../core/auth/auth.service';
 import { User } from '../../core/models/account.model';
 import { ADMIN, ALICE } from '../../../testing/fixtures';
+import { UpdateUserDialog } from './update-user-dialog/update-user-dialog';
 import { UsersPage } from './users-page';
 import { UsersService } from './users.service';
 
 describe('UsersPage', () => {
   let page: UsersPage;
+  let modalService: NgbModal;
   const usersService = {
     getAll: vi.fn(),
     create: vi.fn(),
-    resetPassword: vi.fn(),
+    update: vi.fn(),
     delete: vi.fn(),
   };
   const httpError = (status: number, message?: string) =>
     throwError(() => new HttpErrorResponse({ status, error: message ? { message } : null }));
+  function getUsername(user: User): string {
+    return user.username;
+  }
   const BOB: User = { ...ALICE, id: 3, username: 'bob', email: 'bob@example.com' };
 
   beforeEach(() => {
@@ -29,6 +35,7 @@ describe('UsersPage', () => {
         { provide: AuthService, useValue: { user: signal(ADMIN) } },
       ],
     });
+    modalService = TestBed.inject(NgbModal);
     page = TestBed.createComponent(UsersPage).componentInstance;
     page.ngOnInit();
   });
@@ -97,44 +104,77 @@ describe('UsersPage', () => {
     });
   });
 
-  describe('resetting a password', () => {
-    beforeEach(() => page['startReset'](ALICE));
+  describe('updating', () => {
+    const dialog = { setUser: vi.fn() };
 
-    it('requires a valid password', () => {
-      page['saveReset'](ALICE);
-      expect(usersService.resetPassword).not.toHaveBeenCalled();
+    function openWith(result: Promise<unknown>): void {
+      vi.spyOn(modalService, 'open').mockReturnValue({
+        componentInstance: dialog,
+        result,
+      } as unknown as NgbModalRef);
+    }
+
+    it('opens the dialog for the user, closing an open delete confirmation', () => {
+      openWith(
+        new Promise(() => {
+          // Stays open.
+        }),
+      );
+      page['askDelete'](ALICE);
+      page['openUpdate'](ALICE);
+
+      expect(modalService.open).toHaveBeenCalledWith(UpdateUserDialog, { size: 'lg' });
+      expect(dialog.setUser).toHaveBeenCalledWith(ALICE);
+      expect(page['confirmingDeleteId']()).toBeNull();
     });
 
-    it('resets the password', () => {
-      usersService.resetPassword.mockReturnValue(of(undefined));
-      page['resetPassword'].setValue('new-password');
-      page['saveReset'](ALICE);
+    it('shows the updated user in the sorted list', async () => {
+      const renamed: User = { ...ALICE, username: 'zoe' };
+      openWith(Promise.resolve({ user: renamed, passwordChanged: false }));
+      page['openUpdate'](ALICE);
+      await Promise.resolve();
 
-      expect(usersService.resetPassword).toHaveBeenCalledWith(2, 'new-password');
-      expect(page['resettingId']()).toBeNull();
-      expect(page['notice']()).toContain('logged out everywhere');
+      expect(page['users']().map(getUsername)).toEqual(['admin', 'zoe']);
+      expect(page['notice']()).toBe('Account "zoe" updated.');
     });
 
-    it('shows an error when it fails', () => {
-      usersService.resetPassword.mockReturnValue(httpError(404, 'User not found'));
-      page['resetPassword'].setValue('new-password');
-      page['saveReset'](ALICE);
-      expect(page['error']()).toBe('User not found');
-      expect(page['busyId']()).toBeNull();
+    it('says the user was logged out after a new password', async () => {
+      openWith(Promise.resolve({ user: ALICE, passwordChanged: true }));
+      page['openUpdate'](ALICE);
+      await Promise.resolve();
+      expect(page['notice']()).toBe(
+        'Account "alice" updated. They have been logged out everywhere.',
+      );
     });
 
-    it('can be cancelled', () => {
-      page['cancelReset']();
-      expect(page['resettingId']()).toBeNull();
+    it('talks about your own account on your own row', async () => {
+      openWith(Promise.resolve({ user: ADMIN, passwordChanged: false }));
+      page['openUpdate'](ADMIN);
+      await Promise.resolve();
+      expect(page['notice']()).toBe('Your account has been updated.');
+
+      openWith(Promise.resolve({ user: ADMIN, passwordChanged: true }));
+      page['openUpdate'](ADMIN);
+      await Promise.resolve();
+      expect(page['notice']()).toBe(
+        'Your account has been updated. You have been logged out on other devices.',
+      );
+    });
+
+    it('changes nothing when cancelled', async () => {
+      openWith(Promise.reject(new Error('dismissed')));
+      page['openUpdate'](ALICE);
+      await Promise.resolve();
+      await Promise.resolve();
+      expect(page['users']()).toEqual([ADMIN, ALICE]);
+      expect(page['notice']()).toBeNull();
     });
   });
 
   describe('deleting', () => {
-    it('asks for confirmation first, closing an open reset', () => {
-      page['startReset'](ALICE);
+    it('asks for confirmation first', () => {
       page['askDelete'](ALICE);
       expect(page['confirmingDeleteId']()).toBe(2);
-      expect(page['resettingId']()).toBeNull();
       expect(usersService.delete).not.toHaveBeenCalled();
     });
 

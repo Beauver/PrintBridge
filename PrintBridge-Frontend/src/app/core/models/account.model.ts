@@ -20,3 +20,16 @@ export interface NewAccount {
   email: string;
   password: string;
 }
+
+/** An admin updating another user. `newPassword` is only sent when `changePassword` is true. */
+export interface UserUpdate {
+  username: string;
+  email: string;
+  changePassword: boolean;
+  newPassword?: string;
+}
+
+/** A user updating their own account; always confirmed with the current password. */
+export interface AccountUpdate extends UserUpdate {
+  currentPassword: string;
+}
