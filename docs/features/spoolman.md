@@ -57,6 +57,38 @@ The Spoolman tab shows:
 
 - **3D preview:** the [preview](model-preview.md) draws the chosen filaments' colours, live while choosing (see there for how parts are matched). Under its plate buttons it shows the colour circles of the plate on screen (or the whole-file circle), the same pickers as in the card, so colours can be changed while watching the model. Only while choosing is allowed or something was chosen.
 
+### Automatic matching
+
+Issue: #76.
+
+- **Settings → Spoolman:**
+  - **Match filaments automatically**, under colour selection (default off). It needs colour selection and goes off with it.
+  - **How close:**
+    - *Strict* (ΔE 10, only very close shades);
+    - *Normal* (ΔE 20, the same colour family, default);
+    - *Loose* (ΔE 35, roughly the same colour);
+    - or *Custom*: a whole number from 1 to 100.
+  - **Warning when no close colour is found:** max 300 characters. Empty means the default text, *No close colour found, please select another colour for this print*.
+- **When it runs:**
+  - after an upload is analysed and after every successful server slice or re-slice (`FilePlatesChanged`);
+  - only for Bambu/Orca projects: an STL's or plain 3MF's colours come from the slicer profile, so they are left alone;
+  - only while the request isn't final;
+  - existing files aren't matched when it is switched on.
+- **What it picks:** every colour nobody decided on gets the Spoolman filament closest in colour. The difference is measured with CIEDE2000 ΔE, which tells how different two colours look to people.
+  - **Candidates:** same material (case-insensitive; any material when the file doesn't name one), a single colour, and within the tolerance.
+  - **Ignored:** stock and multi-colour filaments.
+  - **The result** is saved as a normal choice marked *auto* (`source: AUTO`), so the price estimate, stock check, preview colours and density all use it.
+- **No filament close enough:** the colour is stored as *no match*.
+  - The owner and admin see the warning on every plate that has such a colour: under the plate in the plate table, under the *Filaments* row of a one-plate file, and under the colours below the 3D preview.
+  - The colour's pill button gets a red outline (a red ring on a read-only circle).
+  - Choosing a filament for that colour clears it.
+- **Never touched by matching:**
+  - manual choices;
+  - colours already matched;
+  - colours where someone chose *Use file colour* on an automatic match. That reset is remembered, so a re-slice doesn't match the colour again.
+- **Spoolman can't be read:** nothing is stored and no warning shows; the next slice tries again.
+- **What people see:** automatic choices look like any choice. The tooltip adds *Matched automatically*, and a small muted *auto* shows next to the circle in the one-plate *Filaments* row and under the preview. Choosing another filament makes it a normal choice.
+
 ### Not enough filament
 
 - **Grams needed per filament:** what the whole request needs of it. For every colour it was chosen for, take the grams for one copy and multiply by the item's quantity:
@@ -96,16 +128,19 @@ Status codes:
 
 ## Data
 
-- `app_settings` (V13, V14):
+- `color_decisions` (V17): colours decided on without a filament: `NO_MATCH` or `FILE_COLOR` (an automatic match reset to the file's colour), per file, plate, type and colour; they go with their file.
+- `app_settings` (V13, V14, V17):
   - `spoolman_enabled`, `spoolman_color_selection` (default off);
   - `spoolman_not_enough_message` (V14; null = the default text);
+  - `spoolman_auto_match` (needs colour selection), `spoolman_match_tolerance` (1–100, default 20), `spoolman_no_match_message` (V17).
   - a check that colour selection needs the integration.
 - `filament_choices` (V13), one row per choice:
   - `file_id` (`request_files`, `ON DELETE CASCADE`, so choices go with their file, link or request);
   - `plate_index`, `original_type`, `original_color` (all null for a whole item);
   - `spoolman_filament_id`;
   - a copy of the filament's name, vendor, material and colour(s);
-  - `chosen_at`.
+  - `chosen_at`;
+  - `source` (V17, `MANUAL`/`AUTO`).
 
   A unique index allows one choice per item + plate + type + colour (colour ignoring case).
 
