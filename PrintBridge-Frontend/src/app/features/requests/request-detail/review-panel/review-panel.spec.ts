@@ -77,6 +77,25 @@ describe('ReviewPanel', () => {
       expect(requestsService.changePrice).toHaveBeenLastCalledWith(4, 69.42);
     });
 
+    it('hints and saves the estimate when left empty', () => {
+      expect(panel['pricePlaceholder']()).toBe('69,42');
+      const estimated = { ...REQUEST, estimatedPrice: { amount: 12.3, partial: false } };
+      show(estimated);
+      expect(panel['pricePlaceholder']()).toBe('12,30');
+      requestsService.changePrice.mockReturnValue(of({ ...estimated, finalPrice: 12.3 }));
+
+      panel['price'].setValue('  ');
+      panel['savePrice']();
+
+      expect(requestsService.changePrice).toHaveBeenCalledWith(4, 12.3);
+      expect(panel['notice']()?.replace(/\s/g, ' ')).toBe('Price set to the estimate, € 12,30.');
+
+      // A typed price still wins over the estimate.
+      panel['price'].setValue('20');
+      panel['savePrice']();
+      expect(requestsService.changePrice).toHaveBeenLastCalledWith(4, 20);
+    });
+
     it('clears the price', () => {
       requestsService.changePrice.mockReturnValue(of(REQUEST));
       panel['clearPrice']();

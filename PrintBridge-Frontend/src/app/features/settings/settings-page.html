@@ -49,6 +49,13 @@
       @case ('uploads') {
         <app-upload-settings [settings]="settings.uploads" (saved)="onChanged($event)" />
       }
+      @case ('pricing') {
+        <app-pricing-settings
+          [settings]="settings.pricing"
+          [spoolmanPrices]="settings.spoolman.enabled && settings.spoolman.prices"
+          (saved)="onChanged($event)"
+        />
+      }
       @case ('spoolman') {
         <app-spoolman-settings
           [settings]="settings.spoolman"

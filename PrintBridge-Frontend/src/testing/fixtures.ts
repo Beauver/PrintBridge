@@ -98,6 +98,7 @@ export const REQUEST: PrintRequest = {
   nextStatuses: ['IN_REVIEW', 'ACCEPTED', 'DECLINED'],
   filamentSelection: false,
   notEnoughFilamentMessage: 'Order it',
+  estimatedPrice: null,
 };
 
 export const REQUEST_SUMMARY: PrintRequestSummary = {
@@ -110,6 +111,7 @@ export const REQUEST_SUMMARY: PrintRequestSummary = {
   createdAt: '2026-02-01T10:00:00Z',
   itemsCompleted: 0,
   itemsActive: 1,
+  estimatedPrice: null,
 };
 
 /** Server slicing switched off, file never queued. */
@@ -160,7 +162,8 @@ export const NO_SETTINGS: Settings = {
   defaultPrinterId: null,
   printers: [],
   uploads: { maxFiles: 10, maxFileSizeMb: 100, ceilingMb: 100 },
-  spoolman: { enabled: false, colorSelection: false, notEnoughMessage: 'Order it' },
+  spoolman: { enabled: false, colorSelection: false, prices: false, notEnoughMessage: 'Order it' },
+  pricing: { markup: 1, pricePer100Grams: 0 },
 };
 
 /** The P1S as the slicer lists it (0.2, 0.4 and 0.6 mm nozzles). */

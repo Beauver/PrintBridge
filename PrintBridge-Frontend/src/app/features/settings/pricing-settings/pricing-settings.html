@@ -1,0 +1,70 @@
+<form class="card card-body mb-4" [formGroup]="form" (ngSubmit)="save()" data-cy="pricing-form">
+  <h2 class="h5">Pricing</h2>
+  <p class="text-body-secondary small">
+    Requests get an estimated price until you set the final price.
+  </p>
+
+  @if (notice()) {
+    <div class="alert alert-success py-2" role="status" data-cy="pricing-notice">
+      {{ notice() }}
+    </div>
+  }
+  @if (error()) {
+    <div class="alert alert-danger py-2" role="alert" data-cy="pricing-error">{{ error() }}</div>
+  }
+
+  <p class="small" data-cy="pricing-source">
+    @if (spoolmanPrices()) {
+      Prices from Spoolman are on: chosen filaments use their price per gram.
+    } @else {
+      Prices from Spoolman are off: everything uses the price per 100 g.
+    }
+    Switch it in <a routerLink="." [queryParams]="{ tab: 'spoolman' }">Spoolman</a>.
+  </p>
+
+  <div class="row g-3">
+    <div class="col-sm-6">
+      <label class="form-label" for="pricing-markup">Markup</label>
+      <div class="input-group">
+        <span class="input-group-text">×</span>
+        <input
+          id="pricing-markup"
+          class="form-control"
+          type="text"
+          inputmode="decimal"
+          formControlName="markup"
+          data-cy="pricing-markup"
+        />
+      </div>
+      <div class="form-text">Multiplies every price, e.g. 1,5.</div>
+    </div>
+    <div class="col-sm-6">
+      <label class="form-label" for="pricing-per-100">Price per 100 g</label>
+      <div class="input-group">
+        <span class="input-group-text">€</span>
+        <input
+          id="pricing-per-100"
+          class="form-control"
+          type="text"
+          inputmode="decimal"
+          formControlName="pricePer100Grams"
+          data-cy="pricing-per-100"
+        />
+      </div>
+      <div class="form-text" data-cy="pricing-per-100-hint">
+        @if (spoolmanPrices()) {
+          The default for colours without a chosen filament, or one without a price in Spoolman.
+        } @else {
+          For every filament.
+        }
+        0 = no default price.
+      </div>
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <button type="submit" class="btn btn-primary" [disabled]="saving()" data-cy="pricing-save">
+      {{ saving() ? 'Saving…' : 'Save' }}
+    </button>
+  </div>
+</form>

@@ -1,5 +1,6 @@
 import { HttpErrorResponse } from '@angular/common/http';
 import { TestBed } from '@angular/core/testing';
+import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
 import { Settings, SpoolmanSettings } from '../../../core/models/settings.model';
 import { SpoolmanStatus } from '../../../core/models/spoolman.model';
@@ -22,6 +23,7 @@ describe('SpoolmanSettingsCard', () => {
     settings: SpoolmanSettings = {
       enabled: false,
       colorSelection: false,
+      prices: false,
       notEnoughMessage: 'Order it',
     },
     status: SpoolmanStatus | null = CONNECTED,
@@ -41,15 +43,21 @@ describe('SpoolmanSettingsCard', () => {
     vi.clearAllMocks();
     saved = [];
     TestBed.configureTestingModule({
-      providers: [{ provide: SettingsService, useValue: settingsService }],
+      providers: [provideRouter([]), { provide: SettingsService, useValue: settingsService }],
     });
   });
 
   it('fills the switches from the settings', () => {
-    const card = create({ enabled: true, colorSelection: true, notEnoughMessage: 'Order it' });
+    const card = create({
+      enabled: true,
+      colorSelection: true,
+      prices: true,
+      notEnoughMessage: 'Order it',
+    });
     expect(card['form'].getRawValue()).toEqual({
       enabled: true,
       colorSelection: true,
+      prices: true,
       notEnoughMessage: 'Order it',
     });
     expect(card['integrationOn']()).toBe(true);
@@ -79,12 +87,18 @@ describe('SpoolmanSettingsCard', () => {
   });
 
   it('switches colour selection off with the integration', () => {
-    const card = create({ enabled: true, colorSelection: true, notEnoughMessage: 'Order it' });
+    const card = create({
+      enabled: true,
+      colorSelection: true,
+      prices: true,
+      notEnoughMessage: 'Order it',
+    });
     card['form'].controls.enabled.setValue(false);
     card['onIntegrationToggled']();
     expect(card['form'].getRawValue()).toEqual({
       enabled: false,
       colorSelection: false,
+      prices: false,
       notEnoughMessage: 'Order it',
     });
     expect(card['integrationOn']()).toBe(false);
@@ -98,13 +112,19 @@ describe('SpoolmanSettingsCard', () => {
   it('saves the switches', () => {
     settingsService.updateSpoolman.mockReturnValue(of(NO_SETTINGS));
     const card = create();
-    card['form'].setValue({ enabled: true, colorSelection: true, notEnoughMessage: 'Order it' });
+    card['form'].setValue({
+      enabled: true,
+      colorSelection: true,
+      prices: true,
+      notEnoughMessage: 'Order it',
+    });
 
     card['save']();
 
     expect(settingsService.updateSpoolman).toHaveBeenCalledWith({
       enabled: true,
       colorSelection: true,
+      prices: true,
       notEnoughMessage: 'Order it',
     });
     expect(card['notice']()).toBe('Spoolman settings saved.');

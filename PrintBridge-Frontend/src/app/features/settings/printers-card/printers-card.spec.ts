@@ -22,7 +22,13 @@ describe('PrintersCard', () => {
     defaultPrinterId: 1,
     printers: [SAVED_P1S, MINI],
     uploads: { maxFiles: 10, maxFileSizeMb: 100, ceilingMb: 100 },
-    spoolman: { enabled: false, colorSelection: false, notEnoughMessage: 'Order it' },
+    spoolman: {
+      enabled: false,
+      colorSelection: false,
+      prices: false,
+      notEnoughMessage: 'Order it',
+    },
+    pricing: { markup: 1, pricePer100Grams: 0 },
   };
 
   function create(): PrintersCard {

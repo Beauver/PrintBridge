@@ -1,5 +1,6 @@
 import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
 import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
+import { RouterLink } from '@angular/router';
 import { errorMessage } from '../../../core/http/api-error';
 import { Settings, SpoolmanSettings } from '../../../core/models/settings.model';
 import { SpoolmanStatus } from '../../../core/models/spoolman.model';
@@ -15,13 +16,13 @@ interface StatusText {
 export const MAX_MESSAGE_LENGTH = 300;
 
 /**
- * Spoolman (#11): whether it is set up and reachable, the two switches and the warning requesters
- * see when a chosen filament runs short. Colour selection is part of the integration, so it can
- * only be on while the integration is.
+ * Spoolman (#11): whether it is set up and reachable, the switches and the warning requesters see
+ * when a chosen filament runs short. Colour selection and Spoolman prices for the estimate (#72) are
+ * part of the integration, so they can only be on while the integration is.
  */
 @Component({
   selector: 'app-spoolman-settings',
-  imports: [ReactiveFormsModule],
+  imports: [ReactiveFormsModule, RouterLink],
   templateUrl: './spoolman-settings.html',
 })
 export class SpoolmanSettingsCard implements OnInit {
@@ -36,6 +37,7 @@ export class SpoolmanSettingsCard implements OnInit {
   protected readonly form = this.fb.nonNullable.group({
     enabled: [false],
     colorSelection: [false],
+    prices: [false],
     notEnoughMessage: ['', [Validators.maxLength(MAX_MESSAGE_LENGTH)]],
   });
   protected readonly maxMessageLength = MAX_MESSAGE_LENGTH;
@@ -73,17 +75,19 @@ export class SpoolmanSettingsCard implements OnInit {
     this.form.setValue({
       enabled: settings.enabled,
       colorSelection: settings.colorSelection,
+      prices: settings.prices,
       notEnoughMessage: settings.notEnoughMessage,
     });
     this.integrationOn.set(settings.enabled);
   }
 
-  /** Switching the integration off switches colour selection off too. */
+  /** Switching the integration off switches colour selection and Spoolman prices off too. */
   protected onIntegrationToggled(): void {
     const enabled = this.form.controls.enabled.value;
     this.integrationOn.set(enabled);
     if (!enabled) {
       this.form.controls.colorSelection.setValue(false);
+      this.form.controls.prices.setValue(false);
     }
   }
 

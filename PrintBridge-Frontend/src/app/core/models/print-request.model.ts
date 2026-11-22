@@ -12,6 +12,14 @@ export type ModelFileType = 'STL' | 'THREE_MF';
 /** Status of one file or link of a request (#61), set by the admin. */
 export type ItemStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'PRINTING' | 'COMPLETED';
 
+/** The automatic price of a request until the admin sets the final price (#72). */
+export interface EstimatedPrice {
+  /** EUR, rounded to cents. */
+  amount: number;
+  /** Some parts had no grams or price, so the real price is higher. */
+  partial: boolean;
+}
+
 /** A row in a request list. `finalPrice` is null while the price is pending. */
 export interface PrintRequestSummary {
   id: number;
@@ -26,6 +34,8 @@ export interface PrintRequestSummary {
   itemsCompleted: number;
   /** Files and links that aren't declined. */
   itemsActive: number;
+  /** While there is no final price and the request isn't declined; null when nothing could be priced. */
+  estimatedPrice: EstimatedPrice | null;
 }
 
 /** An uploaded STL/3MF of a request. */
@@ -118,6 +128,8 @@ export interface PrintRequest {
   filamentSelection: boolean;
   /** What to show when a chosen filament runs short; set by the admin in Settings → Spoolman. */
   notEnoughFilamentMessage: string;
+  /** While there is no final price and the request isn't declined; null when nothing could be priced. */
+  estimatedPrice: EstimatedPrice | null;
 }
 
 export interface UploadConfig {

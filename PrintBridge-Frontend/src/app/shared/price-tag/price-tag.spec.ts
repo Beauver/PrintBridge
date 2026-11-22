@@ -23,4 +23,22 @@ describe('PriceTag', () => {
   it('knows when the request is paid', () => {
     expect(create(10, '2026-03-01T00:00:00Z')['paid']()).toBe(true);
   });
+
+  it('shows the estimate while there is no final price', () => {
+    const fixture = TestBed.createComponent(PriceTag);
+    fixture.componentRef.setInput('price', null);
+    fixture.componentRef.setInput('estimate', { amount: 12.34, partial: false });
+    const tag = fixture.componentInstance;
+    expect(tag['estimated']()?.text.replace(/\s/g, ' ')).toBe('~ € 12,34');
+    expect(tag['estimated']()?.note).toBe('(estimate)');
+
+    fixture.componentRef.setInput('estimate', { amount: 12.34, partial: true });
+    expect(tag['estimated']()?.note).toBe('(partial estimate)');
+
+    fixture.componentRef.setInput('price', 20);
+    expect(tag['estimated']()).toBeNull();
+    fixture.componentRef.setInput('price', null);
+    fixture.componentRef.setInput('estimate', null);
+    expect(tag['estimated']()).toBeNull();
+  });
 });

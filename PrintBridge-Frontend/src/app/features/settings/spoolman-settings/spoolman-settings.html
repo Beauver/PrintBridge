@@ -62,6 +62,23 @@
     </div>
   </div>
 
+  <div class="form-check form-switch mt-2">
+    <input
+      id="spoolman-prices"
+      class="form-check-input"
+      type="checkbox"
+      role="switch"
+      formControlName="prices"
+      [attr.disabled]="configured() && integrationOn() ? null : true"
+      data-cy="spoolman-prices"
+    />
+    <label class="form-check-label" for="spoolman-prices">Use prices from Spoolman</label>
+    <div class="form-text">
+      The price estimate uses each chosen filament's price per gram (spool price ÷ weight). Markup
+      and the default price are in <a routerLink="." [queryParams]="{ tab: 'pricing' }">Pricing</a>.
+    </div>
+  </div>
+
   <div class="mt-3">
     <label class="form-label" for="spoolman-not-enough"
       >Warning when there isn't enough filament</label

@@ -37,8 +37,21 @@ describe('SettingsService', () => {
     uploadsUpdate.flush({});
   });
 
+  it('saves the pricing', () => {
+    const pricing = { markup: 1.5, pricePer100Grams: 2.5 };
+    service.updatePricing(pricing).subscribe();
+    const update = http.expectOne({ method: 'PUT', url: '/api/settings/pricing' });
+    expect(update.request.body).toEqual(pricing);
+    update.flush({});
+  });
+
   it('calls the Spoolman settings and status', () => {
-    const spoolman = { enabled: true, colorSelection: true, notEnoughMessage: 'Order it' };
+    const spoolman = {
+      enabled: true,
+      colorSelection: true,
+      prices: false,
+      notEnoughMessage: 'Order it',
+    };
     service.updateSpoolman(spoolman).subscribe();
     const update = http.expectOne({ method: 'PUT', url: '/api/settings/spoolman' });
     expect(update.request.body).toEqual(spoolman);
