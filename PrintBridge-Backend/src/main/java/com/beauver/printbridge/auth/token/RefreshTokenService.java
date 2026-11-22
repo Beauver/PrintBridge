@@ -113,10 +113,15 @@ public class RefreshTokenService {
         tokens.endGraceForUser(token.user.id);
     }
 
-    /** Revokes every active token of a user (password reset). */
+    /**
+     * Ends every session of a user after a password change by deleting their tokens. Deleted, not
+     * revoked: a revoked token presented again looks like theft and would revoke all tokens,
+     * including the session started right after the change (own password change). A deleted one
+     * is just unknown.
+     */
     @Transactional
-    public void revokeAll(long userId) {
-        tokens.revokeAllForUser(userId, clock.instant());
+    public void deleteAll(long userId) {
+        tokens.deleteAllForUser(userId);
     }
 
     static String hash(String raw) {

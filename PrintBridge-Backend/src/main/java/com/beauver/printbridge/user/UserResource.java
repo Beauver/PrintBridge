@@ -2,7 +2,7 @@ package com.beauver.printbridge.user;
 
 import com.beauver.printbridge.auth.CurrentUser;
 import com.beauver.printbridge.user.dto.NewAccountRequest;
-import com.beauver.printbridge.user.dto.ResetPasswordRequest;
+import com.beauver.printbridge.user.dto.UpdateUserRequest;
 import com.beauver.printbridge.user.dto.UserDto;
 import jakarta.annotation.security.RolesAllowed;
 import jakarta.inject.Inject;
@@ -38,10 +38,9 @@ public class UserResource {
     }
 
     @PUT
-    @Path("/{id}/password")
-    public Response resetPassword(@PathParam("id") long id, @Valid @NotNull ResetPasswordRequest request) {
-        userService.resetPassword(id, request.password());
-        return Response.noContent().build();
+    @Path("/{id}")
+    public UserDto update(@PathParam("id") long id, @Valid @NotNull UpdateUserRequest request) {
+        return userService.updateUser(id, request, currentUser.id());
     }
 
     @DELETE
