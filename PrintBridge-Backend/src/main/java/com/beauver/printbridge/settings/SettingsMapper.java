@@ -1,6 +1,7 @@
 package com.beauver.printbridge.settings;
 
 import com.beauver.printbridge.settings.dto.BuildPlateDto;
+import com.beauver.printbridge.settings.dto.PricingSettingsDto;
 import com.beauver.printbridge.settings.dto.PrinterDto;
 import com.beauver.printbridge.settings.dto.SettingsDto;
 import com.beauver.printbridge.settings.dto.SlicingSettingsDto;
@@ -28,7 +29,9 @@ public class SettingsMapper {
         return new SettingsDto(new SlicingSettingsDto(settings.slicingEnabled, settings.slicingTimeoutMinutes),
                 settings.defaultPrinterId, owned,
                 new UploadLimitsDto(uploads.maxFiles(), uploads.maxFileSizeMb(), uploads.ceilingMb()),
-                new SpoolmanSettingsDto(settings.spoolmanEnabled, settings.spoolmanColorSelection, notEnoughMessage));
+                new SpoolmanSettingsDto(settings.spoolmanEnabled, settings.spoolmanColorSelection,
+                        settings.spoolmanPrices, notEnoughMessage),
+                new PricingSettingsDto(settings.pricingMarkup, settings.pricePer100Grams));
     }
 
     public PrinterDto toDto(Printer printer) {

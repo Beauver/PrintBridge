@@ -14,6 +14,8 @@ import java.util.List;
  * @param filamentSelection the caller may choose filaments from Spoolman now (#11): colour selection is on
  *                          and the request may still change for them
  * @param notEnoughFilamentMessage what to show when a chosen filament runs short (#11; set by the admin)
+ * @param estimatedPrice           the automatic price while there is no final price (#72); {@code null} when
+ *                                 there is a final price, the request is declined or nothing could be priced
  */
 public record PrintRequestDto(
         Long id,
@@ -31,5 +33,6 @@ public record PrintRequestDto(
         RequestTotalsDto totals,
         List<RequestStatus> nextStatuses,
         boolean filamentSelection,
-        String notEnoughFilamentMessage) {
+        String notEnoughFilamentMessage,
+        EstimatedPriceDto estimatedPrice) {
 }

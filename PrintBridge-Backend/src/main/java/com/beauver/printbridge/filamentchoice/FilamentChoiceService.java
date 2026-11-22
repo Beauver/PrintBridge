@@ -4,6 +4,8 @@ import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceDto;
 import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceRequest;
+import com.beauver.printbridge.modelfile.analysis.FilamentUsage;
+import com.beauver.printbridge.modelinfo.FilamentDensities;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.settings.SettingsService;
 import com.beauver.printbridge.spoolman.SpoolmanCatalog;
@@ -112,6 +114,47 @@ public class FilamentChoiceService {
                     .add(mapper.toDto(choice, orphaned, inSpoolman, current.orElse(null), gramsNeeded));
         }
         return described;
+    }
+
+    /**
+     * The densities to estimate these files' plates with (#72): a plate whose only colour has a
+     * chosen filament, or every plate of a file with a whole-file choice, uses that filament's
+     * density from Spoolman. Only while the integration is on and Spoolman can be read; files
+     * without choices are left out (default density).
+     */
+    public Map<Long, FilamentDensities> densities(Collection<Long> fileIds) {
+        Map<Long, SpoolmanFilament> stock = stock();
+        if (stock == null) {
+            return Map.of();
+        }
+        Map<Long, List<FilamentChoice>> choicesByFile = repository.listByFileIds(fileIds).stream()
+                .collect(Collectors.groupingBy(choice -> choice.fileId));
+        Map<Long, FilamentDensities> densities = new HashMap<>();
+        choicesByFile.forEach((fileId, choices) -> {
+            densities.put(fileId, (plateIndex, filaments) -> densityFor(choices, stock, plateIndex, filaments));
+        });
+        return densities;
+    }
+
+    /** The chosen filament's density for a plate with one colour (or none: the whole file); else unknown. */
+    static Double densityFor(List<FilamentChoice> choices, Map<Long, SpoolmanFilament> stock, int plateIndex,
+                             List<FilamentUsage> filaments) {
+        FilamentSlot slot;
+        if (filaments.isEmpty()) {
+            slot = FilamentSlot.wholeItem(null);
+        } else if (filaments.size() == 1) {
+            FilamentUsage only = filaments.getFirst();
+            slot = new FilamentSlot(plateIndex, only.type(), only.color(), null);
+        } else {
+            // Several colours: the plate's estimate can't be split per colour.
+            return null;
+        }
+        return choices.stream()
+                .filter(choice -> choice.isFor(slot))
+                .findFirst()
+                .map(choice -> stock.get(choice.spoolmanFilamentId))
+                .map(SpoolmanFilament::density)
+                .orElse(null);
     }
 
     /**

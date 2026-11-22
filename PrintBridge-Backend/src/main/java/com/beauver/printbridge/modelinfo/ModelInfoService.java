@@ -123,12 +123,22 @@ public class ModelInfoService {
      * included for the admin. Everything is loaded at once, however many files there are.
      */
     public Map<Long, ModelInfoDto> describe(Collection<Long> fileIds, boolean admin) {
+        return describe(fileIds, admin, Map.of());
+    }
+
+    /**
+     * Like {@link #describe(Collection, boolean)}, estimating plate grams with the densities of the
+     * filaments chosen for each file (#72); files without an entry use the default density.
+     */
+    public Map<Long, ModelInfoDto> describe(Collection<Long> fileIds, boolean admin,
+                                            Map<Long, FilamentDensities> densities) {
         ModelDetailsCalculator.Context context = new ModelDetailsCalculator.Context(settings.getSlicing(), admin);
         Map<Long, ModelInfo> infos = repository.findByFileIds(fileIds);
         Map<Long, SliceResult> slices = slicing.find(fileIds);
         Map<Long, ModelInfoDto> described = new HashMap<>();
         for (Long fileId : fileIds) {
-            ModelDetails details = calculator.calculate(infos.get(fileId), slices.get(fileId), context);
+            ModelDetails details = calculator.calculate(infos.get(fileId), slices.get(fileId), context,
+                    densities.getOrDefault(fileId, FilamentDensities.NONE));
             described.put(fileId, mapper.toDto(details));
         }
         return described;

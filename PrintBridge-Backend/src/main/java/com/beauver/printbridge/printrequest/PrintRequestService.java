@@ -13,6 +13,9 @@ import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelfile.ModelFileValidator;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
+import com.beauver.printbridge.pricing.PriceEstimate;
+import com.beauver.printbridge.pricing.PricedItem;
+import com.beauver.printbridge.pricing.PricingService;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.printrequest.file.FileBundle;
 import com.beauver.printbridge.printrequest.file.ItemStatus;
@@ -44,6 +47,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
@@ -102,6 +106,9 @@ public class PrintRequestService {
     @Inject
     FilamentChoiceService filamentChoices;
 
+    @Inject
+    PricingService pricing;
+
     public UploadConfigDto uploadConfig() {
         UploadLimits limits = settings.getUploads();
         return new UploadConfigDto(limits.maxFileSizeBytes(), limits.maxFiles(),
@@ -118,11 +125,23 @@ public class PrintRequestService {
         return summaries(requests.searchNewestFirst(statuses, search));
     }
 
-    /** List rows with the progress of their items (#61), loaded in one query. */
+    /**
+     * List rows with the progress of their items (#61) and the estimated price (#72). The items of
+     * every request that still needs an estimate are described together, so a list costs a few
+     * queries, not a few per request.
+     */
     private List<PrintRequestSummaryDto> summaries(List<PrintRequest> found) {
         Map<Long, ItemProgress> progress = requests.itemProgress(found.stream().map(r -> r.id).toList());
+        List<Long> unpriced = found.stream().filter(PrintRequestService::needsEstimate).map(r -> r.id).toList();
+        List<RequestFile> files = requests.filesOf(unpriced);
+        Map<Long, List<RequestFileDto>> filesByRequest = new HashMap<>();
+        List<RequestFileDto> described = describeFiles(files, false);
+        for (int i = 0; i < files.size(); i++) {
+            filesByRequest.computeIfAbsent(files.get(i).request.id, id -> new ArrayList<>()).add(described.get(i));
+        }
         return found.stream()
-                .map(r -> mapper.toSummary(r, progress.getOrDefault(r.id, ItemProgress.NONE)))
+                .map(r -> mapper.toSummary(r, progress.getOrDefault(r.id, ItemProgress.NONE),
+                        estimate(r, filesByRequest.getOrDefault(r.id, List.of()))))
                 .toList();
     }
 
@@ -410,16 +429,42 @@ public class PrintRequestService {
      * @param admin whether the caller is the admin (sees slicing errors)
      */
     private PrintRequestDto describe(PrintRequest request, boolean admin) {
-        // Links have no model details (#59).
-        List<Long> fileIds = request.files.stream().filter(file -> !file.isLink()).map(file -> file.id).toList();
-        Map<Long, ModelInfoDto> infos = modelInfo.describe(fileIds, admin);
-        List<ChoiceItem> items = request.files.stream()
-                .map(file -> new ChoiceItem(file.id, file.quantity, file.isDeclined()))
-                .toList();
-        List<RequestFileDto> files = mapper.toFileDtos(request.files, infos, filamentChoices.describe(items, infos));
+        List<RequestFileDto> files = describeFiles(request.files, admin);
         SpoolmanSettings spoolman = settings.getSpoolman();
         boolean filamentSelection = spoolman.colorSelection() && mayChooseFilaments(request, admin);
-        return mapper.toDto(request, files, RequestTotals.of(files), filamentSelection, spoolman.notEnoughMessage());
+        return mapper.toDto(request, files, RequestTotals.of(files), filamentSelection, spoolman.notEnoughMessage(),
+                estimate(request, files));
+    }
+
+    /**
+     * Files and links as the API returns them, in the same order: model details with the grams
+     * estimated from the chosen filaments' densities (#72), and the chosen filaments (#11).
+     */
+    private List<RequestFileDto> describeFiles(List<RequestFile> files, boolean admin) {
+        // Links have no model details (#59).
+        List<Long> fileIds = files.stream().filter(file -> !file.isLink()).map(file -> file.id).toList();
+        Map<Long, ModelInfoDto> infos = modelInfo.describe(fileIds, admin, filamentChoices.densities(fileIds));
+        List<ChoiceItem> items = files.stream()
+                .map(file -> new ChoiceItem(file.id, file.quantity, file.isDeclined()))
+                .toList();
+        return mapper.toFileDtos(files, infos, filamentChoices.describe(items, infos));
+    }
+
+    /** No estimate once the admin set the final price, or for a declined request. */
+    private static boolean needsEstimate(PrintRequest request) {
+        return request.finalPrice == null && request.status != RequestStatus.DECLINED;
+    }
+
+    /** The automatic price (#72) while there is no final price; {@code null} when there is none. */
+    private PriceEstimate estimate(PrintRequest request, List<RequestFileDto> files) {
+        if (!needsEstimate(request)) {
+            return null;
+        }
+        List<PricedItem> items = files.stream()
+                .map(file -> new PricedItem(file.quantity(), file.status() == ItemStatus.DECLINED, file.modelInfo(),
+                        file.filamentChoices()))
+                .toList();
+        return pricing.estimate(items).orElse(null);
     }
 
     /** Adds the row of an upload that passed {@link #checkUpload} and is already in storage. */

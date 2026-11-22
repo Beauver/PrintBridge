@@ -4,6 +4,7 @@ import com.beauver.printbridge.common.error.ConflictException;
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.settings.dto.BuildPlateDto;
+import com.beauver.printbridge.settings.dto.PricingSettingsDto;
 import com.beauver.printbridge.settings.dto.PrinterInputDto;
 import com.beauver.printbridge.settings.dto.SettingsDto;
 import com.beauver.printbridge.settings.dto.SlicingSettingsDto;
@@ -111,23 +112,28 @@ public class SettingsService {
     }
 
     /**
-     * Switches the Spoolman integration and colour selection (#11). Both need {@code SPOOLMAN_URL};
-     * colour selection needs the integration, and switching the integration off switches it off too.
+     * Switches the Spoolman integration, colour selection (#11) and Spoolman prices for the estimate
+     * (#72). All need {@code SPOOLMAN_URL}; colour selection and prices need the integration.
      */
     @Transactional
     public SettingsDto updateSpoolman(SpoolmanSettingsDto input) {
         boolean enabled = input.enabled();
         boolean colorSelection = input.colorSelection();
-        if ((enabled || colorSelection) && !spoolman.isConfigured()) {
+        boolean prices = input.prices();
+        if ((enabled || colorSelection || prices) && !spoolman.isConfigured()) {
             throw new InvalidInputException("Set SPOOLMAN_URL on the server before switching Spoolman on");
         }
         if (colorSelection && !enabled) {
             throw new InvalidInputException("Switch the Spoolman integration on before colour selection");
         }
+        if (prices && !enabled) {
+            throw new InvalidInputException("Switch the Spoolman integration on before using its prices");
+        }
         AppSettings settings = repository.get();
         boolean wasEnabled = settings.spoolmanEnabled;
         settings.spoolmanEnabled = enabled;
         settings.spoolmanColorSelection = colorSelection;
+        settings.spoolmanPrices = prices;
         settings.spoolmanNotEnoughMessage = customMessage(input.notEnoughMessage());
         repository.flush();
         if (wasEnabled != enabled) {
@@ -145,10 +151,31 @@ public class SettingsService {
         AppSettings settings = repository.get();
         String message = notEnoughMessage(settings);
         if (!spoolman.isConfigured()) {
-            return new SpoolmanSettings(false, false, message);
+            return new SpoolmanSettings(false, false, false, message);
         }
         return new SpoolmanSettings(settings.spoolmanEnabled,
-                settings.spoolmanEnabled && settings.spoolmanColorSelection, message);
+                settings.spoolmanEnabled && settings.spoolmanColorSelection,
+                settings.spoolmanEnabled && settings.spoolmanPrices, message);
+    }
+
+    /**
+     * Sets the markup and the default price per 100 g of the estimate (#72). Whether Spoolman's
+     * prices are used is set with the Spoolman switches.
+     */
+    @Transactional
+    public SettingsDto updatePricing(PricingSettingsDto input) {
+        AppSettings settings = repository.get();
+        settings.pricingMarkup = input.markup();
+        settings.pricePer100Grams = input.pricePer100Grams();
+        repository.flush();
+        return toDto(settings);
+    }
+
+    /** The price estimate settings that apply now: Spoolman prices only while the integration is on. */
+    @Transactional
+    public PricingSettings getPricing() {
+        AppSettings settings = repository.get();
+        return new PricingSettings(getSpoolman().prices(), settings.pricingMarkup, settings.pricePer100Grams);
     }
 
     /** The upload limits that apply now. */

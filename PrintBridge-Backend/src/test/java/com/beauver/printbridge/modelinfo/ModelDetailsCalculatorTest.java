@@ -28,7 +28,7 @@ class ModelDetailsCalculatorTest {
 
     /** The details as the API returns them, so the mapper is covered too. */
     private ModelInfoDto describe(ModelInfo info, SliceResult slice, ModelDetailsCalculator.Context context) {
-        return mapper.toDto(calculator.calculate(info, slice, context));
+        return mapper.toDto(calculator.calculate(info, slice, context, FilamentDensities.NONE));
     }
     static final PrinterSettings P1S = printer(1, "Bambu Lab P1S", new BuildPlate(256, 256, 250));
     static final PrinterSettings MINI = printer(2, "Bambu Lab A1 mini", new BuildPlate(180, 180, 180));
@@ -102,6 +102,21 @@ class ModelDetailsCalculatorTest {
         assertEquals(List.of(false, true), dto.plates().stream().map(PlateDto::fits).toList());
         assertEquals(new PlateDto(2, null, 10.0, 10.0, 10.0, 4.0, true, null, true,
                 List.of(new FilamentDto("PLA", "#FFFFFF", null)), null), dto.plates().get(1));
+    }
+
+    @Test
+    void estimatesWithTheChosenFilamentsDensity() {
+        FilamentDensities onPlateOne = (plateIndex, filaments) -> {
+            if (plateIndex == 1) {
+                return 2.0;
+            }
+            return null;
+        };
+        ModelInfoDto dto = mapper.toDto(calculator.calculate(analyzed(plate(1, SMALL, null, null),
+                plate(2, SMALL, null, null), plate(3, SMALL, 33.0, null)), null, USER, onPlateOne));
+
+        // 10 cm³ × 2.0 × 0.35 = 7 g; plate 2 keeps PLA (4 g); the file's own slice data is exact.
+        assertEquals(List.of(7.0, 4.0, 33.0), dto.plates().stream().map(PlateDto::grams).toList());
     }
 
     @Test

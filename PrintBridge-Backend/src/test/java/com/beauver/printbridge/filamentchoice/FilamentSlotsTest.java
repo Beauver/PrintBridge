@@ -1,11 +1,13 @@
 package com.beauver.printbridge.filamentchoice;
 
+import com.beauver.printbridge.modelfile.analysis.FilamentUsage;
 import com.beauver.printbridge.modelfile.analysis.ModelSource;
 import com.beauver.printbridge.modelinfo.ModelInfoStatus;
 import com.beauver.printbridge.modelinfo.WeightKind;
 import com.beauver.printbridge.modelinfo.dto.FilamentDto;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.modelinfo.dto.PlateDto;
+import com.beauver.printbridge.spoolman.SpoolmanFilament;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -95,5 +97,27 @@ class FilamentSlotsTest {
                 choice(4, null, null, 8));
 
         assertEquals(Map.of(7L, 32.0), FilamentChoiceService.gramsNeeded(choices, files, slots));
+    }
+
+    @Test
+    void densityComesFromTheChoiceForAOneColourPlateOrTheWholeFile() {
+        Map<Long, SpoolmanFilament> stock = Map.of(
+                7L, new SpoolmanFilament(7, null, null, "PETG", null, List.of(), 1.0,
+                        null, null, 1.27),
+                8L, new SpoolmanFilament(8, null, null, "PLA", null, List.of(), 1.0,
+                        null, null, null));
+        FilamentChoice white = choice(1, 1, "#FFFFFF", 7);
+        FilamentChoice whole = choice(2, null, null, 7);
+        FilamentUsage pla = new FilamentUsage("PLA", "#FFFFFF", null);
+        FilamentUsage black = new FilamentUsage("PLA", "#000000", null);
+
+        assertEquals(1.27, FilamentChoiceService.densityFor(List.of(white), stock, 1, List.of(pla)));
+        assertNull(FilamentChoiceService.densityFor(List.of(white), stock, 2, List.of(pla)));
+        // Two colours on a plate can't be split.
+        assertNull(FilamentChoiceService.densityFor(List.of(white), stock, 1, List.of(pla, black)));
+        assertEquals(1.27, FilamentChoiceService.densityFor(List.of(whole), stock, 1, List.of()));
+        // A filament without a density, or one Spoolman no longer has.
+        assertNull(FilamentChoiceService.densityFor(List.of(choice(1, 1, "#FFFFFF", 8)), stock, 1, List.of(pla)));
+        assertNull(FilamentChoiceService.densityFor(List.of(choice(1, 1, "#FFFFFF", 99)), stock, 1, List.of(pla)));
     }
 }

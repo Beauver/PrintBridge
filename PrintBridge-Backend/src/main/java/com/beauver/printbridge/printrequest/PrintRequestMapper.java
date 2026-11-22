@@ -2,6 +2,8 @@ package com.beauver.printbridge.printrequest;
 
 import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceDto;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
+import com.beauver.printbridge.pricing.PriceEstimate;
+import com.beauver.printbridge.printrequest.dto.EstimatedPriceDto;
 import com.beauver.printbridge.printrequest.dto.PrintRequestDto;
 import com.beauver.printbridge.printrequest.dto.PrintRequestSummaryDto;
 import com.beauver.printbridge.printrequest.dto.RequestFileDto;
@@ -17,20 +19,29 @@ import java.util.Map;
 @ApplicationScoped
 public class PrintRequestMapper {
 
-    public PrintRequestSummaryDto toSummary(PrintRequest r, ItemProgress progress) {
+    /** @param estimate the automatic price (#72); {@code null} for none */
+    public PrintRequestSummaryDto toSummary(PrintRequest r, ItemProgress progress, PriceEstimate estimate) {
         return new PrintRequestSummaryDto(r.id, r.name, r.status, r.finalPrice, r.paidAt, r.owner.username,
-                r.createdAt, progress.completed(), progress.active());
+                r.createdAt, progress.completed(), progress.active(), toDto(estimate));
     }
 
     /**
      * @param filamentSelection        the caller may choose filaments now (#11)
      * @param notEnoughFilamentMessage the warning for a chosen filament that runs short (#11)
+     * @param estimate                 the automatic price (#72); {@code null} for none
      */
     public PrintRequestDto toDto(PrintRequest r, List<RequestFileDto> files, RequestTotalsDto totals,
-                                 boolean filamentSelection, String notEnoughFilamentMessage) {
+                                 boolean filamentSelection, String notEnoughFilamentMessage, PriceEstimate estimate) {
         return new PrintRequestDto(r.id, r.name, r.description, r.status, r.finalPrice, r.declineReason, r.paidAt,
                 r.owner.id, r.owner.username, r.createdAt, r.updatedAt, files, totals, r.status.nextStatuses(),
-                filamentSelection, notEnoughFilamentMessage);
+                filamentSelection, notEnoughFilamentMessage, toDto(estimate));
+    }
+
+    public EstimatedPriceDto toDto(PriceEstimate estimate) {
+        if (estimate == null) {
+            return null;
+        }
+        return new EstimatedPriceDto(estimate.amount(), estimate.partial());
     }
 
     /**

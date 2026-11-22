@@ -37,7 +37,14 @@ public class FakeSpoolmanClient extends SpoolmanClient {
 
     /** A plain one-colour filament. */
     public static SpoolmanFilament filament(long id, String material, String color, Double gramsLeft) {
-        return new SpoolmanFilament(id, "Basic " + color, "Acme", material, color, List.of(), gramsLeft);
+        return new SpoolmanFilament(id, "Basic " + color, "Acme", material, color, List.of(), gramsLeft, null, null,
+                null);
+    }
+
+    /** A filament with a spool price, net spool weight and density (#72). */
+    public static SpoolmanFilament priced(long id, String material, double price, double weight, Double density) {
+        return new SpoolmanFilament(id, "Priced " + id, "Acme", material, "#808080", List.of(), 1000.0, price, weight,
+                density);
     }
 
     @Override

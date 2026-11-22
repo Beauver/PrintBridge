@@ -8,6 +8,8 @@ import jakarta.validation.constraints.Size;
  *
  * @param enabled          read filaments from Spoolman
  * @param colorSelection   requesters choose a filament from Spoolman per colour; needs {@code enabled}
+ * @param prices           the price estimate uses the chosen filaments' Spoolman prices (#72); needs
+ *                         {@code enabled}
  * @param notEnoughMessage shown when a request needs more of a chosen filament than is left. Returned
  *                         with the default filled in; saving it empty (or the default) goes back to the
  *                         default text
@@ -15,6 +17,7 @@ import jakarta.validation.constraints.Size;
 public record SpoolmanSettingsDto(
         @NotNull Boolean enabled,
         @NotNull Boolean colorSelection,
+        @NotNull Boolean prices,
         @Size(max = 300, message = "The warning text must be at most 300 characters")
         String notEnoughMessage) {
 }

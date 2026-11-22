@@ -5,6 +5,7 @@ import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.persistence.LockModeType;
 
 import com.beauver.printbridge.printrequest.file.ItemStatus;
+import com.beauver.printbridge.printrequest.file.RequestFile;
 
 import java.util.Collection;
 import java.util.HashMap;
@@ -78,6 +79,18 @@ public class PrintRequestRepository implements PanacheRepository<PrintRequest> {
             progress.put((Long) row[0], new ItemProgress(((Number) row[1]).intValue(), ((Number) row[2]).intValue()));
         }
         return progress;
+    }
+
+    /** The files and links of these requests, each request's in upload order, with the request loaded. */
+    public List<RequestFile> filesOf(Collection<Long> requestIds) {
+        if (requestIds.isEmpty()) {
+            return List.of();
+        }
+        return getEntityManager()
+                .createQuery("select f from RequestFile f join fetch f.request where f.request.id in :ids"
+                        + " order by f.request.id, f.id", RequestFile.class)
+                .setParameter("ids", requestIds)
+                .getResultList();
     }
 
     public List<Long> idsOfOwner(long ownerId) {
