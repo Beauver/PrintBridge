@@ -1,5 +1,7 @@
 package com.beauver.printbridge.filamentchoice;
 
+import java.util.regex.Pattern;
+
 /**
  * How different two colours look to people: CIEDE2000 ΔE between sRGB colours (#76). Around 1 is
  * barely visible, 10 a clearly different shade, 20 still the same colour family, 35+ another colour.
@@ -8,18 +10,28 @@ package com.beauver.printbridge.filamentchoice;
 public final class ColorDifference {
 
     private static final double POW_25_7 = Math.pow(25, 7);
+    private static final Pattern RRGGBB = Pattern.compile("#[0-9a-fA-F]{6}");
 
     private ColorDifference() {
     }
 
-    /** ΔE between two {@code #RRGGBB} colours. */
+    /** Whether the text is a colour {@link #between} can compare: {@code #RRGGBB}. */
+    public static boolean isColor(String hex) {
+        return hex != null && RRGGBB.matcher(hex).matches();
+    }
+
+    /**
+     * ΔE between two {@code #RRGGBB} colours.
+     *
+     * @throws IllegalArgumentException when either isn't {@code #RRGGBB}
+     */
     public static double between(String firstColor, String secondColor) {
         return deltaE2000(lab(firstColor), lab(secondColor));
     }
 
     /** CIE L*a*b* (D65) of an {@code #RRGGBB} colour. */
     static double[] lab(String hex) {
-        int rgb = Integer.parseInt(hex.substring(1), 16);
+        int rgb = rgb(hex);
         double red = linear((rgb >> 16) & 0xFF);
         double green = linear((rgb >> 8) & 0xFF);
         double blue = linear(rgb & 0xFF);
@@ -88,6 +100,18 @@ public final class ColorDifference {
         double huePart = deltaHueTerm / sh;
         return Math.sqrt(lightnessPart * lightnessPart + chromaPart * chromaPart + huePart * huePart
                 + rt * chromaPart * huePart);
+    }
+
+    private static int rgb(String hex) {
+        if (!isColor(hex)) {
+            throw new IllegalArgumentException("Not a #RRGGBB colour: " + hex);
+        }
+        try {
+            return Integer.parseInt(hex.substring(1), 16);
+        } catch (NumberFormatException e) {
+            // Can't happen after the pattern check; kept so a bad value can only fail one way.
+            throw new IllegalArgumentException("Not a #RRGGBB colour: " + hex, e);
+        }
     }
 
     private static double hue(double a, double b) {

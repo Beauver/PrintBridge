@@ -16,14 +16,14 @@ public final class FilamentMatcher {
     private FilamentMatcher() {
     }
 
-    /** Empty when the colour isn't known or no filament is close enough. */
+    /** Empty when the colour isn't known (or not {@code #RRGGBB}) or no filament is close enough. */
     public static Optional<SpoolmanFilament> closest(FilamentSlot slot, List<SpoolmanFilament> filaments,
                                                      double tolerance) {
-        if (slot.color() == null) {
+        if (!ColorDifference.isColor(slot.color())) {
             return Optional.empty();
         }
         return filaments.stream()
-                .filter(filament -> filament.color() != null && filament.colors().isEmpty())
+                .filter(filament -> ColorDifference.isColor(filament.color()) && filament.colors().isEmpty())
                 .filter(filament -> sameMaterial(slot.type(), filament.material()))
                 .map(filament -> new Candidate(filament, ColorDifference.between(slot.color(), filament.color())))
                 .filter(candidate -> candidate.difference() <= tolerance)

@@ -42,4 +42,14 @@ class ColorDifferenceTest {
         // Dark colours (below the L* curve's linear part) work too.
         assertTrue(ColorDifference.between("#010101", "#020202") < 1);
     }
+
+    @Test
+    void refusesAnythingButRrggbb() {
+        assertTrue(ColorDifference.isColor("#a0B1c2"));
+        assertFalse(ColorDifference.isColor("#12345"));
+        assertFalse(ColorDifference.isColor("123456"));
+        assertFalse(ColorDifference.isColor("#GGGGGG"));
+        assertFalse(ColorDifference.isColor(null));
+        assertThrows(IllegalArgumentException.class, () -> ColorDifference.between("#FFFFFF", "white"));
+    }
 }

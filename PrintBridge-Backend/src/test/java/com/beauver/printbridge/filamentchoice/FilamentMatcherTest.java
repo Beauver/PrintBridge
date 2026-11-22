@@ -51,5 +51,9 @@ class FilamentMatcherTest {
         SpoolmanFilament noMaterial = filament(3, null, "#FFFFFF");
         assertEquals(Optional.empty(), match("PLA", "#FFFFFF", 100, dual, noColour, noMaterial));
         assertEquals(Optional.empty(), match("PLA", null, 100, filament(4, "PLA", "#FFFFFF")));
+        // Anything but #RRGGBB is skipped instead of failing the matching.
+        assertEquals(Optional.empty(), match("PLA", "white", 100, filament(4, "PLA", "#FFFFFF")));
+        assertEquals(Optional.of(4L), match("PLA", "#FFFFFF", 100, filament(5, "PLA", "#FFF"),
+                filament(4, "PLA", "#FFFFFF")));
     }
 }
