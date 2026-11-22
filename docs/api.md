@@ -60,6 +60,8 @@ Deleting a user also deletes their print requests and files.
 | POST | `/requests/{id}/links` | `{url, name, quantity}`: `url` `http(s)` (max 2048), `name` optional (max 100), `quantity` optional (1–100, default 1) | `201` request; `400` invalid link or quantity, or the request already holds *max files* (files and links together); `404`; `409` owner and the request is no longer SUBMITTED |
 | DELETE | `/requests/{id}/files/{fileId}` | – (also removes a link) | `200` request; `404`; `409` the last file or link, or owner and the request is no longer SUBMITTED |
 | PUT | `/requests/{id}/files/{fileId}/quantity` | `{quantity}` (1–100) | `200` request; `400`; `404`; `409` owner and no longer SUBMITTED, or admin and the request is final |
+| PUT | `/requests/{id}/files/{fileId}/filaments` | `{wholeItem, plateIndex, originalType, originalColor, spoolmanFilamentId}` (#11): `wholeItem` `false` with a colour of a plate as the model info lists it (`originalColor` `#RRGGBB`), or `true` with the other three `null` for the whole item (a file without colours, or a link). Choosing again replaces | `200` request; `400` no such colour on that plate, colours on the file (whole item refused), a plate or colour with `wholeItem`, no plate without it, unknown filament, invalid; `404`; `409` colour selection off, owner and no longer SUBMITTED, or admin and the request is final; `503` Spoolman can't be read |
+| DELETE | `/requests/{id}/files/{fileId}/filaments/{choiceId}` | – (#11) | `200` request; `404`; `409` as above |
 | GET | `/requests/{id}/files.zip` | – | `200` ZIP (`application/zip`, named after the request) with every file under its original name; duplicates get a number. With links, also `links.txt` (name or host, quantity and URL per link); `404` |
 | DELETE | `/requests/{id}` | – | `204`; `404` unknown or not yours; `409` owner deleting a request that is no longer SUBMITTED |
 
@@ -80,7 +82,7 @@ Allowed moves: SUBMITTED → IN_REVIEW / ACCEPTED / DECLINED; IN_REVIEW → ACCE
 The admin can open, download and delete any request (delete in any status). Other users' requests are always `404`, never `403`, so their existence doesn't leak.
 
 Summary: `{id, name, status, finalPrice, paidAt, ownerUsername, createdAt}`.
-Request: `{id, name, description, status, finalPrice, declineReason, paidAt, ownerId, ownerUsername, createdAt, updatedAt, files, totals, nextStatuses}` (`files` and `totals`: see below; `nextStatuses`: where the admin may move it; empty once final).
+Request: `{id, name, description, status, finalPrice, declineReason, paidAt, ownerId, ownerUsername, createdAt, updatedAt, files, totals, nextStatuses, filamentSelection, notEnoughFilamentMessage}` (`files` and `totals`: see below; `nextStatuses`: where the admin may move it; empty once final; `filamentSelection`: the caller may choose filaments from Spoolman now, #11; `notEnoughFilamentMessage`: the admin's warning for a filament that runs short).
 `status` is `SUBMITTED | IN_REVIEW | ACCEPTED | PRINTING | DECLINED | COMPLETED`; `type` is `STL | THREE_MF`; `finalPrice` is EUR or `null` (pending); `paidAt` is when it was marked paid, or `null`.
 
 `modelInfo` is what is known about the file, see [model info](features/model-info.md) and [server slicing](features/server-slicing.md): `{status, source, volumeCm3, totalGrams, weight, printSeconds, fits, fitPrinter, plates: [{index, name, width, depth, height, grams, estimated, printSeconds, fits, filaments: [{type, color, grams}], sliceError}], slicing: {enabled, status, printer, nozzle, madeForPrinter, madeForNozzle, custom, process, filament, error}}`. `fitPrinter` is the printer the fit check is for. `custom`: sliced with the admin's choice (#21), with the chosen `process` and `filament` (`null` = the project's own).
@@ -96,7 +98,9 @@ Request: `{id, name, description, status, finalPrice, declineReason, paidAt, own
 
 Errors are always JSON (`{message}`), also on the endpoints that otherwise return a file or a mesh.
 
-A request has `files: [{id, kind, originalFilename, type, sizeBytes, url, linkName, quantity, status, declineReason, nextStatuses, createdAt, modelInfo}]` and `totals: {files, links, declined, completed, copies, grams, weight, printSeconds, printTimePartial, fits}` (every file and link times its quantity, declined items left out except in `files`, `links` and `declined`; see [model info](features/model-info.md#totals-of-a-request)). `kind` is `FILE` or `LINK` (#59): a file has `originalFilename`, `type`, `sizeBytes` and `modelInfo`; a link has `url` and maybe `linkName`, and those file fields are `null`.
+A request has `files: [{id, kind, originalFilename, type, sizeBytes, url, linkName, quantity, status, declineReason, nextStatuses, createdAt, modelInfo, filamentChoices}]` and `totals: {files, links, declined, completed, copies, grams, weight, printSeconds, printTimePartial, fits}` (every file and link times its quantity, declined items left out except in `files`, `links` and `declined`; see [model info](features/model-info.md#totals-of-a-request)). `kind` is `FILE` or `LINK` (#59): a file has `originalFilename`, `type`, `sizeBytes` and `modelInfo`; a link has `url` and maybe `linkName`, and those file fields are `null`.
+
+`filamentChoices` (#11, see [Spoolman filaments](features/spoolman.md)): `[{id, wholeItem, plateIndex, originalType, originalColor, spoolmanFilamentId, name, vendor, material, color, colors, chosenAt, orphaned, inSpoolman, gramsLeft, gramsNeeded, notEnough}]`. Name, vendor, material and colour(s) are a copy from when it was chosen. `orphaned`: the file no longer has that colour on that plate. `inSpoolman` and `gramsLeft` are `null` while the integration is off or Spoolman can't be read. `gramsNeeded`: what the whole request needs of that filament (`null` when unknown); `notEnough`: less is left than that, or nothing.
 
 Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file is empty`, `The file is larger than N MB`, `The file is not a valid STL file` / `3MF file`, `A request can hold at most N files and links`, `Add a model file or a link`. Link errors: `The link must start with http:// or https://`, `The link is not a valid web address`, `The link must be at most 2048 characters`, `The link name must be at most 100 characters`. A missing name gives a validation error (`violations`).
 
@@ -104,7 +108,8 @@ Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file 
 
 | Method | Path | Body | Result |
 |---|---|---|---|
-| GET | `/settings` | – | `200 {slicing: {enabled, timeoutMinutes}, defaultPrinterId, printers: [{id, model, buildPlate: {x, y, z}, ownedNozzles, defaultNozzle, process, filament}], uploads: {maxFiles, maxFileSizeMb, ceilingMb}}` |
+| GET | `/settings` | – | `200 {slicing: {enabled, timeoutMinutes}, defaultPrinterId, printers: [{id, model, buildPlate: {x, y, z}, ownedNozzles, defaultNozzle, process, filament}], uploads: {maxFiles, maxFileSizeMb, ceilingMb}, spoolman: {enabled, colorSelection, notEnoughMessage}}` (`notEnoughMessage` with the default filled in) |
+| PUT | `/settings/spoolman` | `{enabled, colorSelection, notEnoughMessage}` (#11); switching on needs `SPOOLMAN_URL`, colour selection needs `enabled`; `notEnoughMessage` optional, max 300, empty or the default = the default text | `200` settings; `400` invalid |
 | PUT | `/settings/uploads` | `{maxFiles (1–50), maxFileSizeMb (1 up to the ceiling UPLOAD_MAX_SIZE_MB)}` | `200` settings; `400` invalid |
 | PUT | `/settings/slicing` | `{enabled, timeoutMinutes (1–60)}`; switching on needs at least one printer, with nozzles and profiles for every printer | `200` settings; `400` invalid |
 | POST | `/settings/printers` | `{model, buildPlate: {x, y, z} (whole mm 1–2000), ownedNozzles, defaultNozzle, process, filament}`; the default nozzle must be owned; while slicing is on, nozzles and profiles are required. The first printer becomes the default | `201` settings; `400` invalid; `409` model already added |
@@ -113,6 +118,15 @@ Upload errors (`400 {message}`): `Only .stl, .3mf files are allowed`, `The file 
 | PUT | `/settings/printers/{id}/default` | – | `200` settings; `404` |
 
 Switching slicing off drops queued jobs.
+
+## Spoolman
+
+Issue #11, see [Spoolman filaments](features/spoolman.md).
+
+| Method | Path | Who | Result |
+|---|---|---|---|
+| GET | `/spoolman/status` | admin | `200 {configured, reachable, url, version, message}`; never fails, the reason is in `message` |
+| GET | `/spoolman/filaments` | logged in | `200 [{id, name, vendor, material, color, colors, gramsLeft}]`: every filament, used-up ones too, sorted by material, vendor and name. `gramsLeft`: summed over its spools that aren't archived, `null` when a spool's weight is unknown. `409` colour selection is off; `503` Spoolman can't be read |
 
 ## Slicer (admin only)
 

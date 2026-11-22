@@ -11,19 +11,22 @@ docker compose up -d
 | Service  | URL / port                   |
 |----------|------------------------------|
 | Postgres | `localhost:5432`             |
-| Slicer (optional, `--profile slicer`) | http://localhost:18000 (`/health`) |
+| Slicer | http://localhost:18000 (`/health`) |
+| Spoolman | http://localhost:7912 |
 
-Both ports are bound to `127.0.0.1`: they are not reachable from other machines.
+`docker compose up -d` starts all of them. The first time it builds the OrcaSlicer image (a few minutes, ~1.6 GB). To leave a service out: `docker compose up -d --scale slicer=0` (or `spoolman=0`).
+
+All ports are bound to `127.0.0.1`: they are not reachable from other machines.
 
 The backend's own settings have defaults that match this stack. To change one, copy `PrintBridge-Backend/.env.example` to `PrintBridge-Backend/.env`.
 
-## Server slicing (optional)
-
-```sh
-docker compose --profile slicer up -d   # builds the OrcaSlicer image the first time (a few minutes, ~1.6 GB)
-```
+## Server slicing
 
 In dev mode the backend finds it at http://localhost:18000 by default (override with `SLICER_URL`). Switch it on and choose the printer in the admin *Settings* page. See [server slicing](../docs/features/server-slicing.md).
+
+## Spoolman
+
+Add a few filaments and spools in its web UI on http://localhost:7912. In dev mode the backend finds it there by default (override with `SPOOLMAN_URL`). Switch it on in *Settings → Spoolman*. See [Spoolman filaments](../docs/features/spoolman.md).
 
 ## JWT keys
 

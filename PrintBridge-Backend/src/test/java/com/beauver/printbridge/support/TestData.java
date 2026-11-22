@@ -53,7 +53,9 @@ public class TestData {
         em.createNativeQuery("TRUNCATE users, refresh_tokens, print_requests, request_files, model_info "
                 + "RESTART IDENTITY CASCADE").executeUpdate();
         em.createNativeQuery("UPDATE app_settings SET slicing_enabled = FALSE, slicing_timeout_minutes = 10, "
-                + "default_printer_id = NULL, upload_max_files = NULL, upload_max_file_size_mb = NULL").executeUpdate();
+                + "default_printer_id = NULL, upload_max_files = NULL, upload_max_file_size_mb = NULL, "
+                + "spoolman_enabled = FALSE, spoolman_color_selection = FALSE, "
+                + "spoolman_not_enough_message = NULL").executeUpdate();
         // Not TRUNCATE: app_settings references printers, and its row must stay.
         em.createNativeQuery("DELETE FROM printers").executeUpdate();
         em.createNativeQuery("ALTER SEQUENCE printers_id_seq RESTART").executeUpdate();
@@ -95,6 +97,15 @@ public class TestData {
         em.createNativeQuery("UPDATE app_settings SET upload_max_files = ?1, upload_max_file_size_mb = ?2")
                 .setParameter(1, maxFiles)
                 .setParameter(2, maxFileSizeMb)
+                .executeUpdate();
+    }
+
+    /** Writes the Spoolman switches straight to the table, past the checks of the settings endpoint. */
+    @Transactional
+    public void setSpoolman(boolean enabled, boolean colorSelection) {
+        em.createNativeQuery("UPDATE app_settings SET spoolman_enabled = ?1, spoolman_color_selection = ?2")
+                .setParameter(1, enabled)
+                .setParameter(2, colorSelection)
                 .executeUpdate();
     }
 

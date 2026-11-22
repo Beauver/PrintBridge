@@ -15,6 +15,7 @@ import { PrintRequestsService, UploadEvent } from '../print-requests.service';
 import { AddFiles } from './add-files/add-files';
 import { ResliceDialog } from './reslice-dialog/reslice-dialog';
 import { RequestDetailPage, SLICING_POLL_MS } from './request-detail-page';
+import { SpoolmanFilamentsService } from '../spoolman-filaments.service';
 
 describe('RequestDetailPage', () => {
   const requestsService = {
@@ -26,6 +27,14 @@ describe('RequestDetailPage', () => {
     removeFile: vi.fn(),
     changeQuantity: vi.fn(),
     downloadAll: vi.fn(),
+    chooseFilament: vi.fn(),
+    removeFilamentChoice: vi.fn(),
+  };
+  const filamentsService = {
+    filaments: signal(null),
+    loading: signal(false),
+    error: signal(null),
+    load: vi.fn(),
   };
   const fileSaver = { save: vi.fn() };
   const isAdmin = signal(false);
@@ -66,6 +75,9 @@ describe('RequestDetailPage', () => {
         { provide: FileSaverService, useValue: fileSaver },
         { provide: AuthService, useValue: { isAdmin } },
       ],
+    });
+    TestBed.overrideComponent(RequestDetailPage, {
+      set: { providers: [{ provide: SpoolmanFilamentsService, useValue: filamentsService }] },
     });
     router = TestBed.inject(Router);
     vi.spyOn(router, 'navigate').mockResolvedValue(true);
@@ -637,5 +649,50 @@ describe('RequestDetailPage', () => {
 
     upload.next({ type: 'done', request: REQUEST });
     expect(page.hasPendingUploads()).toBe(false);
+  });
+
+  describe('filaments from Spoolman (#11)', () => {
+    const CHOICE = {
+      wholeItem: false,
+      plateIndex: 1,
+      originalType: 'PLA',
+      originalColor: '#FFFFFF',
+      spoolmanFilamentId: 3,
+    };
+
+    it('saves a chosen filament and shows the updated request', () => {
+      const page = create();
+      const updated = { ...REQUEST, filamentSelection: true };
+      requestsService.chooseFilament.mockReturnValue(of(updated));
+
+      page['chooseFilament'](UPLOADED_FILE, CHOICE);
+
+      expect(requestsService.chooseFilament).toHaveBeenCalledWith(4, 7, CHOICE);
+      expect(page['request']()).toEqual(updated);
+      expect(filamentsService.load).not.toHaveBeenCalled();
+    });
+
+    it('reloads the list when a choice is refused', () => {
+      const page = create();
+      requestsService.chooseFilament.mockReturnValue(
+        httpError(400, "This filament isn't in Spoolman"),
+      );
+
+      page['chooseFilament'](UPLOADED_FILE, CHOICE);
+
+      expect(page['error']()).toBe("This filament isn't in Spoolman");
+      expect(filamentsService.load).toHaveBeenCalledWith(true);
+    });
+
+    it('removes a choice', () => {
+      const page = create();
+      requestsService.removeFilamentChoice.mockReturnValue(of(REQUEST));
+      page['resetFilament'](UPLOADED_FILE, 12);
+      expect(requestsService.removeFilamentChoice).toHaveBeenCalledWith(4, 7, 12);
+
+      requestsService.removeFilamentChoice.mockReturnValue(httpError(409));
+      page['resetFilament'](UPLOADED_FILE, 12);
+      expect(page['error']()).toBe('Could not remove the filament.');
+    });
   });
 });

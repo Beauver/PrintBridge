@@ -37,7 +37,7 @@ public class CustomResliceService {
 
     /** The printers, whether the file is a project, and where the dialog starts. */
     public ResliceOptionsDto options(long fileId) {
-        SlicingSettings slicingSettings = settings.slicing();
+        SlicingSettings slicingSettings = settings.getSlicing();
         List<PrinterSettings> printers = slicingSettings.printers().stream()
                 .filter(PrinterSettings::readyForSlicing)
                 .toList();
@@ -66,7 +66,7 @@ public class CustomResliceService {
     @Transactional
     public void reslice(long fileId, long printerId, BigDecimal nozzle, String process, String filament) {
         slicing.checkMayReslice(fileId);
-        PrinterSettings printer = settings.slicing().printers().stream()
+        PrinterSettings printer = settings.getSlicing().printers().stream()
                 .filter(candidate -> candidate.id() == printerId && candidate.readyForSlicing())
                 .findFirst()
                 .orElseThrow(() -> new InvalidInputException("Choose one of your printers"));

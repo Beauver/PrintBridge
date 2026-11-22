@@ -1,9 +1,12 @@
 import { InjectionToken } from '@angular/core';
-import { PreviewMesh } from '../../core/models/model-preview.model';
+import { PreviewColor, PreviewMesh } from '../../core/models/model-preview.model';
 
 /** What the viewer component needs from a scene; replaced by a fake in tests. */
 export interface PreviewSceneHandle {
-  show(mesh: PreviewMesh, plate: number): void;
+  /** Shows a plate and frames the camera on it. */
+  show(mesh: PreviewMesh, plate: number, colors: readonly PreviewColor[]): void;
+  /** Changes the colours of what is shown, keeping the camera where it is. */
+  recolor(colors: readonly PreviewColor[]): void;
   dispose(): void;
 }
 

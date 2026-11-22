@@ -1,5 +1,6 @@
 package com.beauver.printbridge.printrequest.dto;
 
+import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceDto;
 import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.printrequest.file.ItemStatus;
@@ -20,6 +21,7 @@ import java.util.List;
  * @param declineReason    why the admin declined it; only while DECLINED, optional
  * @param nextStatuses     statuses the admin may move it to; empty while the request is final
  * @param modelInfo        what the analyser read from the file; {@code null} for links
+ * @param filamentChoices  the Spoolman filaments chosen for its colours, or for the whole item (#11)
  */
 public record RequestFileDto(
         Long id,
@@ -34,5 +36,6 @@ public record RequestFileDto(
         String declineReason,
         List<ItemStatus> nextStatuses,
         Instant createdAt,
-        ModelInfoDto modelInfo) {
+        ModelInfoDto modelInfo,
+        List<FilamentChoiceDto> filamentChoices) {
 }

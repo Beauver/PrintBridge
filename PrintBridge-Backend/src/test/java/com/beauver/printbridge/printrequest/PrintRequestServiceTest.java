@@ -6,6 +6,7 @@ import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
 import com.beauver.printbridge.common.transaction.RecordingTransactions;
+import com.beauver.printbridge.filamentchoice.FilamentChoiceService;
 import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelfile.ModelFileValidator;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
@@ -22,6 +23,7 @@ import com.beauver.printbridge.printrequest.file.UploadedModel;
 import com.beauver.printbridge.settings.SettingsService;
 import com.beauver.printbridge.settings.UploadConfig;
 import com.beauver.printbridge.settings.UploadLimits;
+import com.beauver.printbridge.settings.SpoolmanSettings;
 import com.beauver.printbridge.slicing.CustomResliceService;
 import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.storage.FileStorage;
@@ -89,6 +91,9 @@ class PrintRequestServiceTest {
     static final Caller EVE = new Caller(3, false);
     static final Caller ADMIN = new Caller(1, true);
 
+    @Mock
+    FilamentChoiceService filamentChoices;
+
     @BeforeEach
     void setUp() {
         service = new PrintRequestService();
@@ -103,7 +108,10 @@ class PrintRequestServiceTest {
         service.transactions = transactions;
         service.settings = settings;
         service.customReslice = customReslice;
-        lenient().when(settings.uploads()).thenReturn(new UploadLimits(3, 2, 5));
+        service.filamentChoices = filamentChoices;
+        lenient().when(settings.getSpoolman()).thenReturn(SpoolmanSettings.OFF);
+        lenient().when(filamentChoices.describe(anyCollection(), anyMap())).thenReturn(Map.of());
+        lenient().when(settings.getUploads()).thenReturn(new UploadLimits(3, 2, 5));
         lenient().doAnswer(inv -> {
             assignFileIds();
             return null;

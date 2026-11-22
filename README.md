@@ -8,7 +8,7 @@ Payment is out of scope: prices are indications and payment happens in person.
 
 - **Requesters:** register and log in, upload STL/3MF files with a 3D preview, choose filament (colour and material) from live data, set quantity and notes, see the estimated and final price, track status and comment.
 - **Owner (admin):** dashboard of all requests with filters and search, review the model and choices, comment, edit details and the final price, accept or decline with a reason, update status.
-- **Filaments from Spoolman:** the backend reads your self-hosted [Spoolman](https://github.com/Donkie/Spoolman) (read-only, with caching), so options always reflect your inventory. Used-up filaments are hidden.
+- **Filaments from Spoolman:** the backend reads your self-hosted [Spoolman](https://github.com/Donkie/Spoolman) (read-only, with caching), so options always reflect your inventory. Requesters pick a filament per colour of each plate; when there isn't enough left, they're told it will be ordered and the print may be delayed.
 - **Model info and server slicing:** dimensions, plates, filament and print time per upload. With the optional slicer service, every upload is sliced with OrcaSlicer for your printer, so the numbers are exact.
 - **Price indication:** estimated weight × price per gram × quantity, behind a `PricingStrategy` so it can be extended later. The owner's final price overrides it.
 
@@ -29,7 +29,7 @@ Status flow: `SUBMITTED → IN_REVIEW → ACCEPTED / DECLINED → COMPLETED`
 PrintBridge-Backend/    Quarkus API
 PrintBridge-Frontend/   Angular app
 PrintBridge-Slicer/     optional slicer service (OrcaSlicer behind a small HTTP API)
-local/                  docker compose for development dependencies (Postgres, optional slicer)
+local/                  docker compose for development dependencies (Postgres, slicer, Spoolman)
 deploy/                 docker compose for running the published images
 docs/                   architecture, auth, API, deployment and per-feature documentation
 ```

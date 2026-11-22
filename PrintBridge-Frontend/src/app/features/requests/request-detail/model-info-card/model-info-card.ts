@@ -10,6 +10,14 @@ import {
 } from '@angular/core';
 import { RouterLink } from '@angular/router';
 import { FilamentInfo, ModelInfo, PlateInfo } from '../../../../core/models/model-info.model';
+import { PreviewColor } from '../../../../core/models/model-preview.model';
+import {
+  FilamentChoice,
+  FilamentChoiceInput,
+  FilamentSlot,
+} from '../../../../core/models/spoolman.model';
+import { isChoiceFor, originalLabel } from '../../../../shared/format/filament-display';
+import { FilamentPicker } from '../filament-picker/filament-picker';
 import { ModelPreview } from '../../../../shared/model-viewer/model-preview';
 import { ModelPreviewService } from '../../model-preview.service';
 import {
@@ -29,7 +37,7 @@ import {
  */
 @Component({
   selector: 'app-model-info-card',
-  imports: [RouterLink, ModelPreview],
+  imports: [RouterLink, ModelPreview, FilamentPicker],
   templateUrl: './model-info-card.html',
   styleUrl: './model-info-card.css',
 })
@@ -50,6 +58,15 @@ export class ModelInfoCard implements OnInit {
   readonly quantity = input(1);
   /** Whether the card starts open; only the first file's does on the request page. */
   readonly startOpen = input(true);
+  /** The Spoolman filaments chosen for this file's colours (#11). */
+  readonly filamentChoices = input<FilamentChoice[]>([]);
+  /** The caller may choose filaments from Spoolman for this file's colours. */
+  readonly filamentSelection = input(false);
+  /** Shown when a chosen filament runs short (set by the admin). */
+  readonly notEnoughMessage = input('');
+  readonly filamentChosen = output<FilamentChoiceInput>();
+  /** The id of a choice to remove. */
+  readonly filamentReset = output<number>();
 
   protected readonly open = signal(false);
   private thumbnailsLoaded = false;
@@ -347,6 +364,164 @@ export class ModelInfoCard implements OnInit {
       return 'Unknown filament';
     }
     return parts.join(' · ');
+  }
+
+  /** The file has colours to choose filaments for; otherwise the whole file gets one. */
+  protected readonly hasColours = computed(() => {
+    return (
+      this.analyzed() &&
+      this.info().plates.some((plate) => {
+        return plate.filaments.length > 0;
+      })
+    );
+  });
+
+  protected readonly wholeItemSlot: FilamentSlot = {
+    wholeItem: true,
+    plateIndex: null,
+    originalType: null,
+    originalColor: null,
+  };
+
+  protected readonly wholeItemChoice = computed(() => {
+    return this.choiceFor(this.wholeItemSlot);
+  });
+
+  /** The single "pick a filament" circle, for a file without colours. */
+  protected readonly showWholeItem = computed(() => {
+    return !this.hasColours() && (this.filamentSelection() || this.wholeItemChoice() !== null);
+  });
+
+  /** The file's total over all copies; null when unknown. */
+  protected readonly wholeItemGrams = computed(() => {
+    const total = this.info().totalGrams;
+    if (total === null || total === undefined) {
+      return null;
+    }
+    return total * this.quantity();
+  });
+
+  /** Choices for colours this file no longer has (e.g. after a re-slice). */
+  protected readonly orphanedChoices = computed(() => {
+    return this.filamentChoices().filter((choice) => {
+      return choice.orphaned;
+    });
+  });
+
+  protected readonly notEnoughFilament = computed(() => {
+    const short = this.filamentChoices().some((choice) => {
+      return choice.notEnough && !choice.orphaned;
+    });
+    if (short) {
+      return this.notEnoughMessage();
+    }
+    return null;
+  });
+
+  /**
+   * The chosen filaments as colours for the 3D preview: each replaces its colour on its plate, a
+   * whole-file choice colours a file without colours. Multi-colour filaments show their first.
+   */
+  protected readonly previewColors = computed<PreviewColor[]>(() => {
+    const colors: PreviewColor[] = [];
+    for (const choice of this.filamentChoices()) {
+      const to = choice.color ?? choice.colors[0] ?? null;
+      if (choice.orphaned || to === null) {
+        continue;
+      }
+      colors.push({
+        wholeFile: choice.wholeItem,
+        plate: choice.plateIndex,
+        from: choice.originalColor,
+        to,
+      });
+    }
+    return colors;
+  });
+
+  /** The plate the 3D preview shows; null until it is opened. */
+  protected readonly previewPlate = signal<number | null>(null);
+
+  /**
+   * The plate whose colours are shown under the preview's plate buttons, so they can be changed
+   * while watching the model (#11): only while choosing is allowed or something was chosen.
+   */
+  protected readonly previewPlateColours = computed<PlateInfo | null>(() => {
+    const index = this.previewPlate();
+    if (!this.hasColours() || index === null) {
+      return null;
+    }
+    if (!this.filamentSelection() && this.filamentChoices().length === 0) {
+      return null;
+    }
+    const plate = this.info().plates.find((candidate) => {
+      return candidate.index === index;
+    });
+    if (!plate || plate.filaments.length === 0) {
+      return null;
+    }
+    return plate;
+  });
+
+  protected onPreviewPlate(plate: number): void {
+    this.previewPlate.set(plate);
+  }
+
+  protected slotOf(plate: PlateInfo, filament: FilamentInfo): FilamentSlot {
+    return {
+      wholeItem: false,
+      plateIndex: plate.index,
+      originalType: filament.type,
+      originalColor: filament.color,
+    };
+  }
+
+  protected choiceFor(slot: FilamentSlot): FilamentChoice | null {
+    const choice = this.filamentChoices().find((candidate) => {
+      return !candidate.orphaned && isChoiceFor(candidate, slot);
+    });
+    return choice ?? null;
+  }
+
+  /**
+   * Grams of this colour over all copies, like the backend counts them: the colour's own sliced
+   * grams, else the plate's when it is the plate's only colour; null when unknown.
+   */
+  protected gramsNeeded(plate: PlateInfo, filament: FilamentInfo): number | null {
+    let grams = filament.grams;
+    if (grams === null && plate.filaments.length === 1) {
+      grams = plate.grams;
+    }
+    if (grams === null) {
+      return null;
+    }
+    return grams * this.quantity();
+  }
+
+  /**
+   * Whether a filament was chosen for any colour of this plate. Then the colour rows show only
+   * the circles (names in their tooltips) and an "Old colours" row with the file's own colours.
+   */
+  protected hasChoiceOn(plate: PlateInfo): boolean {
+    return plate.filaments.some((filament) => {
+      return this.choiceFor(this.slotOf(plate, filament)) !== null;
+    });
+  }
+
+  /** "Plate 2 · PLA #FFFFFF" for a choice the file no longer has. */
+  protected orphanLabel(choice: FilamentChoice): string {
+    if (choice.wholeItem) {
+      return 'Whole file';
+    }
+    return `Plate ${choice.plateIndex} · ${originalLabel(choice)}`;
+  }
+
+  protected chooseFilament(choice: FilamentChoiceInput): void {
+    this.filamentChosen.emit(choice);
+  }
+
+  protected resetFilament(choiceId: number): void {
+    this.filamentReset.emit(choiceId);
   }
 
   protected requestResliceWith(): void {

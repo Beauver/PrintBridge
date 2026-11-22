@@ -42,6 +42,14 @@ export interface UploadLimits extends UploadSettings {
   ceilingMb: number;
 }
 
+/** The Spoolman settings (#11); colour selection needs the integration. */
+export interface SpoolmanSettings {
+  enabled: boolean;
+  colorSelection: boolean;
+  /** The warning for a filament that runs short; the default text unless the admin set one. */
+  notEnoughMessage: string;
+}
+
 export interface Settings {
   slicing: SlicingSettings;
   /** For STL files and projects made for a printer that isn't owned; null without printers. */
@@ -49,4 +57,5 @@ export interface Settings {
   /** In the order they were added. */
   printers: Printer[];
   uploads: UploadLimits;
+  spoolman: SpoolmanSettings;
 }

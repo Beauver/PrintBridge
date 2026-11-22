@@ -61,14 +61,16 @@ public class PreviewService {
                 .filter(result -> result.status == SliceStatus.DONE)
                 .map(result -> result.printer)
                 .orElse(null);
-        PreviewBed bed = settings.slicing().fitPrinter(slicedFor).map(PreviewService::bed).orElse(null);
+        PreviewBed bed = settings.getSlicing().fitPrinter(slicedFor).map(PreviewService::bed).orElse(null);
         return encode(file.path(), typeOf(file), bed);
     }
 
     /** The encoded mesh of a file that isn't uploaded yet, on the default printer's bed. Nothing is stored. */
     public byte[] ofUpload(UploadedModel upload) {
         ModelFileType type = requests.checkUpload(upload);
-        PreviewBed bed = Optional.ofNullable(settings.slicing().defaultPrinter()).map(PreviewService::bed).orElse(null);
+        PreviewBed bed = Optional.ofNullable(settings.getSlicing().defaultPrinter())
+                .map(PreviewService::bed)
+                .orElse(null);
         return encode(upload.path(), type, bed);
     }
 

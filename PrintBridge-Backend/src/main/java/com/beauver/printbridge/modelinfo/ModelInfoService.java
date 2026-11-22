@@ -123,7 +123,7 @@ public class ModelInfoService {
      * included for the admin. Everything is loaded at once, however many files there are.
      */
     public Map<Long, ModelInfoDto> describe(Collection<Long> fileIds, boolean admin) {
-        ModelDetailsCalculator.Context context = new ModelDetailsCalculator.Context(settings.slicing(), admin);
+        ModelDetailsCalculator.Context context = new ModelDetailsCalculator.Context(settings.getSlicing(), admin);
         Map<Long, ModelInfo> infos = repository.findByFileIds(fileIds);
         Map<Long, SliceResult> slices = slicing.find(fileIds);
         Map<Long, ModelInfoDto> described = new HashMap<>();

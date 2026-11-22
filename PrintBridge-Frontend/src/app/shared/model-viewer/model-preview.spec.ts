@@ -81,4 +81,19 @@ describe('ModelPreview', () => {
     expect(preview['mesh']()).toBeNull();
     expect(preview['error']()).toBeNull();
   });
+
+  it('passes on the plate the viewer shows', () => {
+    const fixture = create(() => {
+      return of(TRIANGLE_MESH);
+    });
+    const plates: number[] = [];
+    fixture.componentInstance.plateChange.subscribe((plate) => {
+      plates.push(plate);
+    });
+
+    fixture.componentInstance['show']();
+    fixture.detectChanges();
+
+    expect(plates).toEqual([1]);
+  });
 });

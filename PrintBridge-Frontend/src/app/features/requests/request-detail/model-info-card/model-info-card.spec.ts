@@ -1,3 +1,4 @@
+import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { provideRouter } from '@angular/router';
 import { of, throwError } from 'rxjs';
@@ -5,6 +6,9 @@ import { ModelInfo, PlateInfo, SlicingInfo } from '../../../../core/models/model
 import { NO_SLICING, STL_INFO } from '../../../../../testing/fixtures';
 import { TRIANGLE_MESH } from '../../../../../testing/fixtures';
 import { ModelPreviewService } from '../../model-preview.service';
+import { FilamentChoice, FilamentChoiceInput } from '../../../../core/models/spoolman.model';
+import { RED_FOR_WHITE } from '../../../../../testing/fixtures';
+import { SpoolmanFilamentsService } from '../../spoolman-filaments.service';
 import { ModelInfoCard } from './model-info-card';
 
 describe('ModelInfoCard', () => {
@@ -60,13 +64,30 @@ describe('ModelInfoCard', () => {
       }),
     );
     TestBed.configureTestingModule({
-      providers: [provideRouter([]), { provide: ModelPreviewService, useValue: previewService }],
+      providers: [
+        provideRouter([]),
+        { provide: ModelPreviewService, useValue: previewService },
+        {
+          provide: SpoolmanFilamentsService,
+          useValue: { filaments: signal(null), loading: signal(false), error: signal(null) },
+        },
+      ],
     });
   });
 
-  function createFixture(info: ModelInfo, isAdmin = false) {
+  function createFixture(
+    info: ModelInfo,
+    isAdmin = false,
+    choices: FilamentChoice[] = [],
+    selection = false,
+    quantity = 1,
+  ) {
     const fixture = TestBed.createComponent(ModelInfoCard);
     fixture.componentRef.setInput('info', info);
+    fixture.componentRef.setInput('filamentChoices', choices);
+    fixture.componentRef.setInput('filamentSelection', selection);
+    fixture.componentRef.setInput('notEnoughMessage', 'Order it');
+    fixture.componentRef.setInput('quantity', quantity);
     fixture.componentRef.setInput('isAdmin', isAdmin);
     fixture.componentRef.setInput('requestId', 4);
     fixture.componentRef.setInput('fileId', 7);
@@ -352,5 +373,169 @@ describe('ModelInfoCard', () => {
       slicing: { ...NO_SLICING, enabled: true, status: 'FAILED' as const },
     };
     expect(create(failed)['slicingFailed']()).toBe(true);
+  });
+
+  describe('filaments from Spoolman (#11)', () => {
+    const WHOLE: FilamentChoice = {
+      ...RED_FOR_WHITE,
+      id: 13,
+      wholeItem: true,
+      plateIndex: null,
+      originalType: null,
+      originalColor: null,
+    };
+
+    it('lets a file with colours choose per colour, by plate', () => {
+      const card = createFixture(BAMBU, false, [RED_FOR_WHITE], true, 2).componentInstance;
+      const lid = BAMBU.plates[0];
+      const white = lid.filaments[0];
+
+      expect(card['hasColours']()).toBe(true);
+      expect(card['showWholeItem']()).toBe(false);
+      expect(card['slotOf'](lid, white)).toEqual({
+        wholeItem: false,
+        plateIndex: 1,
+        originalType: 'PLA',
+        originalColor: '#FFFFFF',
+      });
+      expect(card['choiceFor'](card['slotOf'](lid, white))).toEqual(RED_FOR_WHITE);
+      expect(card['choiceFor'](card['slotOf'](BAMBU.plates[2], white))).toBeNull();
+      expect(card['gramsNeeded'](lid, white)).toBeCloseTo(67.38);
+      expect(card['hasChoiceOn'](lid)).toBe(true);
+      expect(card['hasChoiceOn'](BAMBU.plates[2])).toBe(false);
+      expect(card['notEnoughFilament']()).toBeNull();
+    });
+
+    it('takes the plate grams for its only colour, else unknown', () => {
+      const card = create(BAMBU);
+      const unsliced = { type: 'PLA', color: '#000000', grams: null };
+      const plate = { ...BAMBU.plates[0], grams: 10, filaments: [unsliced] };
+      expect(card['gramsNeeded'](plate, unsliced)).toBe(10);
+      const twoColours = { ...plate, filaments: [unsliced, { ...unsliced, color: '#FFFFFF' }] };
+      expect(card['gramsNeeded'](twoColours, unsliced)).toBeNull();
+    });
+
+    it('gives a file without colours one circle for the whole file', () => {
+      const card = createFixture(STL_INFO, false, [], true, 3).componentInstance;
+      expect(card['hasColours']()).toBe(false);
+      expect(card['showWholeItem']()).toBe(true);
+      expect(card['wholeItemChoice']()).toBeNull();
+      expect(card['wholeItemGrams']()).toBe(12);
+
+      expect(create(STL_INFO)['showWholeItem']()).toBe(false);
+      const chosen = createFixture(STL_INFO, false, [WHOLE]).componentInstance;
+      expect(chosen['showWholeItem']()).toBe(true);
+      expect(chosen['wholeItemChoice']()).toEqual(WHOLE);
+      const pending = { ...STL_INFO, status: 'PENDING' as const, totalGrams: null, plates: [] };
+      expect(
+        createFixture(pending, false, [], true).componentInstance['wholeItemGrams'](),
+      ).toBeNull();
+    });
+
+    it('lists choices the file no longer has', () => {
+      const gone = { ...RED_FOR_WHITE, id: 14, plateIndex: 2, orphaned: true };
+      const card = createFixture(BAMBU, false, [RED_FOR_WHITE, gone], true).componentInstance;
+      expect(card['orphanedChoices']()).toEqual([gone]);
+      expect(card['orphanLabel'](gone)).toBe('Plate 2 · PLA #FFFFFF');
+      expect(card['orphanLabel'](WHOLE)).toBe('Whole file');
+      // An orphaned choice never counts for a circle.
+      expect(
+        card['choiceFor']({
+          wholeItem: false,
+          plateIndex: 2,
+          originalType: 'PLA',
+          originalColor: '#FFFFFF',
+        }),
+      ).toBeNull();
+    });
+
+    it('warns when not enough is left', () => {
+      const short = { ...RED_FOR_WHITE, notEnough: true };
+      expect(createFixture(BAMBU, false, [short]).componentInstance['notEnoughFilament']()).toBe(
+        'Order it',
+      );
+      const goneShort = { ...short, orphaned: true };
+      expect(
+        createFixture(BAMBU, false, [goneShort]).componentInstance['notEnoughFilament'](),
+      ).toBeNull();
+    });
+
+    it('colours the 3D preview with the chosen filaments', () => {
+      const silk = {
+        ...RED_FOR_WHITE,
+        id: 15,
+        wholeItem: false,
+        plateIndex: 3,
+        color: null,
+        colors: ['#00FF00', '#0000FF'],
+      };
+      const gone = { ...RED_FOR_WHITE, id: 16, plateIndex: 2, orphaned: true };
+      const noColour = { ...RED_FOR_WHITE, id: 17, plateIndex: 4, color: null };
+      const card = createFixture(BAMBU, false, [
+        RED_FOR_WHITE,
+        silk,
+        gone,
+        noColour,
+        WHOLE,
+      ]).componentInstance;
+
+      expect(card['previewColors']()).toEqual([
+        { wholeFile: false, plate: 1, from: '#FFFFFF', to: '#FF0000' },
+        { wholeFile: false, plate: 3, from: '#FFFFFF', to: '#00FF00' },
+        { wholeFile: true, plate: null, from: null, to: '#FF0000' },
+      ]);
+    });
+
+    it('shows the colours of the plate on screen under the preview', () => {
+      const card = createFixture(BAMBU, false, [], true).componentInstance;
+      expect(card['previewPlateColours']()).toBeNull();
+
+      card['onPreviewPlate'](1);
+      expect(card['previewPlateColours']()).toEqual(BAMBU.plates[0]);
+      // Plate 2 has no colours.
+      card['onPreviewPlate'](2);
+      expect(card['previewPlateColours']()).toBeNull();
+      card['onPreviewPlate'](9);
+      expect(card['previewPlateColours']()).toBeNull();
+
+      // Read-only and nothing chosen: nothing to show; something chosen: shown.
+      const readOnly = createFixture(BAMBU).componentInstance;
+      readOnly['onPreviewPlate'](1);
+      expect(readOnly['previewPlateColours']()).toBeNull();
+      const chosen = createFixture(BAMBU, false, [RED_FOR_WHITE]).componentInstance;
+      chosen['onPreviewPlate'](1);
+      expect(chosen['previewPlateColours']()).toEqual(BAMBU.plates[0]);
+
+      // A file without colours gets its whole-file circle instead.
+      const stl = createFixture(STL_INFO, false, [], true).componentInstance;
+      stl['onPreviewPlate'](1);
+      expect(stl['previewPlateColours']()).toBeNull();
+      expect(stl['showWholeItem']()).toBe(true);
+    });
+
+    it('passes choices on to the page', () => {
+      const card = create(BAMBU);
+      const chosen: FilamentChoiceInput[] = [];
+      const resets: number[] = [];
+      card.filamentChosen.subscribe((choice) => {
+        chosen.push(choice);
+      });
+      card.filamentReset.subscribe((id) => {
+        resets.push(id);
+      });
+      const input = {
+        wholeItem: false,
+        plateIndex: 1,
+        originalType: 'PLA',
+        originalColor: '#FFFFFF',
+        spoolmanFilamentId: 3,
+      };
+
+      card['chooseFilament'](input);
+      card['resetFilament'](12);
+
+      expect(chosen).toEqual([input]);
+      expect(resets).toEqual([12]);
+    });
   });
 });

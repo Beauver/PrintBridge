@@ -7,9 +7,9 @@ package com.beauver.printbridge.modelinfo;
  */
 final class FilamentEstimate {
 
-    // TODO: #11 take the density from the chosen Spoolman filament instead of assuming PLA.
+    // TODO: #72 take the density from the chosen Spoolman filament instead of assuming PLA.
     static final double DENSITY_G_PER_CM3 = 1.24;
-    // TODO: #11 revisit together with the Spoolman integration and pricing.
+    // TODO: #72 revisit together with the Spoolman density and pricing.
     static final double FILL_FACTOR = 0.35;
 
     private FilamentEstimate() {

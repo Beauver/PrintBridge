@@ -12,6 +12,7 @@ import {
   UploadConfig,
 } from '../../core/models/print-request.model';
 import { ResliceChoice, ResliceOptions } from '../../core/models/slicer.model';
+import { FilamentChoiceInput } from '../../core/models/spoolman.model';
 
 /** Progress of an upload: percentages while sending, then the created request. */
 export type UploadEvent =
@@ -107,6 +108,29 @@ export class PrintRequestsService {
     return this.http.put<PrintRequest>(`/api/requests/${requestId}/files/${fileId}/quantity`, {
       quantity,
     });
+  }
+
+  /** Chooses a Spoolman filament for one colour of a plate, or for the whole item (#11). */
+  chooseFilament(
+    requestId: number,
+    fileId: number,
+    choice: FilamentChoiceInput,
+  ): Observable<PrintRequest> {
+    return this.http.put<PrintRequest>(
+      `/api/requests/${requestId}/files/${fileId}/filaments`,
+      choice,
+    );
+  }
+
+  /** Removes a chosen filament; the colour goes back to the file's own. */
+  removeFilamentChoice(
+    requestId: number,
+    fileId: number,
+    choiceId: number,
+  ): Observable<PrintRequest> {
+    return this.http.delete<PrintRequest>(
+      `/api/requests/${requestId}/files/${fileId}/filaments/${choiceId}`,
+    );
   }
 
   /** Every file of the request in one ZIP, with its links in `links.txt`. */

@@ -41,6 +41,8 @@ import { LinkCard } from './link-card/link-card';
 import { ModelInfoCard } from './model-info-card/model-info-card';
 import { ResliceDialog } from './reslice-dialog/reslice-dialog';
 import { ReviewPanel } from './review-panel/review-panel';
+import { FilamentChoiceInput } from '../../../core/models/spoolman.model';
+import { SpoolmanFilamentsService } from '../spoolman-filaments.service';
 
 const FILE_TYPE_LABELS: Record<UploadedFile['type'], string> = { STL: 'STL', THREE_MF: '3MF' };
 
@@ -132,9 +134,12 @@ function printTimeTotal(request: PrintRequest): { text: string; note: string | n
   ],
   templateUrl: './request-detail-page.html',
   styleUrl: './request-detail-page.css',
+  // One filament list per visit, shared by every colour circle on the page (#11).
+  providers: [SpoolmanFilamentsService],
 })
 export class RequestDetailPage implements OnInit, HasPendingUploads {
   private readonly requestsService = inject(PrintRequestsService);
+  private readonly filamentsService = inject(SpoolmanFilamentsService);
   private readonly fileSaver = inject(FileSaverService);
   private readonly router = inject(Router);
   private readonly destroyRef = inject(DestroyRef);
@@ -426,6 +431,36 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
         this.savingQuantityId.set(null);
         input.value = String(file.quantity);
         this.error.set(errorMessage(err, 'Could not change the quantity.'));
+      },
+    });
+  }
+
+  /**
+   * Saves the Spoolman filament chosen for a colour (#11). A refused choice (e.g. the filament was
+   * deleted in Spoolman) reloads the list, so the dropdown shows what is there now.
+   */
+  protected chooseFilament(file: RequestFile, choice: FilamentChoiceInput): void {
+    this.error.set(null);
+    this.requestsService.chooseFilament(this.id(), file.id, choice).subscribe({
+      next: (updated) => {
+        this.show(updated);
+      },
+      error: (err: unknown) => {
+        this.error.set(errorMessage(err, 'Could not choose the filament.'));
+        this.filamentsService.load(true);
+      },
+    });
+  }
+
+  /** Removes a chosen filament: the colour goes back to the file's own. */
+  protected resetFilament(file: RequestFile, choiceId: number): void {
+    this.error.set(null);
+    this.requestsService.removeFilamentChoice(this.id(), file.id, choiceId).subscribe({
+      next: (updated) => {
+        this.show(updated);
+      },
+      error: (err: unknown) => {
+        this.error.set(errorMessage(err, 'Could not remove the filament.'));
       },
     });
   }

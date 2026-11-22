@@ -6,9 +6,13 @@ import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
 import com.beauver.printbridge.common.transaction.Transactions;
+import com.beauver.printbridge.filamentchoice.ChoiceItem;
+import com.beauver.printbridge.filamentchoice.FilamentChoiceService;
+import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceRequest;
 import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelfile.ModelFileValidator;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
+import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.printrequest.dto.*;
 import com.beauver.printbridge.printrequest.file.FileBundle;
 import com.beauver.printbridge.printrequest.file.ItemStatus;
@@ -18,6 +22,7 @@ import com.beauver.printbridge.printrequest.file.RequestFileKind;
 import com.beauver.printbridge.printrequest.file.StoredFile;
 import com.beauver.printbridge.printrequest.file.UploadedModel;
 import com.beauver.printbridge.settings.SettingsService;
+import com.beauver.printbridge.settings.SpoolmanSettings;
 import com.beauver.printbridge.settings.UploadConfig;
 import com.beauver.printbridge.settings.UploadLimits;
 import com.beauver.printbridge.slicing.CustomResliceService;
@@ -94,8 +99,11 @@ public class PrintRequestService {
     @Inject
     CustomResliceService customReslice;
 
+    @Inject
+    FilamentChoiceService filamentChoices;
+
     public UploadConfigDto uploadConfig() {
-        UploadLimits limits = settings.uploads();
+        UploadLimits limits = settings.getUploads();
         return new UploadConfigDto(limits.maxFileSizeBytes(), limits.maxFiles(),
                 allowedTypes().stream().map(ModelFileType::extension).toList());
     }
@@ -235,7 +243,7 @@ public class PrintRequestService {
 
     private void checkMayAddFile(PrintRequest request, Caller caller) {
         checkMayChangeFiles(request, caller);
-        int maxFiles = settings.uploads().maxFiles();
+        int maxFiles = settings.getUploads().maxFiles();
         if (request.files.size() >= maxFiles) {
             throw new InvalidInputException("A request can hold at most " + maxFiles + " files and links");
         }
@@ -303,6 +311,53 @@ public class PrintRequestService {
     }
 
     /**
+     * Chooses a Spoolman filament for one colour of a plate of a file, or for a whole file without
+     * colours or a link (#11). Allowed while colour selection is on, like the quantity: the owner
+     * while the request is SUBMITTED, the admin until it is final.
+     */
+    @Transactional
+    public PrintRequestDto chooseFilament(long requestId, long fileId, FilamentChoiceRequest choice, Caller caller) {
+        PrintRequest request = findVisible(requestId, caller);
+        checkMayChooseFilaments(request, caller);
+        RequestFile file = fileOf(request, fileId);
+        ModelInfoDto info = null;
+        if (!file.isLink()) {
+            info = modelInfo.describe(List.of(file.id), caller.admin()).get(file.id);
+        }
+        filamentChoices.choose(file.id, info, choice);
+        return describe(request, caller.admin());
+    }
+
+    /** Removes a chosen filament (#11): the colour goes back to the file's own. Same rules as choosing. */
+    @Transactional
+    public PrintRequestDto removeFilamentChoice(long requestId, long fileId, long choiceId, Caller caller) {
+        PrintRequest request = findVisible(requestId, caller);
+        checkMayChooseFilaments(request, caller);
+        filamentChoices.remove(fileOf(request, fileId).id, choiceId);
+        return describe(request, caller.admin());
+    }
+
+    private void checkMayChooseFilaments(PrintRequest request, Caller caller) {
+        if (!settings.getSpoolman().colorSelection()) {
+            throw new ConflictException("Choosing filaments from Spoolman is switched off");
+        }
+        if (!mayChooseFilaments(request, caller.admin())) {
+            if (caller.admin()) {
+                throw new ConflictException("This request is " + request.status + " and can no longer be changed");
+            }
+            throw new ConflictException("Filaments can only be chosen while the request is submitted");
+        }
+    }
+
+    /** Like the quantity: the owner while SUBMITTED, the admin until the request is final. */
+    private static boolean mayChooseFilaments(PrintRequest request, boolean admin) {
+        if (admin) {
+            return !request.status.isFinal();
+        }
+        return request.status == RequestStatus.SUBMITTED;
+    }
+
+    /**
      * Every file of a request for one ZIP download, under its original name. Duplicate names
      * get a number ({@code part (2).stl}). Links (#59) are listed in a text file.
      */
@@ -357,8 +412,14 @@ public class PrintRequestService {
     private PrintRequestDto describe(PrintRequest request, boolean admin) {
         // Links have no model details (#59).
         List<Long> fileIds = request.files.stream().filter(file -> !file.isLink()).map(file -> file.id).toList();
-        List<RequestFileDto> files = mapper.toFileDtos(request.files, modelInfo.describe(fileIds, admin));
-        return mapper.toDto(request, files, RequestTotals.of(files));
+        Map<Long, ModelInfoDto> infos = modelInfo.describe(fileIds, admin);
+        List<ChoiceItem> items = request.files.stream()
+                .map(file -> new ChoiceItem(file.id, file.quantity, file.isDeclined()))
+                .toList();
+        List<RequestFileDto> files = mapper.toFileDtos(request.files, infos, filamentChoices.describe(items, infos));
+        SpoolmanSettings spoolman = settings.getSpoolman();
+        boolean filamentSelection = spoolman.colorSelection() && mayChooseFilaments(request, admin);
+        return mapper.toDto(request, files, RequestTotals.of(files), filamentSelection, spoolman.notEnoughMessage());
     }
 
     /** Adds the row of an upload that passed {@link #checkUpload} and is already in storage. */
@@ -677,7 +738,7 @@ public class PrintRequestService {
         if (upload.size() <= 0) {
             throw new InvalidInputException("The file is empty");
         }
-        UploadLimits limits = settings.uploads();
+        UploadLimits limits = settings.getUploads();
         if (upload.size() > limits.maxFileSizeBytes()) {
             throw new InvalidInputException("The file is larger than " + limits.maxFileSizeMb() + " MB");
         }

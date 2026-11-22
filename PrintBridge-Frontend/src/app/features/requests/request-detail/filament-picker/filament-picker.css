@@ -1,0 +1,48 @@
+/* Same circle as the model card's colour dots. */
+.swatch {
+  display: inline-block;
+  flex-shrink: 0;
+  width: 0.9rem;
+  height: 0.9rem;
+  padding: 0;
+  border-radius: 50%;
+  border: 1px solid var(--bs-border-color);
+  vertical-align: -0.1rem;
+}
+
+/* No colour known: the neutral "pick a filament" circle. */
+.swatch.unknown {
+  background-color: var(--bs-secondary-bg);
+}
+
+/* A changeable colour: a small outlined pill with the circle and a caret. */
+.picker-button {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+  padding: 0.1rem 0.35rem;
+  line-height: 1;
+  border-radius: 999px;
+}
+
+/* Bootstrap's caret, centred next to the circle instead of on the text baseline. */
+.picker-button.dropdown-toggle::after {
+  margin-left: 0;
+  vertical-align: 0;
+}
+
+.picker {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.25rem;
+}
+
+/* Positioned by ng-bootstrap (attached to the body); only the size is ours. */
+.menu {
+  width: min(22rem, calc(100vw - 2rem));
+}
+
+.options {
+  max-height: 16rem;
+  overflow-y: auto;
+}

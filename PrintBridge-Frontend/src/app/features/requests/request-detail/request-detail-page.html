@@ -261,6 +261,11 @@
           [linkName]="file.linkName"
           [quantity]="file.quantity"
           [startOpen]="first"
+          [filamentChoices]="file.filamentChoices"
+          [filamentSelection]="request.filamentSelection"
+          [notEnoughMessage]="request.notEnoughFilamentMessage"
+          (filamentChosen)="chooseFilament(file, $event)"
+          (filamentReset)="resetFilament(file, $event)"
         >
           <ng-container
             ngProjectAs="[cardStatus]"
@@ -277,7 +282,12 @@
           [quantity]="file.quantity"
           [startOpen]="first"
           [isAdmin]="auth.isAdmin()"
+          [filamentChoices]="file.filamentChoices"
+          [filamentSelection]="request.filamentSelection"
+          [notEnoughMessage]="request.notEnoughFilamentMessage"
           (resliceWith)="onResliceWith(file)"
+          (filamentChosen)="chooseFilament(file, $event)"
+          (filamentReset)="resetFilament(file, $event)"
         >
           <ng-container
             ngProjectAs="[cardStatus]"

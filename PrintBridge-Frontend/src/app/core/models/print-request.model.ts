@@ -1,4 +1,5 @@
 import { ModelInfo, WeightKind } from './model-info.model';
+import { FilamentChoice } from './spoolman.model';
 
 export type RequestStatus =
   'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'PRINTING' | 'DECLINED' | 'COMPLETED';
@@ -45,6 +46,8 @@ export interface UploadedFile {
   nextStatuses: ItemStatus[];
   createdAt: string;
   modelInfo: ModelInfo;
+  /** The Spoolman filaments chosen for its colours (#11). */
+  filamentChoices: FilamentChoice[];
 }
 
 /** A link to a model elsewhere (#59); the owner downloads it themselves. */
@@ -64,6 +67,8 @@ export interface RequestLink {
   nextStatuses: ItemStatus[];
   createdAt: string;
   modelInfo: null;
+  /** At most one, for the whole link (#11). */
+  filamentChoices: FilamentChoice[];
 }
 
 /** An entry of a request: a file or a link. They share the quantity and the per-request limit. */
@@ -109,6 +114,10 @@ export interface PrintRequest {
   totals: RequestTotals;
   /** Statuses the admin may move this request to; empty once it is final. */
   nextStatuses: RequestStatus[];
+  /** The caller may choose filaments from Spoolman now (#11). */
+  filamentSelection: boolean;
+  /** What to show when a chosen filament runs short; set by the admin in Settings → Spoolman. */
+  notEnoughFilamentMessage: string;
 }
 
 export interface UploadConfig {

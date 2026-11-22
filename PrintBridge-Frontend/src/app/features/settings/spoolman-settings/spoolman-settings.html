@@ -1,0 +1,88 @@
+<form class="card card-body mb-4" [formGroup]="form" (ngSubmit)="save()" data-cy="spoolman-form">
+  <h2 class="h5">Spoolman</h2>
+  <p class="text-body-secondary small">
+    Reads your filaments and what is left on their spools from
+    <a href="https://github.com/Donkie/Spoolman" target="_blank" rel="noopener">Spoolman</a>.
+    PrintBridge never changes anything in Spoolman.
+  </p>
+
+  @if (statusText(); as status) {
+    <p
+      class="small"
+      [class.text-success]="status.ok"
+      [class.text-danger]="!status.ok"
+      data-cy="spoolman-status"
+    >
+      {{ status.text }}
+    </p>
+  } @else {
+    <p class="small text-body-secondary" data-cy="spoolman-status-loading">
+      <span class="spinner-border spinner-border-sm me-1" aria-hidden="true"></span>Checking
+      Spoolman…
+    </p>
+  }
+  @if (notice()) {
+    <div class="alert alert-success py-2" role="status" data-cy="spoolman-notice">
+      {{ notice() }}
+    </div>
+  }
+  @if (error()) {
+    <div class="alert alert-danger py-2" role="alert" data-cy="spoolman-error">{{ error() }}</div>
+  }
+
+  <div class="form-check form-switch mb-2">
+    <input
+      id="spoolman-enabled"
+      class="form-check-input"
+      type="checkbox"
+      role="switch"
+      formControlName="enabled"
+      [attr.disabled]="configured() ? null : true"
+      (change)="onIntegrationToggled()"
+      data-cy="spoolman-enabled"
+    />
+    <label class="form-check-label" for="spoolman-enabled">Enable Spoolman integration</label>
+  </div>
+  <div class="form-check form-switch">
+    <input
+      id="spoolman-color-selection"
+      class="form-check-input"
+      type="checkbox"
+      role="switch"
+      formControlName="colorSelection"
+      [attr.disabled]="configured() && integrationOn() ? null : true"
+      data-cy="spoolman-color-selection"
+    />
+    <label class="form-check-label" for="spoolman-color-selection">
+      Enable colour selection from Spoolman
+    </label>
+    <div class="form-text">
+      Requesters choose a filament for every colour of their files by clicking its circle. Choices
+      stay visible when this is switched off.
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <label class="form-label" for="spoolman-not-enough"
+      >Warning when there isn't enough filament</label
+    >
+    <textarea
+      id="spoolman-not-enough"
+      class="form-control"
+      rows="2"
+      [maxlength]="maxMessageLength"
+      formControlName="notEnoughMessage"
+      data-cy="spoolman-not-enough-message"
+    ></textarea>
+    <div class="form-text">
+      Requesters see this when their request needs more of a chosen filament than Spoolman has left.
+      Leave it empty for the default text.
+    </div>
+  </div>
+
+  <div class="mt-3">
+    <button type="submit" class="btn btn-primary" [disabled]="saving()" data-cy="spoolman-save">
+      {{ saving() ? 'Saving…' : 'Save' }}
+    </button>
+  </div>
+</form>

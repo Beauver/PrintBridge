@@ -7,6 +7,7 @@ import com.beauver.printbridge.settings.dto.BuildPlateDto;
 import com.beauver.printbridge.settings.dto.PrinterInputDto;
 import com.beauver.printbridge.settings.dto.SettingsDto;
 import com.beauver.printbridge.settings.dto.SlicingSettingsDto;
+import com.beauver.printbridge.settings.dto.SpoolmanSettingsDto;
 import com.beauver.printbridge.settings.dto.UploadSettingsDto;
 import com.beauver.printbridge.settings.printer.Printer;
 import com.beauver.printbridge.settings.printer.PrinterRepository;
@@ -25,7 +26,8 @@ import java.util.TreeSet;
 
 /**
  * Settings the admin edits in the browser instead of through environment variables: server
- * slicing, the owned printers (build plate and slicing setup each) and the upload limits.
+ * slicing, the owned printers (build plate and slicing setup each), the upload limits and the
+ * Spoolman switches.
  */
 @ApplicationScoped
 public class SettingsService {
@@ -42,12 +44,23 @@ public class SettingsService {
     @Inject
     SettingsMapper mapper;
 
+    @Inject
+    SpoolmanConnection spoolman;
+
+    /** Fired after the Spoolman integration was switched on or off, inside the saving transaction. */
+    @Inject
+    Event<SpoolmanToggled> spoolmanToggled;
+
     /** Fired after server slicing was switched on or off, inside the saving transaction. */
     @Inject
     Event<SlicingToggled> slicingToggled;
 
     /** Server slicing was switched on ({@code enabled}) or off. */
     public record SlicingToggled(boolean enabled) {
+    }
+
+    /** The Spoolman integration was switched on ({@code enabled}) or off. */
+    public record SpoolmanToggled(boolean enabled) {
     }
 
     @Transactional
@@ -97,10 +110,51 @@ public class SettingsService {
         return toDto(settings);
     }
 
+    /**
+     * Switches the Spoolman integration and colour selection (#11). Both need {@code SPOOLMAN_URL};
+     * colour selection needs the integration, and switching the integration off switches it off too.
+     */
+    @Transactional
+    public SettingsDto updateSpoolman(SpoolmanSettingsDto input) {
+        boolean enabled = input.enabled();
+        boolean colorSelection = input.colorSelection();
+        if ((enabled || colorSelection) && !spoolman.isConfigured()) {
+            throw new InvalidInputException("Set SPOOLMAN_URL on the server before switching Spoolman on");
+        }
+        if (colorSelection && !enabled) {
+            throw new InvalidInputException("Switch the Spoolman integration on before colour selection");
+        }
+        AppSettings settings = repository.get();
+        boolean wasEnabled = settings.spoolmanEnabled;
+        settings.spoolmanEnabled = enabled;
+        settings.spoolmanColorSelection = colorSelection;
+        settings.spoolmanNotEnoughMessage = customMessage(input.notEnoughMessage());
+        repository.flush();
+        if (wasEnabled != enabled) {
+            spoolmanToggled.fire(new SpoolmanToggled(enabled));
+        }
+        return toDto(settings);
+    }
+
+    /**
+     * The Spoolman settings that apply now: the switches are off while {@code SPOOLMAN_URL} isn't
+     * set, and the warning text is the default unless the admin set one.
+     */
+    @Transactional
+    public SpoolmanSettings getSpoolman() {
+        AppSettings settings = repository.get();
+        String message = notEnoughMessage(settings);
+        if (!spoolman.isConfigured()) {
+            return new SpoolmanSettings(false, false, message);
+        }
+        return new SpoolmanSettings(settings.spoolmanEnabled,
+                settings.spoolmanEnabled && settings.spoolmanColorSelection, message);
+    }
+
     /** The upload limits that apply now. */
     @Transactional
-    public UploadLimits uploads() {
-        return uploads(repository.get());
+    public UploadLimits getUploads() {
+        return getUploads(repository.get());
     }
 
     /** Adds a printer; the first one becomes the default printer. */
@@ -155,7 +209,7 @@ public class SettingsService {
 
     /** The slicing settings with all owned printers. */
     @Transactional
-    public SlicingSettings slicing() {
+    public SlicingSettings getSlicing() {
         AppSettings settings = repository.get();
         List<PrinterSettings> owned = printerSettings();
         PrinterSettings defaultPrinter = owned.stream()
@@ -198,7 +252,7 @@ public class SettingsService {
     }
 
     private SettingsDto toDto(AppSettings settings) {
-        return mapper.toDto(settings, printers.listInOrder(), uploads(settings));
+        return mapper.toDto(settings, printers.listInOrder(), getUploads(settings), notEnoughMessage(settings));
     }
 
     private List<PrinterSettings> printerSettings() {
@@ -209,7 +263,7 @@ public class SettingsService {
      * Unset limits take their default. A saved size above the ceiling (the ceiling was lowered
      * in the environment later) is capped, since bigger uploads can't get through anyway.
      */
-    private UploadLimits uploads(AppSettings settings) {
+    private UploadLimits getUploads(AppSettings settings) {
         int ceiling = uploadConfig.maxSizeMb();
         int maxFiles = UploadLimits.DEFAULT_MAX_FILES;
         if (settings.uploadMaxFiles != null) {
@@ -220,6 +274,23 @@ public class SettingsService {
             maxFileSize = Math.min(settings.uploadMaxFileSizeMb, ceiling);
         }
         return new UploadLimits(maxFiles, maxFileSize, ceiling);
+    }
+
+    /** The admin's text for a filament that runs short, else {@link SpoolmanSettings#DEFAULT_NOT_ENOUGH_MESSAGE}. */
+    private static String notEnoughMessage(AppSettings settings) {
+        if (settings.spoolmanNotEnoughMessage == null) {
+            return SpoolmanSettings.DEFAULT_NOT_ENOUGH_MESSAGE;
+        }
+        return settings.spoolmanNotEnoughMessage;
+    }
+
+    /** What to store for the warning text: {@code null} (the default) when empty or the default itself. */
+    private static String customMessage(String message) {
+        String trimmed = blankToNull(message);
+        if (trimmed == null || trimmed.equals(SpoolmanSettings.DEFAULT_NOT_ENOUGH_MESSAGE)) {
+            return null;
+        }
+        return trimmed;
     }
 
     /** Sorted, without duplicates or trailing zeros (0.40 and 0.4 are the same nozzle). */

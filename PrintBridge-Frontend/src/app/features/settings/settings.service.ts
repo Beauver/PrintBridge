@@ -5,9 +5,11 @@ import {
   PrinterInput,
   Settings,
   SlicingSettings,
+  SpoolmanSettings,
   UploadSettings,
 } from '../../core/models/settings.model';
 import { SlicerPrinter, SlicerProfiles, SlicerStatus } from '../../core/models/slicer.model';
+import { SpoolmanStatus } from '../../core/models/spoolman.model';
 
 /** Admin settings API, plus what the slicer service offers for them. Changes answer with all settings. */
 @Injectable({ providedIn: 'root' })
@@ -24,6 +26,14 @@ export class SettingsService {
 
   updateUploads(uploads: UploadSettings): Observable<Settings> {
     return this.http.put<Settings>('/api/settings/uploads', uploads);
+  }
+
+  updateSpoolman(spoolman: SpoolmanSettings): Observable<Settings> {
+    return this.http.put<Settings>('/api/settings/spoolman', spoolman);
+  }
+
+  spoolmanStatus(): Observable<SpoolmanStatus> {
+    return this.http.get<SpoolmanStatus>('/api/spoolman/status');
   }
 
   addPrinter(printer: PrinterInput): Observable<Settings> {

@@ -26,6 +26,18 @@ Stack: Quarkus + Panache + PostgreSQL + Flyway (`PrintBridge-Backend`), Angular 
 - Schema changes only via Flyway migrations (`db/migration`); Hibernate never alters the schema.
 - Config only through env vars / `application.properties`; no hardcoded secrets or URLs.
 
+### Code style (from PR reviews)
+- Names in full: no abbreviations in packages, classes, variables or parameters (`transaction`, not `tx`; well-known ones like `auth`, `dto` are fine). Parameters say what they hold: `firstColor`/`secondColor`, not `first`/`second`.
+- Methods that return something start with a verb: `getUploads()`, `updateUploads()`, not `uploads()`.
+- Say it explicitly instead of giving `null` a meaning: a `wholeItem` boolean, not "`plateIndex` null means the whole item" (in DTOs, frontend models and request bodies).
+- Events carry what happened (`SpoolmanToggled(boolean enabled)`); no empty event records.
+- Prefer familiar APIs (`compareToIgnoreCase`) over less known ones (`String.CASE_INSENSITIVE_ORDER`).
+- TypeScript: `if` statements instead of ternaries; arrow callbacks with braces and named helper functions, no expression-bodied one-liners.
+- Frontend models: one file per domain in `core/models/` (`print-request.model.ts`), not one big file.
+- Comments explain what something means or why, not how another layer uses it (a component's TypeScript doesn't describe what is clickable in its HTML).
+- Texts an owner running their own instance may want to change (warnings, notices) are configurable in Settings, with a default.
+- Lines at most 120 characters.
+
 ## Testing
 - Target 80–100% unit-test coverage on controllers and services, frontend and backend. It is a target (report it), not a CI gate.
 - Frontend: test component and service logic (methods, signals, service calls), not the rendered HTML, unless a template has complex logic. Templates are excluded from coverage.

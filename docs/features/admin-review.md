@@ -83,4 +83,4 @@ Issue: #61. Every file and link of a request has its own status, so the admin ca
 
 ## Not included
 
-Comments, editing request details, notifications (also when printing starts), per-status timestamps, Spoolman/price estimation, paging. Out of #61: per-item prices, items changing the request status, the requester changing item statuses.
+Comments, editing request details, notifications (also when printing starts), per-status timestamps, price estimation (#72), paging. The filaments requesters chose show on the model and link cards ([Spoolman filaments](spoolman.md), #11). Out of #61: per-item prices, items changing the request status, the requester changing item statuses.
