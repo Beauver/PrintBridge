@@ -4,7 +4,6 @@ import {
   FilamentChoiceInput,
   FilamentSlot,
 } from '../../../../core/models/spoolman.model';
-import { NOT_ENOUGH_FILAMENT } from '../../../../shared/format/filament-display';
 import { linkLabel } from '../../../../shared/format/print-request-display';
 import { FilamentPicker } from '../filament-picker/filament-picker';
 
@@ -29,13 +28,16 @@ export class LinkCard implements OnInit {
   readonly startOpen = input(true);
   /** At most one: the filament chosen for the whole link (#11). */
   readonly filamentChoices = input<FilamentChoice[]>([]);
-  /** The circle can be clicked to choose a filament from Spoolman. */
+  /** The caller may choose a filament from Spoolman for this link. */
   readonly filamentSelection = input(false);
+  /** Shown when the chosen filament runs short (set by the admin). */
+  readonly notEnoughMessage = input('');
   readonly filamentChosen = output<FilamentChoiceInput>();
   /** The id of a choice to remove. */
   readonly filamentReset = output<number>();
 
   protected readonly wholeItemSlot: FilamentSlot = {
+    wholeItem: true,
     plateIndex: null,
     originalType: null,
     originalColor: null,
@@ -51,7 +53,7 @@ export class LinkCard implements OnInit {
 
   protected readonly notEnoughFilament = computed(() => {
     if (this.choice()?.notEnough) {
-      return NOT_ENOUGH_FILAMENT;
+      return this.notEnoughMessage();
     }
     return null;
   });

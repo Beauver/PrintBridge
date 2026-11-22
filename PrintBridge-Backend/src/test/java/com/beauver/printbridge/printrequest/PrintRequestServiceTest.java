@@ -109,9 +109,9 @@ class PrintRequestServiceTest {
         service.settings = settings;
         service.customReslice = customReslice;
         service.filamentChoices = filamentChoices;
-        lenient().when(settings.spoolman()).thenReturn(SpoolmanSettings.OFF);
+        lenient().when(settings.getSpoolman()).thenReturn(SpoolmanSettings.OFF);
         lenient().when(filamentChoices.describe(anyCollection(), anyMap())).thenReturn(Map.of());
-        lenient().when(settings.uploads()).thenReturn(new UploadLimits(3, 2, 5));
+        lenient().when(settings.getUploads()).thenReturn(new UploadLimits(3, 2, 5));
         lenient().doAnswer(inv -> {
             assignFileIds();
             return null;

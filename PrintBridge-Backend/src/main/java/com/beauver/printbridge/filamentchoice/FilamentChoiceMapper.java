@@ -37,7 +37,8 @@ public class FilamentChoiceMapper {
             gramsLeft = current.gramsLeft();
             notEnough = !orphaned && current.notEnoughFor(gramsNeeded);
         }
-        return new FilamentChoiceDto(choice.id, choice.plateIndex, choice.originalType, choice.originalColor,
+        return new FilamentChoiceDto(choice.id, choice.plateIndex == null, choice.plateIndex, choice.originalType,
+                choice.originalColor,
                 choice.spoolmanFilamentId, choice.filamentName, choice.filamentVendor, choice.filamentMaterial,
                 choice.filamentColor, colors(choice.filamentColors), choice.chosenAt, orphaned, inSpoolman, gramsLeft,
                 gramsNeeded, notEnough);

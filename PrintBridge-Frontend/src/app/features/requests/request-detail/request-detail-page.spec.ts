@@ -653,6 +653,7 @@ describe('RequestDetailPage', () => {
 
   describe('filaments from Spoolman (#11)', () => {
     const CHOICE = {
+      wholeItem: false,
       plateIndex: 1,
       originalType: 'PLA',
       originalColor: '#FFFFFF',

@@ -16,7 +16,6 @@ import {
   filamentBackground,
   filamentName,
   gramsLeftLabel,
-  NOT_ENOUGH_FILAMENT,
   notEnoughFor,
   originalLabel,
 } from '../../../../shared/format/filament-display';
@@ -53,7 +52,7 @@ export class FilamentPicker {
   /** The colour of a plate, or the whole item (all null). */
   readonly slot = input.required<FilamentSlot>();
   readonly choice = input<FilamentChoice | null>(null);
-  /** Whether the circle can be clicked: colour selection is on and the request may change. */
+  /** The caller may choose a filament here: colour selection is on and the request may still change. */
   readonly editable = input(false);
   /** Grams this colour needs over all copies; null when unknown. Marks rows with too little left. */
   readonly gramsNeeded = input<number | null>(null);
@@ -67,7 +66,6 @@ export class FilamentPicker {
   protected readonly search = signal('');
   protected readonly loading = this.filamentsService.loading;
   protected readonly error = this.filamentsService.error;
-  protected readonly notEnoughText = NOT_ENOUGH_FILAMENT;
   /** Below the circle when there is room, else above, aligned to whichever side fits. */
   protected readonly placement: PlacementArray = [
     'bottom-start',
@@ -90,7 +88,7 @@ export class FilamentPicker {
       return choiceLabel(choice);
     }
     const slot = this.slot();
-    if (slot.plateIndex === null) {
+    if (slot.wholeItem) {
       if (this.editable()) {
         return 'Pick filament';
       }
@@ -175,6 +173,7 @@ export class FilamentPicker {
   protected pick(filament: SpoolmanFilament): void {
     const slot = this.slot();
     this.chosen.emit({
+      wholeItem: slot.wholeItem,
       plateIndex: slot.plateIndex,
       originalType: slot.originalType,
       originalColor: slot.originalColor,

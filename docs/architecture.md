@@ -53,7 +53,7 @@ common, storage ◀─ modelfile ◀─ settings ◀─ modelinfo, slicing ◀�
 
 - `auth` and `user` belong together and use each other; everything may use them.
 - `modelinfo` and `slicing` work on files by id and find them through `modelfile.StoredModelFiles`, which `printrequest` implements (`RequestFileLookup`). Links (#59) live in the same table but are never found there, so they are never analysed or sliced.
-- `settings` checks whether Spoolman is set up through `SpoolmanConnection`, which the Spoolman client implements, and fires `SpoolmanSwitchedOn` so the catalog forgets its list. `filamentchoice` gets the items of a request as plain values (`ChoiceItem`), not as entities.
+- `settings` checks whether Spoolman is set up through `SpoolmanConnection`, which the Spoolman client implements, and fires `SpoolmanToggled` so the catalog forgets its list when the integration is switched on. `filamentchoice` gets the items of a request as plain values (`ChoiceItem`), not as entities.
 - Deleting a user fires `UserDeleted`; `printrequest` listens and removes the user's files, so `user` doesn't know about print requests.
 
 Conventions:

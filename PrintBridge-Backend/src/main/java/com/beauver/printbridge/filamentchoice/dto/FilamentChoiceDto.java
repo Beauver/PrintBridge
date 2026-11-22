@@ -6,7 +6,9 @@ import java.util.List;
 /**
  * A chosen filament with how it stands now.
  *
- * @param plateIndex    {@code null}: the whole item
+ * @param wholeItem     for the whole item (a file without colours, or a link); then the plate and
+ *                      original colour are {@code null}
+ * @param plateIndex    {@code null} for the whole item
  * @param originalType  the colour's type in the file; {@code null} for the whole item or when unknown
  * @param originalColor the colour in the file ({@code #RRGGBB}); {@code null} for the whole item or when unknown
  * @param name          the filament as it was when chosen (name, vendor, material, colours)
@@ -21,6 +23,7 @@ import java.util.List;
  */
 public record FilamentChoiceDto(
         Long id,
+        boolean wholeItem,
         Integer plateIndex,
         String originalType,
         String originalColor,

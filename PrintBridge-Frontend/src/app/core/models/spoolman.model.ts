@@ -28,7 +28,9 @@ export interface SpoolmanFilament {
 /** The Spoolman filament chosen for one colour of a plate, or for a whole file or link (#11). */
 export interface FilamentChoice {
   id: number;
-  /** Null: the whole item. */
+  /** For the whole item (a file without colours, or a link); then plate and colour are null. */
+  wholeItem: boolean;
+  /** Null for the whole item. */
   plateIndex: number | null;
   /** The colour's type in the file; null for the whole item or when unknown. */
   originalType: string | null;
@@ -54,8 +56,10 @@ export interface FilamentChoice {
   notEnough: boolean;
 }
 
-/** What a filament is chosen for: a colour of a plate, or the whole item (all null). */
+/** What a filament is chosen for: a colour of a plate, or the whole item. */
 export interface FilamentSlot {
+  /** For the whole item; then plate and colour are null. */
+  wholeItem: boolean;
   plateIndex: number | null;
   originalType: string | null;
   originalColor: string | null;

@@ -42,10 +42,12 @@ export interface UploadLimits extends UploadSettings {
   ceilingMb: number;
 }
 
-/** The Spoolman switches (#11); colour selection needs the integration. */
+/** The Spoolman settings (#11); colour selection needs the integration. */
 export interface SpoolmanSettings {
   enabled: boolean;
   colorSelection: boolean;
+  /** The warning for a filament that runs short; the default text unless the admin set one. */
+  notEnoughMessage: string;
 }
 
 export interface Settings {

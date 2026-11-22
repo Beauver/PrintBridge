@@ -28,6 +28,7 @@ The Spoolman tab shows:
 - **Enable colour selection from Spoolman:** requesters choose filaments by clicking the colour circles.
   - Only possible while the integration is on.
   - Switching the integration off switches this off too (the form does it, and the backend refuses colour selection without the integration).
+- **Warning when there isn't enough filament:** the text requesters see on a request whose chosen filament runs short (max 300 characters). Empty means the default text.
 - Both switches are disabled while `SPOOLMAN_URL` isn't set. While it isn't set, both also count as off, whatever is saved.
 
 ## Choosing a filament (request page)
@@ -63,7 +64,7 @@ The Spoolman tab shows:
   - Declined items, choices the file no longer has, and unknown grams don't count.
 - **Warning:** when more is needed than is left on the filament's spools that aren't archived, or nothing is left at all:
   - every circle using it gets a ⚠;
-  - the card shows *Not enough filament for this print, it will be ordered but your print might be delayed*.
+  - the card shows the admin's warning text (*Settings → Spoolman*), by default *Not enough filament for this print, it will be ordered but your print might be delayed*.
 
   Owner and admin both see it. A spool whose weight Spoolman doesn't know makes the amount left unknown: no warning.
 - **When it is checked:** only while the integration is on and Spoolman can be read. Otherwise the choices still show, without stock information.
@@ -94,8 +95,9 @@ Status codes:
 
 ## Data
 
-- `app_settings` (V13):
+- `app_settings` (V13, V14):
   - `spoolman_enabled`, `spoolman_color_selection` (default off);
+  - `spoolman_not_enough_message` (V14; null = the default text);
   - a check that colour selection needs the integration.
 - `filament_choices` (V13), one row per choice:
   - `file_id` (`request_files`, `ON DELETE CASCADE`, so choices go with their file, link or request);

@@ -22,6 +22,7 @@ import com.beauver.printbridge.printrequest.file.RequestFileKind;
 import com.beauver.printbridge.printrequest.file.StoredFile;
 import com.beauver.printbridge.printrequest.file.UploadedModel;
 import com.beauver.printbridge.settings.SettingsService;
+import com.beauver.printbridge.settings.SpoolmanSettings;
 import com.beauver.printbridge.settings.UploadConfig;
 import com.beauver.printbridge.settings.UploadLimits;
 import com.beauver.printbridge.slicing.CustomResliceService;
@@ -102,7 +103,7 @@ public class PrintRequestService {
     FilamentChoiceService filamentChoices;
 
     public UploadConfigDto uploadConfig() {
-        UploadLimits limits = settings.uploads();
+        UploadLimits limits = settings.getUploads();
         return new UploadConfigDto(limits.maxFileSizeBytes(), limits.maxFiles(),
                 allowedTypes().stream().map(ModelFileType::extension).toList());
     }
@@ -242,7 +243,7 @@ public class PrintRequestService {
 
     private void checkMayAddFile(PrintRequest request, Caller caller) {
         checkMayChangeFiles(request, caller);
-        int maxFiles = settings.uploads().maxFiles();
+        int maxFiles = settings.getUploads().maxFiles();
         if (request.files.size() >= maxFiles) {
             throw new InvalidInputException("A request can hold at most " + maxFiles + " files and links");
         }
@@ -337,7 +338,7 @@ public class PrintRequestService {
     }
 
     private void checkMayChooseFilaments(PrintRequest request, Caller caller) {
-        if (!settings.spoolman().colorSelection()) {
+        if (!settings.getSpoolman().colorSelection()) {
             throw new ConflictException("Choosing filaments from Spoolman is switched off");
         }
         if (!mayChooseFilaments(request, caller.admin())) {
@@ -416,8 +417,9 @@ public class PrintRequestService {
                 .map(file -> new ChoiceItem(file.id, file.quantity, file.isDeclined()))
                 .toList();
         List<RequestFileDto> files = mapper.toFileDtos(request.files, infos, filamentChoices.describe(items, infos));
-        boolean filamentSelection = settings.spoolman().colorSelection() && mayChooseFilaments(request, admin);
-        return mapper.toDto(request, files, RequestTotals.of(files), filamentSelection);
+        SpoolmanSettings spoolman = settings.getSpoolman();
+        boolean filamentSelection = spoolman.colorSelection() && mayChooseFilaments(request, admin);
+        return mapper.toDto(request, files, RequestTotals.of(files), filamentSelection, spoolman.notEnoughMessage());
     }
 
     /** Adds the row of an upload that passed {@link #checkUpload} and is already in storage. */
@@ -736,7 +738,7 @@ public class PrintRequestService {
         if (upload.size() <= 0) {
             throw new InvalidInputException("The file is empty");
         }
-        UploadLimits limits = settings.uploads();
+        UploadLimits limits = settings.getUploads();
         if (upload.size() > limits.maxFileSizeBytes()) {
             throw new InvalidInputException("The file is larger than " + limits.maxFileSizeMb() + " MB");
         }

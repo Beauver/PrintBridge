@@ -54,7 +54,8 @@ public class TestData {
                 + "RESTART IDENTITY CASCADE").executeUpdate();
         em.createNativeQuery("UPDATE app_settings SET slicing_enabled = FALSE, slicing_timeout_minutes = 10, "
                 + "default_printer_id = NULL, upload_max_files = NULL, upload_max_file_size_mb = NULL, "
-                + "spoolman_enabled = FALSE, spoolman_color_selection = FALSE").executeUpdate();
+                + "spoolman_enabled = FALSE, spoolman_color_selection = FALSE, "
+                + "spoolman_not_enough_message = NULL").executeUpdate();
         // Not TRUNCATE: app_settings references printers, and its row must stay.
         em.createNativeQuery("DELETE FROM printers").executeUpdate();
         em.createNativeQuery("ALTER SEQUENCE printers_id_seq RESTART").executeUpdate();

@@ -1,5 +1,6 @@
 package com.beauver.printbridge.spoolman;
 
+import com.beauver.printbridge.printrequest.RequestStatus;
 import com.beauver.printbridge.support.FakeSpoolmanClient;
 import com.beauver.printbridge.support.TestData;
 import io.quarkus.test.junit.QuarkusTest;
@@ -88,6 +89,40 @@ class SpoolmanResourceTest {
         saveSwitches(false, false).statusCode(200)
                 .body("spoolman.enabled", is(false))
                 .body("spoolman.colorSelection", is(false));
+    }
+
+    @Test
+    void theWarningTextCanBeChanged() {
+        String defaultText = "Not enough filament for this print, it will be ordered but your print might be delayed";
+        given().auth().oauth2(adminToken).get("/api/settings").then()
+                .body("spoolman.notEnoughMessage", is(defaultText));
+        long requestId = data.printRequest(data.user("carol"), RequestStatus.SUBMITTED).id();
+        given().auth().oauth2(adminToken).get("/api/requests/" + requestId).then()
+                .body("notEnoughFilamentMessage", is(defaultText));
+
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(Map.of("enabled", true, "colorSelection", true,
+                        "notEnoughMessage", "  We'll order it, give us a week.  "))
+                .put("/api/settings/spoolman").then().statusCode(200)
+                .body("spoolman.notEnoughMessage", is("We'll order it, give us a week."));
+        given().auth().oauth2(adminToken).get("/api/requests/" + requestId).then()
+                .body("notEnoughFilamentMessage", is("We'll order it, give us a week."));
+        // Also without Spoolman set up the request carries the text.
+        spoolman.configured = false;
+        given().auth().oauth2(adminToken).get("/api/requests/" + requestId).then()
+                .body("notEnoughFilamentMessage", is("We'll order it, give us a week."));
+        spoolman.configured = true;
+
+        // Empty goes back to the default; leaving the field out too.
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(Map.of("enabled", true, "colorSelection", true, "notEnoughMessage", " "))
+                .put("/api/settings/spoolman").then().statusCode(200)
+                .body("spoolman.notEnoughMessage", is(defaultText));
+        saveSwitches(true, false).statusCode(200).body("spoolman.notEnoughMessage", is(defaultText));
+
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(Map.of("enabled", true, "colorSelection", true, "notEnoughMessage", "x".repeat(301)))
+                .put("/api/settings/spoolman").then().statusCode(400);
     }
 
     @Test

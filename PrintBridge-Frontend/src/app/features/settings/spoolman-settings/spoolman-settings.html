@@ -63,6 +63,24 @@
   </div>
 
   <div class="mt-3">
+    <label class="form-label" for="spoolman-not-enough"
+      >Warning when there isn't enough filament</label
+    >
+    <textarea
+      id="spoolman-not-enough"
+      class="form-control"
+      rows="2"
+      [maxlength]="maxMessageLength"
+      formControlName="notEnoughMessage"
+      data-cy="spoolman-not-enough-message"
+    ></textarea>
+    <div class="form-text">
+      Requesters see this when their request needs more of a chosen filament than Spoolman has left.
+      Leave it empty for the default text.
+    </div>
+  </div>
+
+  <div class="mt-3">
     <button type="submit" class="btn btn-primary" [disabled]="saving()" data-cy="spoolman-save">
       {{ saving() ? 'Saving…' : 'Save' }}
     </button>

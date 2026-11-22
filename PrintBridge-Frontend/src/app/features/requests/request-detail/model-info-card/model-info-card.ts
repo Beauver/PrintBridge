@@ -16,11 +16,7 @@ import {
   FilamentChoiceInput,
   FilamentSlot,
 } from '../../../../core/models/spoolman.model';
-import {
-  isChoiceFor,
-  NOT_ENOUGH_FILAMENT,
-  originalLabel,
-} from '../../../../shared/format/filament-display';
+import { isChoiceFor, originalLabel } from '../../../../shared/format/filament-display';
 import { FilamentPicker } from '../filament-picker/filament-picker';
 import { ModelPreview } from '../../../../shared/model-viewer/model-preview';
 import { ModelPreviewService } from '../../model-preview.service';
@@ -64,8 +60,10 @@ export class ModelInfoCard implements OnInit {
   readonly startOpen = input(true);
   /** The Spoolman filaments chosen for this file's colours (#11). */
   readonly filamentChoices = input<FilamentChoice[]>([]);
-  /** The circles can be clicked to choose a filament from Spoolman. */
+  /** The caller may choose filaments from Spoolman for this file's colours. */
   readonly filamentSelection = input(false);
+  /** Shown when a chosen filament runs short (set by the admin). */
+  readonly notEnoughMessage = input('');
   readonly filamentChosen = output<FilamentChoiceInput>();
   /** The id of a choice to remove. */
   readonly filamentReset = output<number>();
@@ -379,6 +377,7 @@ export class ModelInfoCard implements OnInit {
   });
 
   protected readonly wholeItemSlot: FilamentSlot = {
+    wholeItem: true,
     plateIndex: null,
     originalType: null,
     originalColor: null,
@@ -414,7 +413,7 @@ export class ModelInfoCard implements OnInit {
       return choice.notEnough && !choice.orphaned;
     });
     if (short) {
-      return NOT_ENOUGH_FILAMENT;
+      return this.notEnoughMessage();
     }
     return null;
   });
@@ -430,7 +429,12 @@ export class ModelInfoCard implements OnInit {
       if (choice.orphaned || to === null) {
         continue;
       }
-      colors.push({ plate: choice.plateIndex, from: choice.originalColor, to });
+      colors.push({
+        wholeFile: choice.wholeItem,
+        plate: choice.plateIndex,
+        from: choice.originalColor,
+        to,
+      });
     }
     return colors;
   });
@@ -464,7 +468,12 @@ export class ModelInfoCard implements OnInit {
   }
 
   protected slotOf(plate: PlateInfo, filament: FilamentInfo): FilamentSlot {
-    return { plateIndex: plate.index, originalType: filament.type, originalColor: filament.color };
+    return {
+      wholeItem: false,
+      plateIndex: plate.index,
+      originalType: filament.type,
+      originalColor: filament.color,
+    };
   }
 
   protected choiceFor(slot: FilamentSlot): FilamentChoice | null {
@@ -501,7 +510,7 @@ export class ModelInfoCard implements OnInit {
 
   /** "Plate 2 · PLA #FFFFFF" for a choice the file no longer has. */
   protected orphanLabel(choice: FilamentChoice): string {
-    if (choice.plateIndex === null) {
+    if (choice.wholeItem) {
       return 'Whole file';
     }
     return `Plate ${choice.plateIndex} · ${originalLabel(choice)}`;

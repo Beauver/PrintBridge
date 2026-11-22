@@ -80,7 +80,7 @@ describe('PreviewScene', () => {
 
   it('recolours what is shown and renders again', async () => {
     const { scene } = await create();
-    const black = [{ plate: 1, from: '#FF0000', to: '#000000' }];
+    const black = [{ wholeFile: false, plate: 1, from: '#FF0000', to: '#000000' }];
     // Nothing shown yet: nothing to recolour or render.
     const before = renderer.render.mock.calls.length;
     scene.recolor(black);

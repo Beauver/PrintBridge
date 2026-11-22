@@ -1,5 +1,5 @@
 import { Component, computed, inject, input, OnInit, output, signal } from '@angular/core';
-import { FormBuilder, ReactiveFormsModule } from '@angular/forms';
+import { FormBuilder, ReactiveFormsModule, Validators } from '@angular/forms';
 import { errorMessage } from '../../../core/http/api-error';
 import { Settings, SpoolmanSettings } from '../../../core/models/settings.model';
 import { SpoolmanStatus } from '../../../core/models/spoolman.model';
@@ -11,9 +11,13 @@ interface StatusText {
   ok: boolean;
 }
 
+/** Same limit as the backend. */
+export const MAX_MESSAGE_LENGTH = 300;
+
 /**
- * Spoolman (#11): whether it is set up and reachable, and the two switches. Colour selection is
- * part of the integration, so it can only be on while the integration is.
+ * Spoolman (#11): whether it is set up and reachable, the two switches and the warning requesters
+ * see when a chosen filament runs short. Colour selection is part of the integration, so it can
+ * only be on while the integration is.
  */
 @Component({
   selector: 'app-spoolman-settings',
@@ -32,7 +36,9 @@ export class SpoolmanSettingsCard implements OnInit {
   protected readonly form = this.fb.nonNullable.group({
     enabled: [false],
     colorSelection: [false],
+    notEnoughMessage: ['', [Validators.maxLength(MAX_MESSAGE_LENGTH)]],
   });
+  protected readonly maxMessageLength = MAX_MESSAGE_LENGTH;
   protected readonly saving = signal(false);
   protected readonly error = signal<string | null>(null);
   protected readonly notice = signal<string | null>(null);
@@ -64,7 +70,11 @@ export class SpoolmanSettingsCard implements OnInit {
 
   ngOnInit(): void {
     const settings = this.settings();
-    this.form.setValue({ enabled: settings.enabled, colorSelection: settings.colorSelection });
+    this.form.setValue({
+      enabled: settings.enabled,
+      colorSelection: settings.colorSelection,
+      notEnoughMessage: settings.notEnoughMessage,
+    });
     this.integrationOn.set(settings.enabled);
   }
 
@@ -80,6 +90,10 @@ export class SpoolmanSettingsCard implements OnInit {
   protected save(): void {
     this.notice.set(null);
     this.error.set(null);
+    if (this.form.controls.notEnoughMessage.invalid) {
+      this.error.set(`The warning text must be at most ${MAX_MESSAGE_LENGTH} characters`);
+      return;
+    }
     this.saving.set(true);
     this.settingsService.updateSpoolman(this.form.getRawValue()).subscribe({
       next: (settings) => {

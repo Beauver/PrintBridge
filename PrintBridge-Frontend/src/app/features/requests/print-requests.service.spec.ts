@@ -235,6 +235,7 @@ describe('PrintRequestsService', () => {
     quantity.flush(REQUEST);
 
     const choice = {
+      wholeItem: false,
       plateIndex: 1,
       originalType: 'PLA',
       originalColor: '#FFFFFF',

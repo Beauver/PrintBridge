@@ -18,13 +18,17 @@ import java.util.List;
 @ApplicationScoped
 public class SettingsMapper {
 
-    /** @param uploads the upload limits that apply now */
-    public SettingsDto toDto(AppSettings settings, List<Printer> printers, UploadLimits uploads) {
+    /**
+     * @param uploads          the upload limits that apply now
+     * @param notEnoughMessage the Spoolman warning text that applies now (the default when not set)
+     */
+    public SettingsDto toDto(AppSettings settings, List<Printer> printers, UploadLimits uploads,
+                             String notEnoughMessage) {
         List<PrinterDto> owned = printers.stream().map(this::toDto).toList();
         return new SettingsDto(new SlicingSettingsDto(settings.slicingEnabled, settings.slicingTimeoutMinutes),
                 settings.defaultPrinterId, owned,
                 new UploadLimitsDto(uploads.maxFiles(), uploads.maxFileSizeMb(), uploads.ceilingMb()),
-                new SpoolmanSettingsDto(settings.spoolmanEnabled, settings.spoolmanColorSelection));
+                new SpoolmanSettingsDto(settings.spoolmanEnabled, settings.spoolmanColorSelection, notEnoughMessage));
     }
 
     public PrinterDto toDto(Printer printer) {

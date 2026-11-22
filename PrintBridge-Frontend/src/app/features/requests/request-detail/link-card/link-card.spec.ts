@@ -1,7 +1,6 @@
 import { signal } from '@angular/core';
 import { TestBed } from '@angular/core/testing';
 import { FilamentChoice, FilamentChoiceInput } from '../../../../core/models/spoolman.model';
-import { NOT_ENOUGH_FILAMENT } from '../../../../shared/format/filament-display';
 import { RED_FOR_WHITE } from '../../../../../testing/fixtures';
 import { SpoolmanFilamentsService } from '../../spoolman-filaments.service';
 import { LinkCard } from './link-card';
@@ -9,6 +8,7 @@ import { LinkCard } from './link-card';
 describe('LinkCard', () => {
   const WHOLE_RED: FilamentChoice = {
     ...RED_FOR_WHITE,
+    wholeItem: true,
     plateIndex: null,
     originalType: null,
     originalColor: null,
@@ -37,6 +37,7 @@ describe('LinkCard', () => {
     fixture.componentRef.setInput('startOpen', startOpen);
     fixture.componentRef.setInput('filamentChoices', choices);
     fixture.componentRef.setInput('filamentSelection', selection);
+    fixture.componentRef.setInput('notEnoughMessage', 'Order it');
     const card = fixture.componentInstance;
     card.ngOnInit();
     fixture.detectChanges();
@@ -64,7 +65,7 @@ describe('LinkCard', () => {
     expect(chosen['choice']()).toEqual(WHOLE_RED);
     expect(chosen['notEnoughFilament']()).toBeNull();
     expect(create(true, null, [{ ...WHOLE_RED, notEnough: true }])['notEnoughFilament']()).toBe(
-      NOT_ENOUGH_FILAMENT,
+      'Order it',
     );
   });
 
@@ -79,6 +80,7 @@ describe('LinkCard', () => {
       resets.push(id);
     });
     const input = {
+      wholeItem: true,
       plateIndex: null,
       originalType: null,
       originalColor: null,

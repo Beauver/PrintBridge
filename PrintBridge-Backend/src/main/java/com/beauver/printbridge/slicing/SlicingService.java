@@ -74,7 +74,7 @@ public class SlicingService {
     /** Queues a new upload while server slicing is on. Runs inside the upload's transaction. */
     @Transactional(Transactional.TxType.MANDATORY)
     public void enqueueIfEnabled(long fileId) {
-        if (settings.slicing().enabled()) {
+        if (settings.getSlicing().enabled()) {
             queue(fileId, null);
         }
     }
@@ -91,7 +91,7 @@ public class SlicingService {
 
     /** Refused (409) while slicing is off or the file is queued or running. */
     public void checkMayReslice(long fileId) {
-        if (!settings.slicing().enabled()) {
+        if (!settings.getSlicing().enabled()) {
             throw new ConflictException("Server slicing is off");
         }
         Optional<SliceResult> existing = results.findByIdOptional(fileId);
@@ -155,7 +155,7 @@ public class SlicingService {
      */
     @Transactional(Transactional.TxType.REQUIRES_NEW)
     public Optional<SliceJob> claimNext() {
-        SlicingSettings slicing = settings.slicing();
+        SlicingSettings slicing = settings.getSlicing();
         if (!slicing.enabled() || slicing.defaultPrinter() == null) {
             return Optional.empty();
         }

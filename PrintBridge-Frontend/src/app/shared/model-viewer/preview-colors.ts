@@ -10,7 +10,7 @@ import { PreviewColor, PreviewPart } from '../../core/models/model-preview.model
  */
 export function chosenColor(part: PreviewPart, colors: readonly PreviewColor[]): string | null {
   const onPlate = colors.filter((color) => {
-    return color.plate === part.plate;
+    return !color.wholeFile && color.plate === part.plate;
   });
   if (part.color !== null) {
     const own = part.color.toLowerCase();
@@ -20,7 +20,7 @@ export function chosenColor(part: PreviewPart, colors: readonly PreviewColor[]):
     return match?.to ?? null;
   }
   const wholeFile = colors.find((color) => {
-    return color.plate === null;
+    return color.wholeFile;
   });
   if (wholeFile) {
     return wholeFile.to;

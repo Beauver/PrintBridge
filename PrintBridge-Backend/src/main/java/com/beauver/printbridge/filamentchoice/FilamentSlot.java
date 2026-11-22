@@ -25,10 +25,10 @@ public record FilamentSlot(Integer plateIndex, String type, String color, Double
                 && sameColor(color, otherColor);
     }
 
-    private static boolean sameColor(String first, String second) {
-        if (first == null || second == null) {
-            return first == null && second == null;
+    private static boolean sameColor(String firstColor, String secondColor) {
+        if (firstColor == null || secondColor == null) {
+            return firstColor == null && secondColor == null;
         }
-        return first.equalsIgnoreCase(second);
+        return firstColor.equalsIgnoreCase(secondColor);
     }
 }

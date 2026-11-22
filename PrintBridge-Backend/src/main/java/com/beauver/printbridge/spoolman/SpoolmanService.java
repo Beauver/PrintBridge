@@ -45,7 +45,7 @@ public class SpoolmanService {
      * @throws SpoolmanException when Spoolman can't be read
      */
     public List<SpoolmanFilamentDto> filaments() {
-        if (!settings.spoolman().colorSelection()) {
+        if (!settings.getSpoolman().colorSelection()) {
             throw new ConflictException(SELECTION_OFF);
         }
         return catalog.filaments().stream()
@@ -62,11 +62,11 @@ public class SpoolmanService {
                 filament.color(), filament.colors(), filament.gramsLeft());
     }
 
-    /** Case-insensitive, missing values last. */
-    private static int compareText(String first, String second) {
-        if (first == null || second == null) {
-            return Boolean.compare(first == null, second == null);
+    /** Alphabetical ignoring case, missing values last. */
+    private static int compareText(String firstText, String secondText) {
+        if (firstText == null || secondText == null) {
+            return Boolean.compare(firstText == null, secondText == null);
         }
-        return String.CASE_INSENSITIVE_ORDER.compare(first, second);
+        return firstText.compareToIgnoreCase(secondText);
     }
 }

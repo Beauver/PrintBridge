@@ -108,7 +108,7 @@ describe('ModelViewer', () => {
   it('recolours chosen filaments without showing the plate again', async () => {
     const fixture = await create();
     const shows = scene.show.mock.calls.length;
-    const black = [{ plate: 1, from: '#FF0000', to: '#000000' }];
+    const black = [{ wholeFile: false, plate: 1, from: '#FF0000', to: '#000000' }];
 
     fixture.componentRef.setInput('colors', black);
     fixture.detectChanges();

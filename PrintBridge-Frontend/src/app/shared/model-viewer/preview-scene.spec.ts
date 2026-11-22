@@ -29,14 +29,14 @@ describe('preview scene', () => {
   });
 
   it('draws chosen filaments in their colour and recolours them in place', () => {
-    const toBlack = [{ plate: 1, from: '#FF0000', to: '#000000' }];
+    const toBlack = [{ wholeFile: false, plate: 1, from: '#FF0000', to: '#000000' }];
     const group = plateObjects(TRIANGLE_MESH, 1, toBlack);
     const red = group.children[0] as Mesh;
     expect((red.material as MeshStandardMaterial).color.getHexString()).toBe('000000');
 
     recolorParts(group, []);
     expect((red.material as MeshStandardMaterial).color.getHexString()).toBe('ff0000');
-    recolorParts(group, [{ plate: 1, from: '#ff0000', to: '#00FF00' }]);
+    recolorParts(group, [{ wholeFile: false, plate: 1, from: '#ff0000', to: '#00FF00' }]);
     expect((red.material as MeshStandardMaterial).color.getHexString()).toBe('00ff00');
   });
 

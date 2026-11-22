@@ -22,12 +22,15 @@ public class PrintRequestMapper {
                 r.createdAt, progress.completed(), progress.active());
     }
 
-    /** @param filamentSelection the caller may choose filaments now (#11) */
+    /**
+     * @param filamentSelection        the caller may choose filaments now (#11)
+     * @param notEnoughFilamentMessage the warning for a chosen filament that runs short (#11)
+     */
     public PrintRequestDto toDto(PrintRequest r, List<RequestFileDto> files, RequestTotalsDto totals,
-                                 boolean filamentSelection) {
+                                 boolean filamentSelection, String notEnoughFilamentMessage) {
         return new PrintRequestDto(r.id, r.name, r.description, r.status, r.finalPrice, r.declineReason, r.paidAt,
                 r.owner.id, r.owner.username, r.createdAt, r.updatedAt, files, totals, r.status.nextStatuses(),
-                filamentSelection);
+                filamentSelection, notEnoughFilamentMessage);
     }
 
     /**

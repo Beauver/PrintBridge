@@ -11,8 +11,18 @@ import { SpoolmanFilamentsService } from '../../spoolman-filaments.service';
 import { FilamentPicker } from './filament-picker';
 
 describe('FilamentPicker', () => {
-  const WHITE_PLA: FilamentSlot = { plateIndex: 1, originalType: 'PLA', originalColor: '#FFFFFF' };
-  const WHOLE: FilamentSlot = { plateIndex: null, originalType: null, originalColor: null };
+  const WHITE_PLA: FilamentSlot = {
+    wholeItem: false,
+    plateIndex: 1,
+    originalType: 'PLA',
+    originalColor: '#FFFFFF',
+  };
+  const WHOLE: FilamentSlot = {
+    wholeItem: true,
+    plateIndex: null,
+    originalType: null,
+    originalColor: null,
+  };
   const BLACK_PETG: SpoolmanFilament = {
     ...SPOOLMAN_RED,
     id: 4,

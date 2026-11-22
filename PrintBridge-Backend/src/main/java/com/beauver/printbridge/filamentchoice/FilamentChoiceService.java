@@ -138,7 +138,7 @@ public class FilamentChoiceService {
 
     /** Spoolman's filaments by id while the integration is on and Spoolman can be read, else {@code null}. */
     private Map<Long, SpoolmanFilament> stock() {
-        if (!settings.spoolman().enabled()) {
+        if (!settings.getSpoolman().enabled()) {
             return null;
         }
         return catalog.filamentsIfAvailable()
@@ -149,14 +149,18 @@ public class FilamentChoiceService {
 
     /** The slot the input points at; the whole item only when the file has no colours. */
     private static FilamentSlot slotFor(List<FilamentSlot> slots, FilamentChoiceRequest input) {
-        if (input.plateIndex() == null) {
-            if (input.originalType() != null || input.originalColor() != null) {
-                throw new InvalidInputException("Choose a plate for this colour");
+        if (input.wholeItem()) {
+            if (input.plateIndex() != null || input.originalType() != null || input.originalColor() != null) {
+                throw new InvalidInputException("A filament for the whole item has no plate or colour");
             }
             return slots.stream()
                     .filter(FilamentSlot::isWholeItem)
                     .findFirst()
-                    .orElseThrow(() -> new InvalidInputException("This file has colours: choose a filament per colour"));
+                    .orElseThrow(() -> new InvalidInputException(
+                            "This file has colours: choose a filament per colour"));
+        }
+        if (input.plateIndex() == null) {
+            throw new InvalidInputException("Choose a plate for this colour");
         }
         return slots.stream()
                 .filter(slot -> slot.matches(input.plateIndex(), input.originalType(), input.originalColor()))

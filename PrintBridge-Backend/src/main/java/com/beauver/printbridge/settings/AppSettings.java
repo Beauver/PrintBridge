@@ -41,6 +41,10 @@ public class AppSettings extends PanacheEntityBase {
     @Column(name = "spoolman_color_selection", nullable = false)
     public boolean spoolmanColorSelection;
 
+    /** The admin's warning for a filament that runs short; {@code null} means the default text. */
+    @Column(name = "spoolman_not_enough_message", length = 300)
+    public String spoolmanNotEnoughMessage;
+
     @Column(name = "updated_at", nullable = false)
     public Instant updatedAt;
 

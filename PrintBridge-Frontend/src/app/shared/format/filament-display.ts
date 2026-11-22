@@ -1,10 +1,6 @@
 import { FilamentChoice, FilamentSlot, SpoolmanFilament } from '../../core/models/spoolman.model';
 import { formatGrams } from './model-info-display';
 
-/** Shown when the request needs more of a chosen filament than Spoolman has left (#11). */
-export const NOT_ENOUGH_FILAMENT =
-  'Not enough filament for this print, it will be ordered but your print might be delayed';
-
 /** The parts of a filament the labels use; a Spoolman filament and a choice both have them. */
 type FilamentNaming = Pick<SpoolmanFilament, 'name' | 'vendor' | 'material'>;
 
@@ -63,7 +59,7 @@ export function originalLabel(slot: FilamentSlot): string {
 /** "Acme PLA Basic – PLA (was PLA #FFFFFF)", plus a note when Spoolman no longer has it. */
 export function choiceLabel(choice: FilamentChoice): string {
   let label = filamentName(choice);
-  if (choice.plateIndex !== null) {
+  if (!choice.wholeItem) {
     label = `${label} (was ${originalLabel(choice)})`;
   }
   if (choice.inSpoolman === false) {
@@ -97,15 +93,16 @@ export function notEnoughFor(filament: SpoolmanFilament, gramsNeeded: number | n
 /** Whether the choice is for this colour of this plate (colours ignore case). */
 export function isChoiceFor(choice: FilamentChoice, slot: FilamentSlot): boolean {
   return (
+    choice.wholeItem === slot.wholeItem &&
     choice.plateIndex === slot.plateIndex &&
     choice.originalType === slot.originalType &&
     sameColor(choice.originalColor, slot.originalColor)
   );
 }
 
-function sameColor(first: string | null, second: string | null): boolean {
-  if (first === null || second === null) {
-    return first === second;
+function sameColor(firstColor: string | null, secondColor: string | null): boolean {
+  if (firstColor === null || secondColor === null) {
+    return firstColor === secondColor;
   }
-  return first.toLowerCase() === second.toLowerCase();
+  return firstColor.toLowerCase() === secondColor.toLowerCase();
 }

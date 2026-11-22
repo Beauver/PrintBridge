@@ -7,7 +7,6 @@ import { NO_SLICING, STL_INFO } from '../../../../../testing/fixtures';
 import { TRIANGLE_MESH } from '../../../../../testing/fixtures';
 import { ModelPreviewService } from '../../model-preview.service';
 import { FilamentChoice, FilamentChoiceInput } from '../../../../core/models/spoolman.model';
-import { NOT_ENOUGH_FILAMENT } from '../../../../shared/format/filament-display';
 import { RED_FOR_WHITE } from '../../../../../testing/fixtures';
 import { SpoolmanFilamentsService } from '../../spoolman-filaments.service';
 import { ModelInfoCard } from './model-info-card';
@@ -87,6 +86,7 @@ describe('ModelInfoCard', () => {
     fixture.componentRef.setInput('info', info);
     fixture.componentRef.setInput('filamentChoices', choices);
     fixture.componentRef.setInput('filamentSelection', selection);
+    fixture.componentRef.setInput('notEnoughMessage', 'Order it');
     fixture.componentRef.setInput('quantity', quantity);
     fixture.componentRef.setInput('isAdmin', isAdmin);
     fixture.componentRef.setInput('requestId', 4);
@@ -379,6 +379,7 @@ describe('ModelInfoCard', () => {
     const WHOLE: FilamentChoice = {
       ...RED_FOR_WHITE,
       id: 13,
+      wholeItem: true,
       plateIndex: null,
       originalType: null,
       originalColor: null,
@@ -392,6 +393,7 @@ describe('ModelInfoCard', () => {
       expect(card['hasColours']()).toBe(true);
       expect(card['showWholeItem']()).toBe(false);
       expect(card['slotOf'](lid, white)).toEqual({
+        wholeItem: false,
         plateIndex: 1,
         originalType: 'PLA',
         originalColor: '#FFFFFF',
@@ -438,14 +440,19 @@ describe('ModelInfoCard', () => {
       expect(card['orphanLabel'](WHOLE)).toBe('Whole file');
       // An orphaned choice never counts for a circle.
       expect(
-        card['choiceFor']({ plateIndex: 2, originalType: 'PLA', originalColor: '#FFFFFF' }),
+        card['choiceFor']({
+          wholeItem: false,
+          plateIndex: 2,
+          originalType: 'PLA',
+          originalColor: '#FFFFFF',
+        }),
       ).toBeNull();
     });
 
     it('warns when not enough is left', () => {
       const short = { ...RED_FOR_WHITE, notEnough: true };
       expect(createFixture(BAMBU, false, [short]).componentInstance['notEnoughFilament']()).toBe(
-        NOT_ENOUGH_FILAMENT,
+        'Order it',
       );
       const goneShort = { ...short, orphaned: true };
       expect(
@@ -457,6 +464,7 @@ describe('ModelInfoCard', () => {
       const silk = {
         ...RED_FOR_WHITE,
         id: 15,
+        wholeItem: false,
         plateIndex: 3,
         color: null,
         colors: ['#00FF00', '#0000FF'],
@@ -472,9 +480,9 @@ describe('ModelInfoCard', () => {
       ]).componentInstance;
 
       expect(card['previewColors']()).toEqual([
-        { plate: 1, from: '#FFFFFF', to: '#FF0000' },
-        { plate: 3, from: '#FFFFFF', to: '#00FF00' },
-        { plate: null, from: null, to: '#FF0000' },
+        { wholeFile: false, plate: 1, from: '#FFFFFF', to: '#FF0000' },
+        { wholeFile: false, plate: 3, from: '#FFFFFF', to: '#00FF00' },
+        { wholeFile: true, plate: null, from: null, to: '#FF0000' },
       ]);
     });
 
@@ -516,6 +524,7 @@ describe('ModelInfoCard', () => {
         resets.push(id);
       });
       const input = {
+        wholeItem: false,
         plateIndex: 1,
         originalType: 'PLA',
         originalColor: '#FFFFFF',

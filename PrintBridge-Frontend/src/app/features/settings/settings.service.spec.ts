@@ -38,7 +38,7 @@ describe('SettingsService', () => {
   });
 
   it('calls the Spoolman settings and status', () => {
-    const spoolman = { enabled: true, colorSelection: true };
+    const spoolman = { enabled: true, colorSelection: true, notEnoughMessage: 'Order it' };
     service.updateSpoolman(spoolman).subscribe();
     const update = http.expectOne({ method: 'PUT', url: '/api/settings/spoolman' });
     expect(update.request.body).toEqual(spoolman);

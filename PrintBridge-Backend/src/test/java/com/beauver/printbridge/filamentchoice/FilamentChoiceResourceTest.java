@@ -81,6 +81,7 @@ class FilamentChoiceResourceTest {
 
     private static Map<String, Object> slot(Integer plate, String type, String color, long filamentId) {
         Map<String, Object> body = new HashMap<>();
+        body.put("wholeItem", plate == null && type == null && color == null);
         body.put("plateIndex", plate);
         body.put("originalType", type);
         body.put("originalColor", color);
@@ -113,6 +114,7 @@ class FilamentChoiceResourceTest {
         choose(bobToken, project, slot(1, "PLA", "#ffffff", 1)).statusCode(200)
                 .body("files[0].filamentChoices", hasSize(1))
                 .body("files[0].filamentChoices[0].plateIndex", is(1))
+                .body("files[0].filamentChoices[0].wholeItem", is(false))
                 .body("files[0].filamentChoices[0].originalType", is("PLA"))
                 .body("files[0].filamentChoices[0].originalColor", is(WHITE))
                 .body("files[0].filamentChoices[0].spoolmanFilamentId", is(1))
@@ -146,6 +148,13 @@ class FilamentChoiceResourceTest {
                 .body("message", is("This file has colours: choose a filament per colour"));
         choose(bobToken, project, slot(null, "PLA", WHITE, 1)).statusCode(400)
                 .body("message", is("Choose a plate for this colour"));
+        Map<String, Object> wholeWithPlate = slot(1, null, null, 1);
+        wholeWithPlate.put("wholeItem", true);
+        choose(bobToken, project, wholeWithPlate).statusCode(400)
+                .body("message", is("A filament for the whole item has no plate or colour"));
+        Map<String, Object> unsaid = slot(1, "PLA", WHITE, 1);
+        unsaid.remove("wholeItem");
+        choose(bobToken, project, unsaid).statusCode(400);
         choose(bobToken, project, slot(1, "PLA", WHITE, 99)).statusCode(400)
                 .body("message", is("This filament isn't in Spoolman"));
         choose(bobToken, project, slot(1, "PLA", "white", 1)).statusCode(400);
@@ -161,6 +170,7 @@ class FilamentChoiceResourceTest {
         Upload stl = upload("cube.stl", ModelFiles.cubeStl(50));
         JsonPath chosen = choose(bobToken, stl, slot(null, null, null, 1)).statusCode(200)
                 .body("files[0].filamentChoices[0].plateIndex", nullValue())
+                .body("files[0].filamentChoices[0].wholeItem", is(true))
                 .body("files[0].filamentChoices[0].orphaned", is(false))
                 .extract().jsonPath();
         // The file's total grams (an estimate for an STL that wasn't sliced).

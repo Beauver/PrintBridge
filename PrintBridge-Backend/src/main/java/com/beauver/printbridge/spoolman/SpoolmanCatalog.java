@@ -13,8 +13,11 @@ import java.util.List;
 import java.util.Optional;
 
 /**
- * The filaments in Spoolman, kept for {@code SPOOLMAN_CACHE_TTL_SECONDS} so opening a dropdown
- * or a request page doesn't ask Spoolman every time. Failures aren't kept: the next call tries again.
+ * Every filament in Spoolman with the weight left on its spools (two calls: {@code /filament} and
+ * {@code /spool}), kept for {@code SPOOLMAN_CACHE_TTL_SECONDS} (default 60). Every request page
+ * checks the stock of its chosen filaments and every dropdown lists them, so without this a busy
+ * page would ask Spoolman on every view; the short lifetime keeps the stock close to current.
+ * Failures aren't kept: the next call tries again.
  */
 @ApplicationScoped
 public class SpoolmanCatalog {
@@ -69,8 +72,10 @@ public class SpoolmanCatalog {
     }
 
     /** Start from what is in Spoolman now, not a list cached before the integration was switched off. */
-    void onSwitchedOn(@Observes SettingsService.SpoolmanSwitchedOn switchedOn) {
-        clear();
+    void onToggled(@Observes SettingsService.SpoolmanToggled toggled) {
+        if (toggled.enabled()) {
+            clear();
+        }
     }
 
     private boolean isFresh(Cached current) {

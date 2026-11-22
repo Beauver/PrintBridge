@@ -116,6 +116,8 @@ export interface PrintRequest {
   nextStatuses: RequestStatus[];
   /** The caller may choose filaments from Spoolman now (#11). */
   filamentSelection: boolean;
+  /** What to show when a chosen filament runs short; set by the admin in Settings → Spoolman. */
+  notEnoughFilamentMessage: string;
 }
 
 export interface UploadConfig {

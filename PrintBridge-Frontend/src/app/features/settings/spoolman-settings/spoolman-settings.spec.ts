@@ -19,7 +19,11 @@ describe('SpoolmanSettingsCard', () => {
   let saved: Settings[];
 
   function create(
-    settings: SpoolmanSettings = { enabled: false, colorSelection: false },
+    settings: SpoolmanSettings = {
+      enabled: false,
+      colorSelection: false,
+      notEnoughMessage: 'Order it',
+    },
     status: SpoolmanStatus | null = CONNECTED,
   ): SpoolmanSettingsCard {
     const fixture = TestBed.createComponent(SpoolmanSettingsCard);
@@ -42,8 +46,12 @@ describe('SpoolmanSettingsCard', () => {
   });
 
   it('fills the switches from the settings', () => {
-    const card = create({ enabled: true, colorSelection: true });
-    expect(card['form'].getRawValue()).toEqual({ enabled: true, colorSelection: true });
+    const card = create({ enabled: true, colorSelection: true, notEnoughMessage: 'Order it' });
+    expect(card['form'].getRawValue()).toEqual({
+      enabled: true,
+      colorSelection: true,
+      notEnoughMessage: 'Order it',
+    });
     expect(card['integrationOn']()).toBe(true);
   });
 
@@ -71,10 +79,14 @@ describe('SpoolmanSettingsCard', () => {
   });
 
   it('switches colour selection off with the integration', () => {
-    const card = create({ enabled: true, colorSelection: true });
+    const card = create({ enabled: true, colorSelection: true, notEnoughMessage: 'Order it' });
     card['form'].controls.enabled.setValue(false);
     card['onIntegrationToggled']();
-    expect(card['form'].getRawValue()).toEqual({ enabled: false, colorSelection: false });
+    expect(card['form'].getRawValue()).toEqual({
+      enabled: false,
+      colorSelection: false,
+      notEnoughMessage: 'Order it',
+    });
     expect(card['integrationOn']()).toBe(false);
 
     card['form'].controls.enabled.setValue(true);
@@ -86,17 +98,28 @@ describe('SpoolmanSettingsCard', () => {
   it('saves the switches', () => {
     settingsService.updateSpoolman.mockReturnValue(of(NO_SETTINGS));
     const card = create();
-    card['form'].setValue({ enabled: true, colorSelection: true });
+    card['form'].setValue({ enabled: true, colorSelection: true, notEnoughMessage: 'Order it' });
 
     card['save']();
 
     expect(settingsService.updateSpoolman).toHaveBeenCalledWith({
       enabled: true,
       colorSelection: true,
+      notEnoughMessage: 'Order it',
     });
     expect(card['notice']()).toBe('Spoolman settings saved.');
     expect(card['saving']()).toBe(false);
     expect(saved).toEqual([NO_SETTINGS]);
+  });
+
+  it('refuses a warning text that is too long', () => {
+    const card = create();
+    card['form'].controls.notEnoughMessage.setValue('x'.repeat(301));
+
+    card['save']();
+
+    expect(card['error']()).toBe('The warning text must be at most 300 characters');
+    expect(settingsService.updateSpoolman).not.toHaveBeenCalled();
   });
 
   it('shows why saving failed', () => {

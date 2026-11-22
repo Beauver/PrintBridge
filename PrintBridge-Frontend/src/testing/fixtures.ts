@@ -97,6 +97,7 @@ export const REQUEST: PrintRequest = {
   },
   nextStatuses: ['IN_REVIEW', 'ACCEPTED', 'DECLINED'],
   filamentSelection: false,
+  notEnoughFilamentMessage: 'Order it',
 };
 
 export const REQUEST_SUMMARY: PrintRequestSummary = {
@@ -159,7 +160,7 @@ export const NO_SETTINGS: Settings = {
   defaultPrinterId: null,
   printers: [],
   uploads: { maxFiles: 10, maxFileSizeMb: 100, ceilingMb: 100 },
-  spoolman: { enabled: false, colorSelection: false },
+  spoolman: { enabled: false, colorSelection: false, notEnoughMessage: 'Order it' },
 };
 
 /** The P1S as the slicer lists it (0.2, 0.4 and 0.6 mm nozzles). */
@@ -256,6 +257,7 @@ export const SPOOLMAN_RED: SpoolmanFilament = {
 /** Red PLA chosen for the white PLA on plate 1, with enough left. */
 export const RED_FOR_WHITE: FilamentChoice = {
   id: 12,
+  wholeItem: false,
   plateIndex: 1,
   originalType: 'PLA',
   originalColor: '#FFFFFF',

@@ -29,18 +29,24 @@ describe('filament display', () => {
   });
 
   it('describes what the file says', () => {
-    const slot = { plateIndex: 1, originalType: 'PLA', originalColor: '#FFFFFF' };
+    const slot = { wholeItem: false, plateIndex: 1, originalType: 'PLA', originalColor: '#FFFFFF' };
     expect(originalLabel(slot)).toBe('PLA #FFFFFF');
     expect(originalLabel({ ...slot, originalColor: null })).toBe('PLA');
     expect(originalLabel({ ...slot, originalType: null })).toBe('#FFFFFF');
-    expect(originalLabel({ plateIndex: null, originalType: null, originalColor: null })).toBe(
-      'file colour',
-    );
+    expect(
+      originalLabel({ wholeItem: true, plateIndex: null, originalType: null, originalColor: null }),
+    ).toBe('file colour');
   });
 
   it('labels a choice with the file colour it replaces', () => {
     expect(choiceLabel(RED_FOR_WHITE)).toBe('Acme PLA Basic Red – PLA (was PLA #FFFFFF)');
-    const whole = { ...RED_FOR_WHITE, plateIndex: null, originalType: null, originalColor: null };
+    const whole = {
+      ...RED_FOR_WHITE,
+      wholeItem: true,
+      plateIndex: null,
+      originalType: null,
+      originalColor: null,
+    };
     expect(choiceLabel(whole)).toBe('Acme PLA Basic Red – PLA');
     expect(choiceLabel({ ...whole, inSpoolman: false })).toBe(
       'Acme PLA Basic Red – PLA · no longer in Spoolman',
@@ -59,12 +65,12 @@ describe('filament display', () => {
   });
 
   it('matches a choice to its plate and colour', () => {
-    const slot = { plateIndex: 1, originalType: 'PLA', originalColor: '#ffffff' };
+    const slot = { wholeItem: false, plateIndex: 1, originalType: 'PLA', originalColor: '#ffffff' };
     expect(isChoiceFor(RED_FOR_WHITE, slot)).toBe(true);
     expect(isChoiceFor(RED_FOR_WHITE, { ...slot, plateIndex: 2 })).toBe(false);
     expect(isChoiceFor(RED_FOR_WHITE, { ...slot, originalType: 'PETG' })).toBe(false);
     expect(isChoiceFor(RED_FOR_WHITE, { ...slot, originalColor: null })).toBe(false);
-    const whole = { plateIndex: null, originalType: null, originalColor: null };
+    const whole = { wholeItem: true, plateIndex: null, originalType: null, originalColor: null };
     expect(isChoiceFor({ ...RED_FOR_WHITE, ...whole }, whole)).toBe(true);
   });
 });
