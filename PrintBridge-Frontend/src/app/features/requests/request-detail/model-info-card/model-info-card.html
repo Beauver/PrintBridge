@@ -128,9 +128,15 @@
                         [choice]="choiceFor(slotOf(plate, filament))"
                         [editable]="filamentSelection()"
                         [gramsNeeded]="gramsNeeded(plate, filament)"
+                        [unmatched]="isUnmatched(slotOf(plate, filament))"
                         (chosen)="chooseFilament($event)"
                         (reset)="resetFilament($event)"
                       />
+                      @if (isAutomatic(slotOf(plate, filament))) {
+                        <span class="small text-body-secondary me-1" data-cy="model-info-auto"
+                          >auto</span
+                        >
+                      }
                       <!-- Once something is chosen the circles speak for themselves (names in the tooltip); the file's own colours move to the row below. -->
                       @if (!hasChoiceOn(plate)) {
                         <span class="small me-2" data-cy="model-info-filament-label">{{
@@ -139,6 +145,11 @@
                       }
                     }
                   </span>
+                  @if (noMatchOn(plate); as message) {
+                    <div class="small text-danger-emphasis mt-1" data-cy="model-info-no-match">
+                      {{ message }}
+                    </div>
+                  }
                 </dd>
                 @if (hasChoiceOn(plate)) {
                   <dt class="col-sm-3">Old colours</dt>
@@ -173,9 +184,15 @@
                         [choice]="choiceFor(slotOf(plate, filament))"
                         [editable]="filamentSelection()"
                         [gramsNeeded]="gramsNeeded(plate, filament)"
+                        [unmatched]="isUnmatched(slotOf(plate, filament))"
                         (chosen)="chooseFilament($event)"
                         (reset)="resetFilament($event)"
                       />
+                      @if (isAutomatic(slotOf(plate, filament))) {
+                        <span class="small text-body-secondary me-1" data-cy="model-info-auto"
+                          >auto</span
+                        >
+                      }
                     }
                   </span>
                   @if (hasChoiceOn(plate)) {
@@ -190,6 +207,11 @@
                     </span>
                   }
                 </div>
+                @if (noMatchOn(plate); as message) {
+                  <p class="small text-danger-emphasis mb-2" data-cy="model-info-preview-no-match">
+                    {{ message }}
+                  </p>
+                }
               } @else if (showWholeItem()) {
                 <div
                   class="d-flex align-items-center gap-2 mb-2 small"
@@ -246,6 +268,11 @@
                             Refused: {{ plate.sliceError }}
                           </div>
                         }
+                        @if (noMatchOn(plate); as message) {
+                          <div class="small text-danger-emphasis" data-cy="model-info-no-match">
+                            {{ message }}
+                          </div>
+                        }
                       </td>
                       <td class="text-nowrap">
                         @if (plateDimensions(plate); as size) {
@@ -267,6 +294,7 @@
                               [choice]="choiceFor(slotOf(plate, filament))"
                               [editable]="filamentSelection()"
                               [gramsNeeded]="gramsNeeded(plate, filament)"
+                              [unmatched]="isUnmatched(slotOf(plate, filament))"
                               (chosen)="chooseFilament($event)"
                               (reset)="resetFilament($event)"
                               data-cy="model-info-swatch"

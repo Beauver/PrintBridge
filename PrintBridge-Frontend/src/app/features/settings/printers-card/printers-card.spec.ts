@@ -26,7 +26,10 @@ describe('PrintersCard', () => {
       enabled: false,
       colorSelection: false,
       prices: false,
+      autoMatch: false,
+      matchTolerance: 20,
       notEnoughMessage: 'Order it',
+      noMatchMessage: 'Pick another',
     },
     pricing: { markup: 1, pricePer100Grams: 0 },
   };

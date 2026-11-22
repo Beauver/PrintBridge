@@ -56,6 +56,8 @@ export class FilamentPicker {
   readonly editable = input(false);
   /** Grams this colour needs over all copies; null when unknown. Marks rows with too little left. */
   readonly gramsNeeded = input<number | null>(null);
+  /** Automatic matching found no close filament for this colour (#76). */
+  readonly unmatched = input(false);
   /** Also show the label next to the circle (single plate files, links). */
   readonly showLabel = input(false);
   readonly chosen = output<FilamentChoiceInput>();
@@ -97,12 +99,24 @@ export class FilamentPicker {
     return originalLabel(slot);
   });
 
-  /** The tooltip; a clickable circle says so. */
+  /** The tooltip: what is shown, how it was chosen, and that it can be clicked. */
   protected readonly title = computed(() => {
-    if (this.editable()) {
-      return `${this.label()} – click to choose a filament from Spoolman`;
+    let title = this.label();
+    if (this.automatic()) {
+      title = `${title} · Matched automatically`;
     }
-    return this.label();
+    if (this.unmatched()) {
+      title = `${title} · No close colour found`;
+    }
+    if (this.editable()) {
+      return `${title} – click to choose a filament from Spoolman`;
+    }
+    return title;
+  });
+
+  /** Chosen by automatic matching (#76) rather than a person. */
+  protected readonly automatic = computed(() => {
+    return this.choice()?.source === 'AUTO';
   });
 
   protected readonly notEnough = computed(() => {

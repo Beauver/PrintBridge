@@ -50,7 +50,10 @@ describe('SettingsService', () => {
       enabled: true,
       colorSelection: true,
       prices: false,
+      autoMatch: false,
+      matchTolerance: 20,
       notEnoughMessage: 'Order it',
+      noMatchMessage: 'Pick another',
     };
     service.updateSpoolman(spoolman).subscribe();
     const update = http.expectOne({ method: 'PUT', url: '/api/settings/spoolman' });

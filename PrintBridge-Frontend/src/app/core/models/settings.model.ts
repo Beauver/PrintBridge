@@ -48,6 +48,12 @@ export interface SpoolmanSettings {
   colorSelection: boolean;
   /** The price estimate uses the chosen filaments' Spoolman prices (#72); needs the integration. */
   prices: boolean;
+  /** Colours of new projects get the closest filament automatically (#76); needs colour selection. */
+  autoMatch: boolean;
+  /** The largest colour difference (CIEDE2000 ΔE, 1–100) automatic matching accepts. */
+  matchTolerance: number;
+  /** The warning for colours without a close filament; the default text unless the admin set one. */
+  noMatchMessage: string;
   /** The warning for a filament that runs short; the default text unless the admin set one. */
   notEnoughMessage: string;
 }

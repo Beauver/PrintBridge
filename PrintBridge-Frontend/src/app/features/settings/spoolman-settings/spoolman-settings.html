@@ -51,6 +51,7 @@
       role="switch"
       formControlName="colorSelection"
       [attr.disabled]="configured() && integrationOn() ? null : true"
+      (change)="onColorSelectionToggled()"
       data-cy="spoolman-color-selection"
     />
     <label class="form-check-label" for="spoolman-color-selection">
@@ -59,6 +60,69 @@
     <div class="form-text">
       Requesters choose a filament for every colour of their files by clicking its circle. Choices
       stay visible when this is switched off.
+    </div>
+  </div>
+
+  <div class="ms-4 mt-2" data-cy="spoolman-matching">
+    <div class="form-check form-switch">
+      <input
+        id="spoolman-auto-match"
+        class="form-check-input"
+        type="checkbox"
+        role="switch"
+        formControlName="autoMatch"
+        [attr.disabled]="configured() && integrationOn() && selectionOn() ? null : true"
+        data-cy="spoolman-auto-match"
+      />
+      <label class="form-check-label" for="spoolman-auto-match"
+        >Match filaments automatically</label
+      >
+      <div class="form-text">
+        When a project is uploaded or sliced, every colour nobody chose yet gets the closest
+        filament of the same material. People can still change it.
+      </div>
+    </div>
+    <div class="row g-2 mt-1">
+      <div class="col-sm-7">
+        <label class="form-label small" for="spoolman-tolerance">How close</label>
+        <select
+          id="spoolman-tolerance"
+          class="form-select form-select-sm"
+          formControlName="tolerancePreset"
+          (change)="onPresetChanged()"
+          data-cy="spoolman-tolerance"
+        >
+          @for (preset of presets; track preset.id) {
+            <option [value]="preset.id">{{ preset.label }}</option>
+          }
+        </select>
+      </div>
+      @if (customTolerance()) {
+        <div class="col-sm-5">
+          <label class="form-label small" for="spoolman-custom-tolerance">ΔE (1–100)</label>
+          <input
+            id="spoolman-custom-tolerance"
+            class="form-control form-control-sm"
+            inputmode="numeric"
+            formControlName="customTolerance"
+            data-cy="spoolman-custom-tolerance"
+          />
+        </div>
+      }
+    </div>
+    <div class="mt-2">
+      <label class="form-label small" for="spoolman-no-match"
+        >Warning when no close colour is found</label
+      >
+      <textarea
+        id="spoolman-no-match"
+        class="form-control form-control-sm"
+        rows="2"
+        [maxlength]="maxMessageLength"
+        formControlName="noMatchMessage"
+        data-cy="spoolman-no-match-message"
+      ></textarea>
+      <div class="form-text">Leave it empty for the default text.</div>
     </div>
   </div>
 

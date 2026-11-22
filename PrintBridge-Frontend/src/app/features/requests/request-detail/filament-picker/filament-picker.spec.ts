@@ -171,4 +171,19 @@ describe('FilamentPicker', () => {
     create(WHITE_PLA)['retry']();
     expect(filamentsService.load).toHaveBeenCalledWith(true);
   });
+
+  it('says how a colour was chosen and when nothing close was found', () => {
+    const auto = create(WHITE_PLA, { ...RED_FOR_WHITE, source: 'AUTO' }, false);
+    expect(auto['automatic']()).toBe(true);
+    expect(auto['title']()).toBe(
+      'Acme PLA Basic Red – PLA (was PLA #FFFFFF) · Matched automatically',
+    );
+
+    const fixture = TestBed.createComponent(FilamentPicker);
+    fixture.componentRef.setInput('slot', WHITE_PLA);
+    fixture.componentRef.setInput('unmatched', true);
+    const unmatched = fixture.componentInstance;
+    expect(unmatched['automatic']()).toBe(false);
+    expect(unmatched['title']()).toBe('PLA #FFFFFF · No close colour found');
+  });
 });

@@ -289,6 +289,8 @@
           [filamentChoices]="file.filamentChoices"
           [filamentSelection]="request.filamentSelection"
           [notEnoughMessage]="request.notEnoughFilamentMessage"
+          [unmatchedColors]="file.unmatchedColors"
+          [noMatchMessage]="request.noMatchMessage"
           (resliceWith)="onResliceWith(file)"
           (filamentChosen)="chooseFilament(file, $event)"
           (filamentReset)="resetFilament(file, $event)"

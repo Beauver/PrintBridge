@@ -513,6 +513,30 @@ describe('ModelInfoCard', () => {
       expect(stl['showWholeItem']()).toBe(true);
     });
 
+    it('marks automatic choices and colours without a close filament (#76)', () => {
+      const fixture = createFixture(BAMBU, false, [{ ...RED_FOR_WHITE, source: 'AUTO' }]);
+      const card = fixture.componentInstance;
+      const lid = BAMBU.plates[0];
+      expect(card['isAutomatic'](card['slotOf'](lid, lid.filaments[0]))).toBe(true);
+      expect(card['noMatchOn'](lid)).toBeNull();
+
+      fixture.componentRef.setInput('unmatchedColors', [
+        { plateIndex: 1, originalType: 'PLA', originalColor: '#ffffff' },
+      ]);
+      fixture.componentRef.setInput('noMatchMessage', 'Pick another');
+      expect(card['noMatchOn'](lid)).toBe('Pick another');
+      expect(card['noMatchOn'](BAMBU.plates[2])).toBeNull();
+      expect(card['isUnmatched'](card['slotOf'](lid, lid.filaments[0]))).toBe(true);
+      const other = {
+        wholeItem: false,
+        plateIndex: 2,
+        originalType: 'PLA',
+        originalColor: '#FFFFFF',
+      };
+      expect(card['isUnmatched'](other)).toBe(false);
+      expect(card['isAutomatic'](other)).toBe(false);
+    });
+
     it('passes choices on to the page', () => {
       const card = create(BAMBU);
       const chosen: FilamentChoiceInput[] = [];

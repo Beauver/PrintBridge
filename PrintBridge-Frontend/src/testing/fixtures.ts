@@ -45,6 +45,7 @@ export const UPLOADED_FILE: UploadedFile = {
   nextStatuses: ['ACCEPTED', 'DECLINED'],
   createdAt: '2026-02-01T10:00:00Z',
   filamentChoices: [],
+  unmatchedColors: [],
   modelInfo: {
     status: 'PENDING',
     plates: [],
@@ -68,6 +69,7 @@ export const LINK: RequestLink = {
   createdAt: '2026-02-01T10:00:00Z',
   modelInfo: null,
   filamentChoices: [],
+  unmatchedColors: [],
 };
 
 export const REQUEST: PrintRequest = {
@@ -98,6 +100,7 @@ export const REQUEST: PrintRequest = {
   nextStatuses: ['IN_REVIEW', 'ACCEPTED', 'DECLINED'],
   filamentSelection: false,
   notEnoughFilamentMessage: 'Order it',
+  noMatchMessage: 'Pick another',
   estimatedPrice: null,
 };
 
@@ -162,7 +165,15 @@ export const NO_SETTINGS: Settings = {
   defaultPrinterId: null,
   printers: [],
   uploads: { maxFiles: 10, maxFileSizeMb: 100, ceilingMb: 100 },
-  spoolman: { enabled: false, colorSelection: false, prices: false, notEnoughMessage: 'Order it' },
+  spoolman: {
+    enabled: false,
+    colorSelection: false,
+    prices: false,
+    autoMatch: false,
+    matchTolerance: 20,
+    notEnoughMessage: 'Order it',
+    noMatchMessage: 'Pick another',
+  },
   pricing: { markup: 1, pricePer100Grams: 0 },
 };
 
@@ -276,4 +287,5 @@ export const RED_FOR_WHITE: FilamentChoice = {
   gramsLeft: 412,
   gramsNeeded: 33.69,
   notEnough: false,
+  source: 'MANUAL',
 };
