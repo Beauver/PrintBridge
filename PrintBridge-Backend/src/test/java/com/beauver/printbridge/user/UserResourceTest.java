@@ -3,10 +3,12 @@ package com.beauver.printbridge.user;
 import com.beauver.printbridge.support.TestData;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
+import io.restassured.response.Response;
 import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.Map;
 
 import static io.restassured.RestAssured.given;
@@ -70,13 +72,74 @@ class UserResourceTest {
                 .post("/api/users").then().statusCode(400);
     }
 
+    private static Map<String, Object> update(String username, String email, boolean changePassword, String password) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("username", username);
+        body.put("email", email);
+        body.put("changePassword", changePassword);
+        body.put("newPassword", password);
+        return body;
+    }
+
+    private Response putUser(long id, Map<String, Object> body) {
+        return given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(body).put("/api/users/" + id);
+    }
+
     @Test
-    void resetsPassword() {
+    void updatesDetailsWithoutEndingSessions() {
         User bob = data.user("bob");
-        given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(Map.of("password", "brand-new-pw"))
-                .put("/api/users/" + bob.id + "/password").then().statusCode(204);
+        String bobToken = data.accessToken(bob);
+
+        putUser(bob.id, update("robert", "robert@example.com", false, null))
+                .then().statusCode(200)
+                .body("username", is("robert"))
+                .body("email", is("robert@example.com"));
+
+        given().auth().oauth2(bobToken).get("/api/auth/me").then().statusCode(200).body("username", is("robert"));
+        given().contentType(ContentType.JSON).body(Map.of("login", "robert", "password", TestData.PASSWORD))
+                .post("/api/auth/login").then().statusCode(200);
+    }
+
+    @Test
+    void updatesPassword() {
+        User bob = data.user("bob");
+        putUser(bob.id, update("bob", "bob@example.com", true, "brand-new-pw")).then().statusCode(200);
         given().contentType(ContentType.JSON).body(Map.of("login", "bob", "password", "brand-new-pw"))
                 .post("/api/auth/login").then().statusCode(200);
+        given().contentType(ContentType.JSON).body(Map.of("login", "bob", "password", TestData.PASSWORD))
+                .post("/api/auth/login").then().statusCode(401);
+    }
+
+    @Test
+    void changingPasswordRequiresANewPassword() {
+        User bob = data.user("bob");
+        putUser(bob.id, update("bob", "bob@example.com", true, null))
+                .then().statusCode(400).body(containsString("Password is required"));
+        putUser(bob.id, update("bob", "bob@example.com", true, "short"))
+                .then().statusCode(400).body(containsString("Password must be at least 8 characters"));
+    }
+
+    @Test
+    void rejectsUsernameOrEmailOfAnotherAccount() {
+        User bob = data.user("bob");
+        data.user("carol");
+        putUser(bob.id, update("CAROL", "bob@example.com", false, null))
+                .then().statusCode(409).body("message", is("Username is already taken"));
+        putUser(bob.id, update("bob", "carol@example.com", false, null))
+                .then().statusCode(409).body("message", is("Email is already in use"));
+        putUser(bob.id, update("BOB", "BOB@example.com", false, null)).then().statusCode(200);
+    }
+
+    @Test
+    void rejectsInvalidUpdate() {
+        User bob = data.user("bob");
+        putUser(bob.id, update("a b", "nope", false, null)).then().statusCode(400);
+    }
+
+    @Test
+    void adminUpdatesThemselvesOnMyAccount() {
+        putUser(admin.id, update("boss", "admin@example.com", false, null))
+                .then().statusCode(409).body("message", is("Update your own account on the My account page"));
     }
 
     @Test
@@ -87,23 +150,19 @@ class UserResourceTest {
         String justFits = "\uD83D\uDE00".repeat(18);
         String asciiLimit = "a".repeat(72);
 
-        given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(Map.of("password", tooLong))
-                .put("/api/users/" + bob.id + "/password").then().statusCode(400)
-                .body(containsString("Password is too long"));
+        putUser(bob.id, update("bob", "bob@example.com", true, tooLong))
+                .then().statusCode(400).body(containsString("Password is too long"));
         given().auth().oauth2(adminToken).contentType(ContentType.JSON)
                 .body(Map.of("username", "dave", "email", "dave@example.com", "password", "a".repeat(73)))
                 .post("/api/users").then().statusCode(400).body(containsString("Password is too long"));
 
-        given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(Map.of("password", justFits))
-                .put("/api/users/" + bob.id + "/password").then().statusCode(204);
-        given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(Map.of("password", asciiLimit))
-                .put("/api/users/" + bob.id + "/password").then().statusCode(204);
+        putUser(bob.id, update("bob", "bob@example.com", true, justFits)).then().statusCode(200);
+        putUser(bob.id, update("bob", "bob@example.com", true, asciiLimit)).then().statusCode(200);
     }
 
     @Test
-    void resetPasswordOfUnknownUserIsNotFound() {
-        given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(Map.of("password", "brand-new-pw"))
-                .put("/api/users/9999/password").then().statusCode(404);
+    void updateOfUnknownUserIsNotFound() {
+        putUser(9999, update("ghost", "ghost@example.com", false, null)).then().statusCode(404);
     }
 
     @Test
@@ -124,6 +183,9 @@ class UserResourceTest {
         String userToken = data.accessToken(data.user("bob"));
         given().auth().oauth2(userToken).get("/api/users").then().statusCode(403);
         given().auth().oauth2(userToken).delete("/api/users/" + admin.id).then().statusCode(403);
+        given().auth().oauth2(userToken).contentType(ContentType.JSON)
+                .body(update("admin", "admin@example.com", false, null))
+                .put("/api/users/" + admin.id).then().statusCode(403);
     }
 
     @Test

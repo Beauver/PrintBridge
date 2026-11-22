@@ -1,0 +1,39 @@
+<div class="page">
+  <h1 class="h3 mb-3">My account</h1>
+
+  @if (notice()) {
+    <div class="alert alert-success alert-dismissible py-2" role="status" data-cy="account-notice">
+      {{ notice() }}
+      <button
+        type="button"
+        class="btn-close"
+        aria-label="Close"
+        (click)="notice.set(null)"
+      ></button>
+    </div>
+  }
+
+  <form
+    class="card card-body"
+    [formGroup]="form()"
+    (ngSubmit)="save()"
+    novalidate
+    data-cy="account-form"
+  >
+    @if (error()) {
+      <div class="alert alert-danger py-2" role="alert" data-cy="account-error">
+        {{ error() }}
+      </div>
+    }
+    <app-account-fields [form]="form()" [askCurrentPassword]="true" idPrefix="my-account" />
+    <div class="mt-3">
+      <button type="submit" class="btn btn-primary" [disabled]="saving()" data-cy="account-save">
+        @if (saving()) {
+          Saving…
+        } @else {
+          Save
+        }
+      </button>
+    </div>
+  </form>
+</div>

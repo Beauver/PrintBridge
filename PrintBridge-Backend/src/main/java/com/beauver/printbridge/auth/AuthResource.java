@@ -5,7 +5,9 @@ import com.beauver.printbridge.auth.dto.LoginRequest;
 import com.beauver.printbridge.auth.token.RefreshCookie;
 import com.beauver.printbridge.common.ratelimit.ClientAddress;
 import com.beauver.printbridge.common.ratelimit.RateLimit;
+import com.beauver.printbridge.common.ratelimit.RateLimitKey;
 import com.beauver.printbridge.user.UserService;
+import com.beauver.printbridge.user.dto.UpdateAccountRequest;
 import com.beauver.printbridge.user.dto.UserDto;
 import io.quarkus.security.Authenticated;
 import jakarta.annotation.security.PermitAll;
@@ -64,6 +66,19 @@ public class AuthResource {
     @Authenticated
     public UserDto me() {
         return userService.get(currentUser.id());
+    }
+
+    /**
+     * Updates the caller's own account. Answers with a new session, like a login, so this browser
+     * stays logged in after a password change. Rate limited per user because it checks a password.
+     */
+    @PUT
+    @Path("/me")
+    @Authenticated
+    @Consumes(MediaType.APPLICATION_JSON)
+    @RateLimit(limit = 10, windowSeconds = 60, per = RateLimitKey.USER)
+    public Response updateMe(@Valid @NotNull UpdateAccountRequest request) {
+        return sessionResponse(authService.updateOwnAccount(currentUser.id(), request));
     }
 
     private Response sessionResponse(AuthSession session) {

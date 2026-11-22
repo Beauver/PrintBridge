@@ -181,8 +181,8 @@ class RefreshTokenServiceTest {
     }
 
     @Test
-    void revokeAllDelegatesToRepository() {
-        service.revokeAll(7L);
-        verify(tokens).revokeAllForUser(7L, NOW);
+    void deleteAllDelegatesToRepository() {
+        service.deleteAll(7L);
+        verify(tokens).deleteAllForUser(7L);
     }
 }
