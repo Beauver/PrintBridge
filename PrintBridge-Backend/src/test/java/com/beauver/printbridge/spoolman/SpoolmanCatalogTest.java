@@ -34,13 +34,13 @@ class SpoolmanCatalogTest {
                 return List.copyOf(inSpoolman);
             }
         };
-        inSpoolman.add(new SpoolmanFilament(1, "Red", "Acme", "PLA", "#FF0000", List.of(), 100.0));
+        inSpoolman.add(new SpoolmanFilament(1, "Red", "Acme", "PLA", "#FF0000", List.of(), 100.0, null, null, null));
     }
 
     @Test
     void keepsTheListForTheTtl() {
         assertEquals(1, catalog.filaments().size());
-        inSpoolman.add(new SpoolmanFilament(2, "Blue", "Acme", "PLA", "#0000FF", List.of(), 100.0));
+        inSpoolman.add(new SpoolmanFilament(2, "Blue", "Acme", "PLA", "#0000FF", List.of(), 100.0, null, null, null));
         clock.advance(Duration.ofSeconds(59));
         assertEquals(1, catalog.filaments().size());
         assertEquals(1, calls);
@@ -70,13 +70,13 @@ class SpoolmanCatalogTest {
 
     @Test
     void knowsWhenThereIsNotEnough() {
-        SpoolmanFilament some = new SpoolmanFilament(1, null, null, null, null, List.of(), 100.0);
+        SpoolmanFilament some = new SpoolmanFilament(1, null, null, null, null, List.of(), 100.0, null, null, null);
         assertFalse(some.notEnoughFor(100.0));
         assertTrue(some.notEnoughFor(100.1));
         assertFalse(some.notEnoughFor(null));
-        SpoolmanFilament none = new SpoolmanFilament(1, null, null, null, null, List.of(), 0.0);
+        SpoolmanFilament none = new SpoolmanFilament(1, null, null, null, null, List.of(), 0.0, null, null, null);
         assertTrue(none.notEnoughFor(null));
-        SpoolmanFilament unknown = new SpoolmanFilament(1, null, null, null, null, List.of(), null);
+        SpoolmanFilament unknown = new SpoolmanFilament(1, null, null, null, null, List.of(), null, null, null, null);
         assertFalse(unknown.notEnoughFor(1000.0));
     }
 }

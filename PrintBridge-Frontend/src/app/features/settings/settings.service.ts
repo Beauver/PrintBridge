@@ -2,6 +2,7 @@ import { HttpClient, HttpParams } from '@angular/common/http';
 import { inject, Injectable } from '@angular/core';
 import { Observable } from 'rxjs';
 import {
+  PricingSettings,
   PrinterInput,
   Settings,
   SlicingSettings,
@@ -30,6 +31,10 @@ export class SettingsService {
 
   updateSpoolman(spoolman: SpoolmanSettings): Observable<Settings> {
     return this.http.put<Settings>('/api/settings/spoolman', spoolman);
+  }
+
+  updatePricing(pricing: PricingSettings): Observable<Settings> {
+    return this.http.put<Settings>('/api/settings/pricing', pricing);
   }
 
   spoolmanStatus(): Observable<SpoolmanStatus> {

@@ -2,8 +2,11 @@ package com.beauver.printbridge.filamentchoice;
 
 import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
+import com.beauver.printbridge.filamentchoice.dto.ColorSlotDto;
 import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceDto;
 import com.beauver.printbridge.filamentchoice.dto.FilamentChoiceRequest;
+import com.beauver.printbridge.modelfile.analysis.FilamentUsage;
+import com.beauver.printbridge.modelinfo.FilamentDensities;
 import com.beauver.printbridge.modelinfo.dto.ModelInfoDto;
 import com.beauver.printbridge.settings.SettingsService;
 import com.beauver.printbridge.spoolman.SpoolmanCatalog;
@@ -32,6 +35,9 @@ public class FilamentChoiceService {
 
     @Inject
     FilamentChoiceRepository repository;
+
+    @Inject
+    ColorDecisionRepository decisions;
 
     @Inject
     FilamentChoiceMapper mapper;
@@ -64,19 +70,101 @@ public class FilamentChoiceService {
         choice.originalColor = slot.color();
         mapper.copy(filament, choice);
         choice.chosenAt = Instant.now();
+        choice.source = ChoiceSource.MANUAL;
         if (choice.id == null) {
             repository.persist(choice);
         }
+        // Someone decided: the colour is no longer "no match" or "file colour kept".
+        decisions.listByFileId(fileId).stream().filter(decision -> decision.isFor(slot)).forEach(decisions::delete);
         repository.flush();
     }
 
-    /** Removes a choice of this file or link; the colour goes back to the file's own. */
+    /**
+     * Removes a choice of this file or link; the colour goes back to the file's own. For an
+     * automatic match (#76) that is remembered, so matching doesn't pick a filament for it again.
+     */
     public void remove(long fileId, long choiceId) {
         FilamentChoice choice = repository.findByIdOptional(choiceId)
                 .filter(found -> found.fileId == fileId)
                 .orElseThrow(() -> new ResourceNotFoundException(NOT_FOUND));
         repository.delete(choice);
+        if (choice.source == ChoiceSource.AUTO && choice.plateIndex != null) {
+            FilamentSlot slot = new FilamentSlot(choice.plateIndex, choice.originalType, choice.originalColor, null);
+            decisions.persist(ColorDecision.of(fileId, slot, ColorDecision.Kind.FILE_COLOR));
+        }
         repository.flush();
+    }
+
+    /**
+     * Automatic matching (#76): every colour of the file nobody decided on gets the closest Spoolman
+     * filament within the tolerance as an {@link ChoiceSource#AUTO} choice, or is marked
+     * {@link ColorDecision.Kind#NO_MATCH}. Manual choices, earlier matches and kept file colours are
+     * left alone. Does nothing while Spoolman can't be read, so a later run can still match.
+     *
+     * @param info the file's model info; only its colours (per plate) are used
+     */
+    public void matchAutomatically(long fileId, ModelInfoDto info, int tolerance) {
+        Optional<List<SpoolmanFilament>> filaments = catalog.filamentsIfAvailable();
+        if (filaments.isEmpty()) {
+            return;
+        }
+        List<FilamentChoice> choices = repository.listByFileId(fileId);
+        List<ColorDecision> decided = decisions.listByFileId(fileId);
+        for (FilamentSlot slot : FilamentSlots.of(info)) {
+            boolean undecided = slot.color() != null && !slot.isWholeItem()
+                    && choices.stream().noneMatch(choice -> choice.isFor(slot))
+                    && decided.stream().noneMatch(decision -> decision.isFor(slot));
+            if (!undecided) {
+                continue;
+            }
+            Optional<SpoolmanFilament> match = FilamentMatcher.closest(slot, filaments.get(), tolerance);
+            if (match.isPresent()) {
+                repository.persist(autoChoice(fileId, slot, match.get()));
+            } else {
+                decisions.persist(ColorDecision.of(fileId, slot, ColorDecision.Kind.NO_MATCH));
+            }
+        }
+        repository.flush();
+    }
+
+    private FilamentChoice autoChoice(long fileId, FilamentSlot slot, SpoolmanFilament filament) {
+        FilamentChoice choice = new FilamentChoice();
+        choice.fileId = fileId;
+        choice.plateIndex = slot.plateIndex();
+        choice.originalType = slot.type();
+        choice.originalColor = slot.color();
+        mapper.copy(filament, choice);
+        choice.chosenAt = Instant.now();
+        choice.source = ChoiceSource.AUTO;
+        return choice;
+    }
+
+    /**
+     * The colours of each file no Spoolman filament was close enough to (#76) and that nobody chose
+     * a filament for since, by file id; files without any are left out.
+     *
+     * @param infos what is known about each file, by file id
+     */
+    public Map<Long, List<ColorSlotDto>> unmatched(Collection<Long> fileIds, Map<Long, ModelInfoDto> infos) {
+        Map<Long, List<ColorSlotDto>> unmatched = new HashMap<>();
+        List<ColorDecision> noMatches = decisions.listByFileIds(fileIds).stream()
+                .filter(decision -> decision.decision == ColorDecision.Kind.NO_MATCH)
+                .toList();
+        if (noMatches.isEmpty()) {
+            return unmatched;
+        }
+        Map<Long, List<FilamentChoice>> choicesByFile = repository.listByFileIds(fileIds).stream()
+                .collect(Collectors.groupingBy(choice -> choice.fileId));
+        for (ColorDecision decision : noMatches) {
+            List<FilamentChoice> choices = choicesByFile.getOrDefault(decision.fileId, List.of());
+            FilamentSlots.of(infos.get(decision.fileId)).stream()
+                    .filter(decision::isFor)
+                    .filter(slot -> choices.stream().noneMatch(choice -> choice.isFor(slot)))
+                    .findFirst()
+                    .ifPresent(slot -> unmatched.computeIfAbsent(decision.fileId, id -> new ArrayList<>())
+                            .add(new ColorSlotDto(slot.plateIndex(), slot.type(), slot.color())));
+        }
+        return unmatched;
     }
 
     /**
@@ -112,6 +200,47 @@ public class FilamentChoiceService {
                     .add(mapper.toDto(choice, orphaned, inSpoolman, current.orElse(null), gramsNeeded));
         }
         return described;
+    }
+
+    /**
+     * The densities to estimate these files' plates with (#72): a plate whose only colour has a
+     * chosen filament, or every plate of a file with a whole-file choice, uses that filament's
+     * density from Spoolman. Only while the integration is on and Spoolman can be read; files
+     * without choices are left out (default density).
+     */
+    public Map<Long, FilamentDensities> densities(Collection<Long> fileIds) {
+        Map<Long, SpoolmanFilament> stock = stock();
+        if (stock == null) {
+            return Map.of();
+        }
+        Map<Long, List<FilamentChoice>> choicesByFile = repository.listByFileIds(fileIds).stream()
+                .collect(Collectors.groupingBy(choice -> choice.fileId));
+        Map<Long, FilamentDensities> densities = new HashMap<>();
+        choicesByFile.forEach((fileId, choices) -> {
+            densities.put(fileId, (plateIndex, filaments) -> densityFor(choices, stock, plateIndex, filaments));
+        });
+        return densities;
+    }
+
+    /** The chosen filament's density for a plate with one colour (or none: the whole file); else unknown. */
+    static Double densityFor(List<FilamentChoice> choices, Map<Long, SpoolmanFilament> stock, int plateIndex,
+                             List<FilamentUsage> filaments) {
+        FilamentSlot slot;
+        if (filaments.isEmpty()) {
+            slot = FilamentSlot.wholeItem(null);
+        } else if (filaments.size() == 1) {
+            FilamentUsage only = filaments.getFirst();
+            slot = new FilamentSlot(plateIndex, only.type(), only.color(), null);
+        } else {
+            // Several colours: the plate's estimate can't be split per colour.
+            return null;
+        }
+        return choices.stream()
+                .filter(choice -> choice.isFor(slot))
+                .findFirst()
+                .map(choice -> stock.get(choice.spoolmanFilamentId))
+                .map(SpoolmanFilament::density)
+                .orElse(null);
     }
 
     /**

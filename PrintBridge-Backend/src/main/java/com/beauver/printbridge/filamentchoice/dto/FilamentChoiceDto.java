@@ -1,5 +1,7 @@
 package com.beauver.printbridge.filamentchoice.dto;
 
+import com.beauver.printbridge.filamentchoice.ChoiceSource;
+
 import java.time.Instant;
 import java.util.List;
 
@@ -20,6 +22,7 @@ import java.util.List;
  * @param gramsNeeded   what the request needs of this filament: every item using it times its quantity,
  *                      without declined items; {@code null} when unknown
  * @param notEnough     less is left than needed (or nothing at all): it will be ordered
+ * @param source        a person ({@code MANUAL}) or automatic matching ({@code AUTO}, #76)
  */
 public record FilamentChoiceDto(
         Long id,
@@ -38,5 +41,6 @@ public record FilamentChoiceDto(
         Boolean inSpoolman,
         Double gramsLeft,
         Double gramsNeeded,
-        boolean notEnough) {
+        boolean notEnough,
+        ChoiceSource source) {
 }

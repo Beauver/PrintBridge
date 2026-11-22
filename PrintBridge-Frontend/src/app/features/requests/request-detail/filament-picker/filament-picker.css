@@ -10,6 +10,11 @@
   vertical-align: -0.1rem;
 }
 
+/* No close filament found (#76): a red ring, like the red outline of a changeable colour. */
+.swatch.unmatched {
+  border: 2px solid var(--bs-danger);
+}
+
 /* No colour known: the neutral "pick a filament" circle. */
 .swatch.unknown {
   background-color: var(--bs-secondary-bg);

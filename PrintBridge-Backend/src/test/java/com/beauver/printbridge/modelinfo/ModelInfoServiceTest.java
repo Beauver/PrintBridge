@@ -2,6 +2,7 @@ package com.beauver.printbridge.modelinfo;
 
 import com.beauver.printbridge.common.transaction.RecordingTransactions;
 import com.beauver.printbridge.modelfile.ModelAnalyzer;
+import com.beauver.printbridge.modelfile.FilePlatesChanged;
 import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelfile.StoredModelFile;
 import com.beauver.printbridge.modelfile.StoredModelFiles;
@@ -9,6 +10,7 @@ import com.beauver.printbridge.modelfile.analysis.ModelAnalysis;
 import com.beauver.printbridge.modelfile.analysis.ModelSource;
 import com.beauver.printbridge.modelfile.exception.ModelAnalysisException;
 import com.beauver.printbridge.storage.FileStorage;
+import jakarta.enterprise.event.Event;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -40,6 +42,8 @@ class ModelInfoServiceTest {
     FileStorage storage;
     @Mock
     StoredModelFiles files;
+    @Mock
+    Event<FilePlatesChanged> platesChanged;
 
     @TempDir
     Path dir;
@@ -56,6 +60,7 @@ class ModelInfoServiceTest {
         service.storage = storage;
         service.files = files;
         service.transactions = transactions;
+        service.platesChanged = platesChanged;
         model = Files.createFile(dir.resolve("model.stl"));
         lenient().when(storage.resolve("4/model.stl")).thenReturn(model);
         lenient().when(files.find(7)).thenReturn(Optional.of(FILE));
@@ -88,6 +93,8 @@ class ModelInfoServiceTest {
         assertEquals(12.5, info.volumeMm3);
         // One to look the file up, one to save the result.
         assertEquals(2, transactions.count());
+        // Then, outside the transaction, filaments can be matched to its colours (#76).
+        verify(platesChanged).fire(new FilePlatesChanged(7));
     }
 
     @Test

@@ -97,7 +97,8 @@ public class SpoolmanClient implements SpoolmanConnection {
                 color = color(text(filament, "color_hex"));
             }
             result.add(new SpoolmanFilament(id, text(filament, "name"), text(filament.path("vendor"), "name"),
-                    text(filament, "material"), color, colors, gramsLeft));
+                    text(filament, "material"), color, colors, gramsLeft, number(filament, "price"),
+                    number(filament, "weight"), positive(number(filament, "density"))));
         }
         return result;
     }
@@ -139,6 +140,21 @@ public class SpoolmanClient implements SpoolmanConnection {
             return null;
         }
         return value.asText().trim();
+    }
+
+    private static Double number(JsonNode node, String field) {
+        JsonNode value = node.path(field);
+        if (!value.isNumber()) {
+            return null;
+        }
+        return value.asDouble();
+    }
+
+    private static Double positive(Double value) {
+        if (value == null || value <= 0) {
+            return null;
+        }
+        return value;
     }
 
     /** {@code #RRGGBB} in upper case; {@code null} for anything else. */

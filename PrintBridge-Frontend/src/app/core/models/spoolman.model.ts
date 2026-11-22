@@ -54,6 +54,15 @@ export interface FilamentChoice {
   gramsNeeded: number | null;
   /** Less is left than needed: it will be ordered. */
   notEnough: boolean;
+  /** A person, or automatic matching (#76). */
+  source: 'MANUAL' | 'AUTO';
+}
+
+/** A colour of a plate as the model info lists it. */
+export interface ColorSlot {
+  plateIndex: number;
+  originalType: string | null;
+  originalColor: string;
 }
 
 /** What a filament is chosen for: a colour of a plate, or the whole item. */

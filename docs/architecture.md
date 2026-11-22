@@ -26,6 +26,7 @@ Packages under `com.beauver.printbridge`, one per domain:
 | `preview` | 3D preview: mesh encoding, preview before upload, mesh and plate images of request files |
 | `settings` | Admin-editable application settings (server slicing, upload limits, Spoolman switches). `printer`: the owned printers with their build plate |
 | `spoolman` | Read-only Spoolman client, the cached filament list (`SpoolmanCatalog`) and the status / filament endpoints (#11) |
+| `pricing` | The price estimate (#72): `PricingStrategy` with `SpoolmanPrices` (Spoolman price per gram × markup) and `PricePerHundredGrams`, chosen by `PricingService` from the settings |
 | `filamentchoice` | The Spoolman filaments chosen per colour of a plate (or whole item), which colours a file has (`FilamentSlots`) and the grams a request needs of each filament |
 | `slicing` | Server slicing: planner (which printer/nozzle/profiles), background worker. `result`: stored results, which are also the job queue. `client`: client for the slicer service |
 | `storage` | `FileStorage`: files on disk under `STORAGE_PATH` |
@@ -50,12 +51,13 @@ Dependencies between packages go one way:
 
 ```
 common, storage ◀─ modelfile ◀─ settings ◀─ modelinfo, slicing ◀─ printrequest ◀─ preview
-                                 settings ◀─ spoolman ◀─ filamentchoice ◀─ printrequest
+                                 settings ◀─ spoolman ◀─ filamentchoice ◀─ pricing ◀─ printrequest
 ```
 
 - `auth` and `user` belong together and use each other; everything may use them.
 - `modelinfo` and `slicing` work on files by id and find them through `modelfile.StoredModelFiles`, which `printrequest` implements (`RequestFileLookup`). Links (#59) live in the same table but are never found there, so they are never analysed or sliced.
-- `settings` checks whether Spoolman is set up through `SpoolmanConnection`, which the Spoolman client implements, and fires `SpoolmanToggled` so the catalog forgets its list when the integration is switched on. `filamentchoice` gets the items of a request as plain values (`ChoiceItem`), not as entities.
+- `settings` checks whether Spoolman is set up through `SpoolmanConnection`, which the Spoolman client implements, and fires `SpoolmanToggled` so the catalog forgets its list when the integration is switched on. `filamentchoice` and `pricing` get the items of a request as plain values (`ChoiceItem`, `PricedItem`), not as entities. `modelinfo` gets the densities for its estimates as a `FilamentDensities` lookup per file, built by `filamentchoice`, so it doesn't depend on the choices.
+- When a file's plates and colours become known (analysed, or sliced on the server), `modelinfo` and `slicing` fire `modelfile.FilePlatesChanged` outside any transaction. `printrequest.AutomaticMatching` listens and has `filamentchoice` match filaments to the colours (#76); it never lets a failure reach the analysis or the slice job.
 - Deleting a user fires `UserDeleted`; `printrequest` listens and removes the user's files, so `user` doesn't know about print requests.
 
 Conventions:

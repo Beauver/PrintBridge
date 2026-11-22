@@ -15,7 +15,8 @@ Issue: #5 (part of #2); the Printing status is #22.
   - Completed is disabled ("set a price first") until a price is set.
   - Errors from the server (e.g. someone else changed it first) appear under the name.
 - **Price & payment panel** (admin, on the request detail page, above the details; shown while the price or paid can still change):
-  - **Final price (EUR):** €0 to € 99.999.999,99 with at most 2 decimals. *Save* (or Enter) sets or changes it; *Clear* returns it to "Price pending". Locked while the request is paid.
+  - **Final price (EUR):** €0 to € 99.999.999,99 with at most 2 decimals. *Save* (or Enter) sets or changes it; *Clear* returns it to "Price pending" (or the [estimate](pricing.md)). Locked while the request is paid.
+  - While there is an [estimated price](pricing.md) (#72), it is the field's placeholder, and *Save* with an empty field saves it.
   - **Paid:** *Mark as paid* / *Mark as unpaid* on Accepted, Printing and Completed requests that have a price. This is the only thing that can still change on a Completed request.
   - The page updates in place after every change. Errors from the server appear in the panel.
 - The back link on the detail page goes to *All requests* for the admin and *My requests* for users.
@@ -83,4 +84,4 @@ Issue: #61. Every file and link of a request has its own status, so the admin ca
 
 ## Not included
 
-Comments, editing request details, notifications (also when printing starts), per-status timestamps, price estimation (#72), paging. The filaments requesters chose show on the model and link cards ([Spoolman filaments](spoolman.md), #11). Out of #61: per-item prices, items changing the request status, the requester changing item statuses.
+Comments, editing request details, notifications (also when printing starts), per-status timestamps, paging. The estimated price is in [pricing](pricing.md) (#72). The filaments requesters chose show on the model and link cards ([Spoolman filaments](spoolman.md), #11). Out of #61: per-item prices, items changing the request status, the requester changing item statuses.

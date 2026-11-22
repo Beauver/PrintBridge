@@ -57,6 +57,11 @@ public class FilamentChoice extends PanacheEntityBase {
     @Column(name = "chosen_at", nullable = false)
     public Instant chosenAt;
 
+    /** A person, or automatic matching (#76). */
+    @Enumerated(EnumType.STRING)
+    @Column(nullable = false, length = 16)
+    public ChoiceSource source = ChoiceSource.MANUAL;
+
     /** Whether this choice is for that colour of that plate. */
     public boolean isFor(FilamentSlot slot) {
         return slot.matches(plateIndex, originalType, originalColor);

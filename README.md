@@ -10,7 +10,7 @@ Payment is out of scope: prices are indications and payment happens in person.
 - **Owner (admin):** dashboard of all requests with filters and search, review the model and choices, comment, edit details and the final price, accept or decline with a reason, update status.
 - **Filaments from Spoolman:** the backend reads your self-hosted [Spoolman](https://github.com/Donkie/Spoolman) (read-only, with caching), so options always reflect your inventory. Requesters pick a filament per colour of each plate; when there isn't enough left, they're told it will be ordered and the print may be delayed.
 - **Model info and server slicing:** dimensions, plates, filament and print time per upload. With the optional slicer service, every upload is sliced with OrcaSlicer for your printer, so the numbers are exact.
-- **Price indication:** estimated weight × price per gram × quantity, behind a `PricingStrategy` so it can be extended later. The owner's final price overrides it.
+- **Price indication:** estimated weight × the chosen filament's Spoolman price per gram × a markup, or a fixed price per 100 g, behind a `PricingStrategy`. Estimated grams use the filament's density. The owner's final price overrides it.
 
 Status flow: `SUBMITTED → IN_REVIEW → ACCEPTED / DECLINED → COMPLETED`
 

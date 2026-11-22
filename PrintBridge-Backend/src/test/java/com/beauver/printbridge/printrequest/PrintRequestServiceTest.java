@@ -7,6 +7,7 @@ import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.common.transaction.AfterTransaction;
 import com.beauver.printbridge.common.transaction.RecordingTransactions;
 import com.beauver.printbridge.filamentchoice.FilamentChoiceService;
+import com.beauver.printbridge.pricing.PricingService;
 import com.beauver.printbridge.modelfile.ModelFileType;
 import com.beauver.printbridge.modelfile.ModelFileValidator;
 import com.beauver.printbridge.modelinfo.ModelInfoService;
@@ -94,6 +95,9 @@ class PrintRequestServiceTest {
     @Mock
     FilamentChoiceService filamentChoices;
 
+    @Mock
+    PricingService pricing;
+
     @BeforeEach
     void setUp() {
         service = new PrintRequestService();
@@ -109,6 +113,8 @@ class PrintRequestServiceTest {
         service.settings = settings;
         service.customReslice = customReslice;
         service.filamentChoices = filamentChoices;
+        service.pricing = pricing;
+        lenient().when(pricing.estimate(anyList())).thenReturn(Optional.empty());
         lenient().when(settings.getSpoolman()).thenReturn(SpoolmanSettings.OFF);
         lenient().when(filamentChoices.describe(anyCollection(), anyMap())).thenReturn(Map.of());
         lenient().when(settings.getUploads()).thenReturn(new UploadLimits(3, 2, 5));
@@ -116,7 +122,7 @@ class PrintRequestServiceTest {
             assignFileIds();
             return null;
         }).when(requests).flush();
-        lenient().when(modelInfo.describe(anyCollection(), anyBoolean())).thenAnswer(inv -> {
+        lenient().when(modelInfo.describe(anyCollection(), anyBoolean(), anyMap())).thenAnswer(inv -> {
             Collection<Long> fileIds = inv.getArgument(0);
             Map<Long, ModelInfoDto> infos = new HashMap<>();
             fileIds.forEach(id -> infos.put(id, ModelInfoDto.withStatus(ModelInfoStatus.PENDING, null)));
@@ -970,7 +976,7 @@ class PrintRequestServiceTest {
         assertEquals(0, dto.totals().files());
         verifyNoInteractions(storage, validator, slicing, afterTransaction);
         verify(modelInfo, never()).analyze(anyLong());
-        verify(modelInfo).describe(List.of(), false);
+        verify(modelInfo).describe(eq(List.of()), eq(false), anyMap());
     }
 
     @Test
@@ -1024,7 +1030,7 @@ class PrintRequestServiceTest {
         verify(requests).findLockedWithDetails(4);
         verifyNoInteractions(storage, slicing);
         verify(modelInfo, never()).analyze(anyLong());
-        verify(modelInfo).describe(List.of(104L), false);
+        verify(modelInfo).describe(eq(List.of(104L)), eq(false), anyMap());
     }
 
     @Test

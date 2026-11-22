@@ -3,6 +3,7 @@ package com.beauver.printbridge.settings;
 import io.quarkus.hibernate.orm.panache.PanacheEntityBase;
 import jakarta.persistence.*;
 
+import java.math.BigDecimal;
 import java.time.Instant;
 
 /** The single row of application settings (id 1, created by the migration). */
@@ -41,9 +42,33 @@ public class AppSettings extends PanacheEntityBase {
     @Column(name = "spoolman_color_selection", nullable = false)
     public boolean spoolmanColorSelection;
 
+    /** Colours of new projects get the closest Spoolman filament (#76); needs {@link #spoolmanColorSelection}. */
+    @Column(name = "spoolman_auto_match", nullable = false)
+    public boolean spoolmanAutoMatch;
+
+    /** Largest colour difference (CIEDE2000 ΔE, 1–100) automatic matching accepts. */
+    @Column(name = "spoolman_match_tolerance", nullable = false)
+    public int spoolmanMatchTolerance = SpoolmanSettings.DEFAULT_MATCH_TOLERANCE;
+
+    /** The admin's warning for a colour without a close filament; {@code null} means the default text. */
+    @Column(name = "spoolman_no_match_message", length = 300)
+    public String spoolmanNoMatchMessage;
+
     /** The admin's warning for a filament that runs short; {@code null} means the default text. */
     @Column(name = "spoolman_not_enough_message", length = 300)
     public String spoolmanNotEnoughMessage;
+
+    /** The price estimate uses the chosen filaments' Spoolman prices (#72); needs {@link #spoolmanEnabled}. */
+    @Column(name = "spoolman_prices", nullable = false)
+    public boolean spoolmanPrices;
+
+    /** Multiplier on Spoolman's price per gram. */
+    @Column(name = "pricing_markup", nullable = false, precision = 5, scale = 2)
+    public BigDecimal pricingMarkup;
+
+    /** EUR per 100 g: the default price for everything without a Spoolman price; zero means none. */
+    @Column(name = "price_per_100_grams", nullable = false, precision = 6, scale = 2)
+    public BigDecimal pricePer100Grams;
 
     @Column(name = "updated_at", nullable = false)
     public Instant updatedAt;

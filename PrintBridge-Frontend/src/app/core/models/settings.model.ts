@@ -46,8 +46,24 @@ export interface UploadLimits extends UploadSettings {
 export interface SpoolmanSettings {
   enabled: boolean;
   colorSelection: boolean;
+  /** The price estimate uses the chosen filaments' Spoolman prices (#72); needs the integration. */
+  prices: boolean;
+  /** Colours of new projects get the closest filament automatically (#76); needs colour selection. */
+  autoMatch: boolean;
+  /** The largest colour difference (CIEDE2000 ΔE, 1–100) automatic matching accepts. */
+  matchTolerance: number;
+  /** The warning for colours without a close filament; the default text unless the admin set one. */
+  noMatchMessage: string;
   /** The warning for a filament that runs short; the default text unless the admin set one. */
   notEnoughMessage: string;
+}
+
+/** The price estimate (#72); whether Spoolman's prices are used is a Spoolman setting. */
+export interface PricingSettings {
+  /** Multiplies every price (0.01–100). */
+  markup: number;
+  /** EUR per 100 g: the default for everything without a Spoolman price; 0 = none. */
+  pricePer100Grams: number;
 }
 
 export interface Settings {
@@ -58,4 +74,5 @@ export interface Settings {
   printers: Printer[];
   uploads: UploadLimits;
   spoolman: SpoolmanSettings;
+  pricing: PricingSettings;
 }

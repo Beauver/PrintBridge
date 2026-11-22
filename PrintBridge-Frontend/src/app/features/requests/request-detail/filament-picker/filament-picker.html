@@ -11,7 +11,9 @@
          caret is Bootstrap's dropdown-toggle (ngbDropdownAnchor adds the class). -->
     <button
       type="button"
-      class="btn btn-sm btn-outline-secondary picker-button"
+      class="btn btn-sm picker-button"
+      [class.btn-outline-secondary]="!unmatched()"
+      [class.btn-outline-danger]="unmatched()"
       [title]="title()"
       [attr.aria-label]="title()"
       [attr.aria-expanded]="open()"
@@ -25,6 +27,7 @@
     <span
       class="swatch"
       [class.unknown]="!background()"
+      [class.unmatched]="unmatched()"
       [style.background]="background()"
       [title]="title()"
       data-cy="filament-picker-circle"

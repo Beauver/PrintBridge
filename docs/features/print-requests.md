@@ -100,4 +100,4 @@ The *Uploads* card on the admin settings page:
 
 ## Not included
 
-Review (see [admin review](admin-review.md)), comments, editing name/description, pricing (#72; it will use the quantities). Choosing filaments per colour is in [Spoolman filaments](spoolman.md) (#11). Out of #23: reordering files, per-file statuses or prices, uploading folders or ZIPs to unpack, changing the allowed extensions in the app, resumable uploads. Out of #59: attaching the real file to a link later (the admin uses *Add files* and removes the link), editing a link, fetching titles or thumbnails, allowing only certain sites.
+Review (see [admin review](admin-review.md)), comments, editing name/description, the price estimate ([pricing](pricing.md), #72). Choosing filaments per colour is in [Spoolman filaments](spoolman.md) (#11). Out of #23: reordering files, per-file statuses or prices, uploading folders or ZIPs to unpack, changing the allowed extensions in the app, resumable uploads. Out of #59: attaching the real file to a link later (the admin uses *Add files* and removes the link), editing a link, fetching titles or thumbnails, allowing only certain sites.

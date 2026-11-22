@@ -11,7 +11,9 @@ import com.beauver.printbridge.slicing.SlicingService;
 import com.beauver.printbridge.slicing.result.SliceResult;
 import com.beauver.printbridge.storage.FileStorage;
 import io.quarkus.logging.Log;
+import com.beauver.printbridge.modelfile.FilePlatesChanged;
 import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.enterprise.event.Event;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 
@@ -52,6 +54,10 @@ public class ModelInfoService {
     @Inject
     StoredModelFiles files;
 
+    /** Fired after an analysis is saved, so filaments can be matched to its colours (#76). */
+    @Inject
+    Event<FilePlatesChanged> platesChanged;
+
     @Inject
     SlicingService slicing;
 
@@ -73,6 +79,9 @@ public class ModelInfoService {
         }
         ModelInfo info = analysisOf(file.get());
         transactions.run(() -> save(info));
+        if (info.status == ModelInfoStatus.ANALYZED) {
+            platesChanged.fire(new FilePlatesChanged(fileId));
+        }
     }
 
     private Optional<StoredModelFile> withoutInfo(long fileId) {
@@ -123,12 +132,22 @@ public class ModelInfoService {
      * included for the admin. Everything is loaded at once, however many files there are.
      */
     public Map<Long, ModelInfoDto> describe(Collection<Long> fileIds, boolean admin) {
+        return describe(fileIds, admin, Map.of());
+    }
+
+    /**
+     * Like {@link #describe(Collection, boolean)}, estimating plate grams with the densities of the
+     * filaments chosen for each file (#72); files without an entry use the default density.
+     */
+    public Map<Long, ModelInfoDto> describe(Collection<Long> fileIds, boolean admin,
+                                            Map<Long, FilamentDensities> densities) {
         ModelDetailsCalculator.Context context = new ModelDetailsCalculator.Context(settings.getSlicing(), admin);
         Map<Long, ModelInfo> infos = repository.findByFileIds(fileIds);
         Map<Long, SliceResult> slices = slicing.find(fileIds);
         Map<Long, ModelInfoDto> described = new HashMap<>();
         for (Long fileId : fileIds) {
-            ModelDetails details = calculator.calculate(infos.get(fileId), slices.get(fileId), context);
+            ModelDetails details = calculator.calculate(infos.get(fileId), slices.get(fileId), context,
+                    densities.getOrDefault(fileId, FilamentDensities.NONE));
             described.put(fileId, mapper.toDto(details));
         }
         return described;

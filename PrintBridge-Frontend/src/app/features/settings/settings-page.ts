@@ -4,28 +4,36 @@ import { errorMessage } from '../../core/http/api-error';
 import { Settings } from '../../core/models/settings.model';
 import { SlicerPrinter, SlicerStatus } from '../../core/models/slicer.model';
 import { SpoolmanStatus } from '../../core/models/spoolman.model';
+import { PricingSettingsCard } from './pricing-settings/pricing-settings';
 import { PrintersCard } from './printers-card/printers-card';
 import { SettingsService } from './settings.service';
 import { SlicingSettingsCard } from './slicing-settings/slicing-settings';
 import { SpoolmanSettingsCard } from './spoolman-settings/spoolman-settings';
 import { UploadSettingsCard } from './upload-settings/upload-settings';
 
-export type SettingsTab = 'printers' | 'slicing' | 'uploads' | 'spoolman';
+export type SettingsTab = 'printers' | 'slicing' | 'uploads' | 'spoolman' | 'pricing';
 
 export const SETTINGS_TABS: { id: SettingsTab; label: string }[] = [
   { id: 'printers', label: 'Printers' },
   { id: 'slicing', label: 'Slicing' },
   { id: 'uploads', label: 'Uploads' },
   { id: 'spoolman', label: 'Spoolman' },
+  { id: 'pricing', label: 'Pricing' },
 ];
 
 /**
  * Admin page for application settings, one tab per card: the printers, server slicing, the
- * upload limits and Spoolman. The open tab is in the URL (`?tab=spoolman`).
+ * upload limits, Spoolman and pricing. The open tab is in the URL (`?tab=spoolman`).
  */
 @Component({
   selector: 'app-settings-page',
-  imports: [SlicingSettingsCard, PrintersCard, UploadSettingsCard, SpoolmanSettingsCard],
+  imports: [
+    SlicingSettingsCard,
+    PrintersCard,
+    UploadSettingsCard,
+    SpoolmanSettingsCard,
+    PricingSettingsCard,
+  ],
   templateUrl: './settings-page.html',
 })
 export class SettingsPage implements OnInit {

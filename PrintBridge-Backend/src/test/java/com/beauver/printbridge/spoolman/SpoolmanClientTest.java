@@ -59,7 +59,7 @@ class SpoolmanClientTest {
     void combinesFilamentsWithWhatIsLeftOnTheirSpools() {
         bodies.put("/api/v1/filament", """
                 [{"id": 1, "name": "PLA Basic", "vendor": {"id": 3, "name": "Bambu Lab"}, "material": "PLA",
-                  "color_hex": "ff0000"},
+                  "color_hex": "ff0000", "price": 25.0, "weight": 1000, "density": 1.24},
                  {"id": 2, "name": "Silk Dual", "material": "PLA", "color_hex": "000000",
                   "multi_color_hexes": "FF0000,00ff00ff,bad", "multi_color_direction": "coaxial"},
                  {"id": 3, "name": "  ", "material": "PETG", "color_hex": "#12345"},
@@ -77,11 +77,13 @@ class SpoolmanClientTest {
         List<SpoolmanFilament> filaments = client.filaments();
 
         assertEquals(List.of(
-                new SpoolmanFilament(1, "PLA Basic", "Bambu Lab", "PLA", "#FF0000", List.of(), 500.5),
-                new SpoolmanFilament(2, "Silk Dual", null, "PLA", null, List.of("#FF0000", "#00FF00"), 0.0),
+                new SpoolmanFilament(1, "PLA Basic", "Bambu Lab", "PLA", "#FF0000", List.of(), 500.5, 25.0, 1000.0,
+                        1.24),
+                new SpoolmanFilament(2, "Silk Dual", null, "PLA", null, List.of("#FF0000", "#00FF00"), 0.0, null, null,
+                        null),
                 // A spool without a known weight makes the whole filament unknown.
-                new SpoolmanFilament(3, null, null, "PETG", null, List.of(), null),
-                new SpoolmanFilament(4, null, null, "ABS", null, List.of(), 0.0)), filaments);
+                new SpoolmanFilament(3, null, null, "PETG", null, List.of(), null, null, null, null),
+                new SpoolmanFilament(4, null, null, "ABS", null, List.of(), 0.0, null, null, null)), filaments);
     }
 
     @Test
@@ -114,5 +116,15 @@ class SpoolmanClientTest {
         assertNull(SpoolmanClient.color("abc"));
         assertNull(SpoolmanClient.color(null));
         assertEquals(List.of(), SpoolmanClient.colors(null));
+    }
+
+    @Test
+    void pricePerGramNeedsAPriceAndAWeight() {
+        SpoolmanFilament filament =
+                new SpoolmanFilament(1, null, null, null, null, List.of(), null, 25.0, 1000.0, null);
+        assertEquals(0.025, filament.pricePerGram());
+        assertNull(new SpoolmanFilament(1, null, null, null, null, List.of(), null, null, 1000.0, null).pricePerGram());
+        assertNull(new SpoolmanFilament(1, null, null, null, null, List.of(), null, 25.0, 0.0, null).pricePerGram());
+        assertNull(new SpoolmanFilament(1, null, null, null, null, List.of(), null, -1.0, 1000.0, null).pricePerGram());
     }
 }

@@ -41,7 +41,7 @@ public class FilamentChoiceMapper {
                 choice.originalColor,
                 choice.spoolmanFilamentId, choice.filamentName, choice.filamentVendor, choice.filamentMaterial,
                 choice.filamentColor, colors(choice.filamentColors), choice.chosenAt, orphaned, inSpoolman, gramsLeft,
-                gramsNeeded, notEnough);
+                gramsNeeded, notEnough, choice.source);
     }
 
     private static List<String> colors(String joined) {

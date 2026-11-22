@@ -90,8 +90,8 @@ export function notEnoughFor(filament: SpoolmanFilament, gramsNeeded: number | n
   return gramsNeeded !== null && gramsNeeded > filament.gramsLeft;
 }
 
-/** Whether the choice is for this colour of this plate (colours ignore case). */
-export function isChoiceFor(choice: FilamentChoice, slot: FilamentSlot): boolean {
+/** Whether the choice (or another slot) is for this colour of this plate (colours ignore case). */
+export function isChoiceFor(choice: FilamentSlot, slot: FilamentSlot): boolean {
   return (
     choice.wholeItem === slot.wholeItem &&
     choice.plateIndex === slot.plateIndex &&

@@ -59,7 +59,11 @@
         <dl class="col-md-6 row mb-0 mx-0 px-0" data-cy="request-numbers">
           <dt class="col-5">Price</dt>
           <dd class="col-7" data-cy="request-price">
-            <app-price-tag [price]="request.finalPrice" [paidAt]="request.paidAt" />
+            <app-price-tag
+              [price]="request.finalPrice"
+              [paidAt]="request.paidAt"
+              [estimate]="request.estimatedPrice"
+            />
           </dd>
           @if (summary(); as summary) {
             <dt class="col-5">Filament</dt>
@@ -285,6 +289,8 @@
           [filamentChoices]="file.filamentChoices"
           [filamentSelection]="request.filamentSelection"
           [notEnoughMessage]="request.notEnoughFilamentMessage"
+          [unmatchedColors]="file.unmatchedColors"
+          [noMatchMessage]="request.noMatchMessage"
           (resliceWith)="onResliceWith(file)"
           (filamentChosen)="chooseFilament(file, $event)"
           (filamentReset)="resetFilament(file, $event)"

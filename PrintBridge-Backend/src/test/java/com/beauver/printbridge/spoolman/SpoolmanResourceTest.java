@@ -10,6 +10,7 @@ import jakarta.inject.Inject;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 
@@ -44,8 +45,26 @@ class SpoolmanResourceTest {
 
     private ValidatableResponse saveSwitches(boolean enabled, boolean colorSelection) {
         return given().auth().oauth2(adminToken).contentType(ContentType.JSON)
-                .body(Map.of("enabled", enabled, "colorSelection", colorSelection))
+                .body(switches(enabled, colorSelection, false))
                 .put("/api/settings/spoolman").then();
+    }
+
+    /** A body for {@code PUT /settings/spoolman}: matching off, the default tolerance, optional warning text. */
+    private static Map<String, Object> switches(boolean enabled, boolean colorSelection, boolean prices) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("enabled", enabled);
+        body.put("colorSelection", colorSelection);
+        body.put("prices", prices);
+        body.put("autoMatch", false);
+        body.put("matchTolerance", 20);
+        return body;
+    }
+
+    private static Map<String, Object> switches(boolean enabled, boolean colorSelection, boolean prices,
+                                                String notEnoughMessage) {
+        Map<String, Object> body = switches(enabled, colorSelection, prices);
+        body.put("notEnoughMessage", notEnoughMessage);
+        return body;
     }
 
     @Test
@@ -101,8 +120,7 @@ class SpoolmanResourceTest {
                 .body("notEnoughFilamentMessage", is(defaultText));
 
         given().auth().oauth2(adminToken).contentType(ContentType.JSON)
-                .body(Map.of("enabled", true, "colorSelection", true,
-                        "notEnoughMessage", "  We'll order it, give us a week.  "))
+                .body(switches(true, true, false, "  We'll order it, give us a week.  "))
                 .put("/api/settings/spoolman").then().statusCode(200)
                 .body("spoolman.notEnoughMessage", is("We'll order it, give us a week."));
         given().auth().oauth2(adminToken).get("/api/requests/" + requestId).then()
@@ -115,14 +133,31 @@ class SpoolmanResourceTest {
 
         // Empty goes back to the default; leaving the field out too.
         given().auth().oauth2(adminToken).contentType(ContentType.JSON)
-                .body(Map.of("enabled", true, "colorSelection", true, "notEnoughMessage", " "))
+                .body(switches(true, true, false, " "))
                 .put("/api/settings/spoolman").then().statusCode(200)
                 .body("spoolman.notEnoughMessage", is(defaultText));
         saveSwitches(true, false).statusCode(200).body("spoolman.notEnoughMessage", is(defaultText));
 
         given().auth().oauth2(adminToken).contentType(ContentType.JSON)
-                .body(Map.of("enabled", true, "colorSelection", true, "notEnoughMessage", "x".repeat(301)))
+                .body(switches(true, true, false, "x".repeat(301)))
                 .put("/api/settings/spoolman").then().statusCode(400);
+    }
+
+    @Test
+    void spoolmanPricesNeedTheIntegration() {
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(switches(true, false, true))
+                .put("/api/settings/spoolman").then().statusCode(200)
+                .body("spoolman.prices", is(true));
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(switches(false, false, true))
+                .put("/api/settings/spoolman").then().statusCode(400)
+                .body("message", is("Switch the Spoolman integration on before using its prices"));
+        spoolman.configured = false;
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(switches(false, false, true))
+                .put("/api/settings/spoolman").then().statusCode(400)
+                .body("message", is("Set SPOOLMAN_URL on the server before switching Spoolman on"));
     }
 
     @Test
@@ -139,7 +174,7 @@ class SpoolmanResourceTest {
         given().auth().oauth2(adminToken).contentType(ContentType.JSON).body(Map.of("enabled", true))
                 .put("/api/settings/spoolman").then().statusCode(400);
         given().auth().oauth2(userToken).contentType(ContentType.JSON)
-                .body(Map.of("enabled", false, "colorSelection", false))
+                .body(switches(false, false, false))
                 .put("/api/settings/spoolman").then().statusCode(403);
     }
 
@@ -148,8 +183,9 @@ class SpoolmanResourceTest {
         spoolman.filaments.addAll(List.of(
                 FakeSpoolmanClient.filament(1, "PLA", "#FF0000", 0.0),
                 FakeSpoolmanClient.filament(2, "ABS", "#000000", 300.0),
-                new SpoolmanFilament(3, "Silk", null, "PLA", null, List.of("#FF0000", "#00FF00"), 50.0),
-                new SpoolmanFilament(4, null, null, null, "#FFFFFF", List.of(), null)));
+                new SpoolmanFilament(3, "Silk", null, "PLA", null, List.of("#FF0000", "#00FF00"), 50.0, null, null,
+                        null),
+                new SpoolmanFilament(4, null, null, null, "#FFFFFF", List.of(), null, null, null, null)));
 
         given().auth().oauth2(userToken).get("/api/spoolman/filaments").then().statusCode(409)
                 .body("message", is("Choosing filaments from Spoolman is switched off"));

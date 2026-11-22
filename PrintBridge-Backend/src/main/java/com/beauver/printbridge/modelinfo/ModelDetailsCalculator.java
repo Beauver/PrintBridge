@@ -33,7 +33,8 @@ public class ModelDetailsCalculator {
     public record Context(SlicingSettings settings, boolean admin) {
     }
 
-    public ModelDetails calculate(ModelInfo info, SliceResult slice, Context context) {
+    /** @param densities the density for estimated plates (#72); {@link FilamentDensities#NONE} for the default */
+    public ModelDetails calculate(ModelInfo info, SliceResult slice, Context context, FilamentDensities densities) {
         SlicingDetails slicing = slicingInfo(slice, context);
         if (info == null) {
             return ModelDetails.withStatus(ModelInfoStatus.PENDING, slicing);
@@ -47,7 +48,7 @@ public class ModelDetailsCalculator {
         Optional<PrinterSettings> fitPrinter = fitPrinter(slice, context);
         Optional<BuildPlate> buildPlate = fitPrinter.map(PrinterSettings::buildPlate);
         List<PlateDetails> plates = info.plates.stream()
-                .map(plate -> plate(plate, sliced.get(plate.index()), projectColours, buildPlate, context))
+                .map(plate -> plate(plate, sliced.get(plate.index()), projectColours, buildPlate, context, densities))
                 .toList();
 
         List<PlateDetails> filled = plates.stream().filter(plate -> plate.grams() != null).toList();
@@ -102,7 +103,7 @@ public class ModelDetailsCalculator {
     }
 
     private static PlateDetails plate(PlateAnalysis plate, SlicedPlate server, boolean projectColours,
-                                  Optional<BuildPlate> buildPlate, Context context) {
+                                  Optional<BuildPlate> buildPlate, Context context, FilamentDensities densities) {
         String sliceError = null;
         if (server != null && server.error() != null && context.admin()) {
             sliceError = server.error();
@@ -128,7 +129,8 @@ public class ModelDetailsCalculator {
             seconds = plate.printSeconds();
             filaments = plate.filaments();
         } else {
-            grams = (double) Math.round(FilamentEstimate.grams(plate.volumeMm3()));
+            Double density = densities.densityFor(plate.index(), plate.filaments());
+            grams = (double) Math.round(FilamentEstimate.grams(plate.volumeMm3(), density));
             seconds = null;
             filaments = plate.filaments();
             estimated = true;

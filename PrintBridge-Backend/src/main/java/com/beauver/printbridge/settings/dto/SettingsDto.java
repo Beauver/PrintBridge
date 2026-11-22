@@ -9,11 +9,13 @@ import java.util.List;
  * @param printers         the owned printers, in the order they were added
  * @param uploads          the upload limits (#23)
  * @param spoolman         the Spoolman switches as saved (#11)
+ * @param pricing          the price estimate settings as saved (#72)
  */
 public record SettingsDto(
         SlicingSettingsDto slicing,
         Long defaultPrinterId,
         List<PrinterDto> printers,
         UploadLimitsDto uploads,
-        SpoolmanSettingsDto spoolman) {
+        SpoolmanSettingsDto spoolman,
+        PricingSettingsDto pricing) {
 }

@@ -1,5 +1,5 @@
 import { ModelInfo, WeightKind } from './model-info.model';
-import { FilamentChoice } from './spoolman.model';
+import { ColorSlot, FilamentChoice } from './spoolman.model';
 
 export type RequestStatus =
   'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'PRINTING' | 'DECLINED' | 'COMPLETED';
@@ -11,6 +11,14 @@ export type ModelFileType = 'STL' | 'THREE_MF';
 
 /** Status of one file or link of a request (#61), set by the admin. */
 export type ItemStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'PRINTING' | 'COMPLETED';
+
+/** The automatic price of a request until the admin sets the final price (#72). */
+export interface EstimatedPrice {
+  /** EUR, rounded to cents. */
+  amount: number;
+  /** Some parts had no grams or price, so the real price is higher. */
+  partial: boolean;
+}
 
 /** A row in a request list. `finalPrice` is null while the price is pending. */
 export interface PrintRequestSummary {
@@ -26,6 +34,8 @@ export interface PrintRequestSummary {
   itemsCompleted: number;
   /** Files and links that aren't declined. */
   itemsActive: number;
+  /** While there is no final price and the request isn't declined; null when nothing could be priced. */
+  estimatedPrice: EstimatedPrice | null;
 }
 
 /** An uploaded STL/3MF of a request. */
@@ -48,6 +58,8 @@ export interface UploadedFile {
   modelInfo: ModelInfo;
   /** The Spoolman filaments chosen for its colours (#11). */
   filamentChoices: FilamentChoice[];
+  /** Colours automatic matching found no close filament for, and nobody decided on since (#76). */
+  unmatchedColors: ColorSlot[];
 }
 
 /** A link to a model elsewhere (#59); the owner downloads it themselves. */
@@ -69,6 +81,8 @@ export interface RequestLink {
   modelInfo: null;
   /** At most one, for the whole link (#11). */
   filamentChoices: FilamentChoice[];
+  /** Always empty: links aren't matched automatically. */
+  unmatchedColors: ColorSlot[];
 }
 
 /** An entry of a request: a file or a link. They share the quantity and the per-request limit. */
@@ -118,6 +132,10 @@ export interface PrintRequest {
   filamentSelection: boolean;
   /** What to show when a chosen filament runs short; set by the admin in Settings → Spoolman. */
   notEnoughFilamentMessage: string;
+  /** What to show for colours without a close filament (#76); set by the admin. */
+  noMatchMessage: string;
+  /** While there is no final price and the request isn't declined; null when nothing could be priced. */
+  estimatedPrice: EstimatedPrice | null;
 }
 
 export interface UploadConfig {

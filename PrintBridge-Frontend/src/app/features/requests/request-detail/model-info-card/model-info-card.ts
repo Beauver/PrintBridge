@@ -12,6 +12,7 @@ import { RouterLink } from '@angular/router';
 import { FilamentInfo, ModelInfo, PlateInfo } from '../../../../core/models/model-info.model';
 import { PreviewColor } from '../../../../core/models/model-preview.model';
 import {
+  ColorSlot,
   FilamentChoice,
   FilamentChoiceInput,
   FilamentSlot,
@@ -64,6 +65,10 @@ export class ModelInfoCard implements OnInit {
   readonly filamentSelection = input(false);
   /** Shown when a chosen filament runs short (set by the admin). */
   readonly notEnoughMessage = input('');
+  /** Colours automatic matching found no close filament for (#76). */
+  readonly unmatchedColors = input<ColorSlot[]>([]);
+  /** Shown while some colour has no close filament (set by the admin). */
+  readonly noMatchMessage = input('');
   readonly filamentChosen = output<FilamentChoiceInput>();
   /** The id of a choice to remove. */
   readonly filamentReset = output<number>();
@@ -474,6 +479,29 @@ export class ModelInfoCard implements OnInit {
       originalType: filament.type,
       originalColor: filament.color,
     };
+  }
+
+  /** The no-match warning (#76) for a plate with a colour no close filament was found for. */
+  protected noMatchOn(plate: PlateInfo): string | null {
+    const unmatched = plate.filaments.some((filament) => {
+      return this.isUnmatched(this.slotOf(plate, filament));
+    });
+    if (!unmatched) {
+      return null;
+    }
+    return this.noMatchMessage();
+  }
+
+  /** Whether automatic matching found no close filament for this colour (#76). */
+  protected isUnmatched(slot: FilamentSlot): boolean {
+    return this.unmatchedColors().some((unmatched) => {
+      return isChoiceFor({ ...unmatched, wholeItem: false }, slot);
+    });
+  }
+
+  /** Whether this colour's filament was matched automatically (#76). */
+  protected isAutomatic(slot: FilamentSlot): boolean {
+    return this.choiceFor(slot)?.source === 'AUTO';
   }
 
   protected choiceFor(slot: FilamentSlot): FilamentChoice | null {
