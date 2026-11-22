@@ -6,6 +6,7 @@ import com.beauver.printbridge.auth.token.RefreshTokenService;
 import com.beauver.printbridge.support.TestData;
 import com.beauver.printbridge.user.User;
 import com.beauver.printbridge.user.UserService;
+import com.beauver.printbridge.user.dto.UpdateUserRequest;
 import io.quarkus.narayana.jta.QuarkusTransaction;
 import io.quarkus.test.junit.QuarkusTest;
 import io.restassured.http.ContentType;
@@ -16,6 +17,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.Instant;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.ExecutorService;
@@ -48,6 +50,31 @@ class AuthResourceTest {
         return given().contentType(ContentType.JSON)
                 .body(Map.of("login", login, "password", password))
                 .post("/api/auth/login");
+    }
+
+    /** An admin setting a new password for the user, which logs them out everywhere. */
+    private void resetPassword(User user) {
+        User admin = data.admin();
+        userService.updateUser(
+                user.id, new UpdateUserRequest(user.username, user.email, true, "new-password1"), admin.id);
+    }
+
+    private static Map<String, Object> ownUpdate(
+            String username,
+            boolean changePassword,
+            String newPassword,
+            String currentPassword) {
+        Map<String, Object> body = new HashMap<>();
+        body.put("username", username);
+        body.put("email", username + "@example.com");
+        body.put("changePassword", changePassword);
+        body.put("newPassword", newPassword);
+        body.put("currentPassword", currentPassword);
+        return body;
+    }
+
+    private Response putMe(String accessToken, Map<String, Object> body) {
+        return given().auth().oauth2(accessToken).contentType(ContentType.JSON).body(body).put("/api/auth/me");
     }
 
     @Test
@@ -147,7 +174,7 @@ class AuthResourceTest {
 
         String third = login("alice", TestData.PASSWORD).cookie(RefreshCookie.NAME);
         refresh(third).then().statusCode(200);
-        userService.resetPassword(alice.id, "new-password1");
+        resetPassword(alice);
         refresh(third).then().statusCode(401);
     }
 
@@ -209,8 +236,71 @@ class AuthResourceTest {
         String token = data.accessToken(alice);
         // Token iat has second precision; make sure the reset happens in a later second.
         Thread.sleep(1100);
-        userService.resetPassword(alice.id, "new-password1");
+        resetPassword(alice);
         given().auth().oauth2(token).get("/api/auth/me").then().statusCode(401);
         login("alice", "new-password1").then().statusCode(200);
+    }
+
+    @Test
+    void updateMeChangesDetailsAndAnswersWithANewSession() {
+        User alice = data.user("alice");
+        String token = data.accessToken(alice);
+
+        Response response = putMe(token, ownUpdate("alicia", false, null, TestData.PASSWORD));
+
+        response.then().statusCode(200)
+                .body("user.username", is("alicia"))
+                .body("user.email", is("alicia@example.com"))
+                .body("accessToken", not(emptyOrNullString()))
+                .cookie(RefreshCookie.NAME, not(emptyOrNullString()));
+        given().auth().oauth2(response.path("accessToken")).get("/api/auth/me")
+                .then().statusCode(200).body("username", is("alicia"));
+        // Only details changed, so the old token still works.
+        given().auth().oauth2(token).get("/api/auth/me").then().statusCode(200);
+        login("alicia", TestData.PASSWORD).then().statusCode(200);
+    }
+
+    @Test
+    void updateMeWithNewPasswordEndsOtherSessionsButKeepsThisOne() throws InterruptedException {
+        data.user("alice");
+        String otherBrowser = login("alice", TestData.PASSWORD).cookie(RefreshCookie.NAME);
+        String token = login("alice", TestData.PASSWORD).path("accessToken");
+        // Token iat has second precision; make sure the change happens in a later second.
+        Thread.sleep(1100);
+
+        Response response = putMe(token, ownUpdate("alice", true, "new-password1", TestData.PASSWORD));
+
+        response.then().statusCode(200);
+        given().auth().oauth2(token).get("/api/auth/me").then().statusCode(401);
+        refresh(otherBrowser).then().statusCode(401);
+        given().auth().oauth2(response.path("accessToken")).get("/api/auth/me").then().statusCode(200);
+        refresh(response.cookie(RefreshCookie.NAME)).then().statusCode(200);
+        login("alice", TestData.PASSWORD).then().statusCode(401);
+        login("alice", "new-password1").then().statusCode(200);
+    }
+
+    @Test
+    void updateMeRequiresTheCurrentPassword() {
+        User alice = data.user("alice");
+        String token = data.accessToken(alice);
+        putMe(token, ownUpdate("alicia", false, null, "wrong-password"))
+                .then().statusCode(400).body("message", is("Current password is incorrect"));
+        putMe(token, ownUpdate("alicia", false, null, ""))
+                .then().statusCode(400).body(containsString("Current password is required"));
+        given().auth().oauth2(token).get("/api/auth/me").then().body("username", is("alice"));
+    }
+
+    @Test
+    void updateMeRejectsUsernameOfAnotherAccount() {
+        User alice = data.user("alice");
+        data.user("bob");
+        putMe(data.accessToken(alice), ownUpdate("bob", false, null, TestData.PASSWORD))
+                .then().statusCode(409).body("message", is("Username is already taken"));
+    }
+
+    @Test
+    void updateMeRequiresToken() {
+        given().contentType(ContentType.JSON).body(ownUpdate("alice", false, null, TestData.PASSWORD))
+                .put("/api/auth/me").then().statusCode(401);
     }
 }

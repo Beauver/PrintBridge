@@ -28,10 +28,16 @@ describe('UsersService', () => {
     expect(create.request.body).toEqual(account);
     create.flush(ALICE);
 
-    service.resetPassword(2, 'new-password').subscribe();
-    const reset = http.expectOne({ method: 'PUT', url: '/api/users/2/password' });
-    expect(reset.request.body).toEqual({ password: 'new-password' });
-    reset.flush(null);
+    const update = {
+      username: 'bob',
+      email: 'bob@example.com',
+      changePassword: true,
+      newPassword: 'new-password',
+    };
+    service.update(2, update).subscribe();
+    const put = http.expectOne({ method: 'PUT', url: '/api/users/2' });
+    expect(put.request.body).toEqual(update);
+    put.flush(ALICE);
 
     service.delete(2).subscribe();
     http.expectOne({ method: 'DELETE', url: '/api/users/2' }).flush(null);

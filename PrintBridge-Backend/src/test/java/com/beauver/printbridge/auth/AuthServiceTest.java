@@ -11,6 +11,8 @@ import com.beauver.printbridge.user.Role;
 import com.beauver.printbridge.user.User;
 import com.beauver.printbridge.user.UserMapper;
 import com.beauver.printbridge.user.UserRepository;
+import com.beauver.printbridge.user.UserService;
+import com.beauver.printbridge.user.dto.UpdateAccountRequest;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -34,6 +36,8 @@ class AuthServiceTest {
     AccessTokenIssuer accessTokens;
     @Mock
     RefreshTokenService refreshTokens;
+    @Mock
+    UserService userService;
 
     static final String IP = "10.0.0.1";
 
@@ -50,6 +54,7 @@ class AuthServiceTest {
         service.refreshTokens = refreshTokens;
         service.mapper = new UserMapper();
         service.rateLimiter = new RateLimiter(clock);
+        service.userService = userService;
         user = new User();
         user.id = 1L;
         user.username = "alice";
@@ -166,5 +171,18 @@ class AuthServiceTest {
     void logoutRevokesToken() {
         service.logout("token");
         verify(refreshTokens).revoke("token");
+    }
+
+    @Test
+    void updateOwnAccountStartsANewSessionForTheUpdatedUser() {
+        UpdateAccountRequest request =
+                new UpdateAccountRequest("alice", "a@example.com", true, "new-password", "secret");
+        when(userService.updateOwnAccount(1L, request)).thenReturn(user);
+        stubSession();
+
+        AuthSession session = service.updateOwnAccount(1L, request);
+
+        assertEquals("access", session.response().accessToken());
+        assertEquals("refresh", session.refreshToken());
     }
 }

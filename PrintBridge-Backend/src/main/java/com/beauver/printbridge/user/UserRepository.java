@@ -23,6 +23,16 @@ public class UserRepository implements PanacheRepository<User> {
         return count("lower(email) = lower(?1)", email) > 0;
     }
 
+    /** True when an account other than {@code ownId} has this username (case-insensitive). */
+    public boolean usernameTakenByOther(String username, long ownId) {
+        return count("lower(username) = lower(?1) and id <> ?2", username, ownId) > 0;
+    }
+
+    /** True when an account other than {@code ownId} has this email (case-insensitive). */
+    public boolean emailTakenByOther(String email, long ownId) {
+        return count("lower(email) = lower(?1) and id <> ?2", email, ownId) > 0;
+    }
+
     public boolean adminExists() {
         return count("role", Role.ADMIN) > 0;
     }

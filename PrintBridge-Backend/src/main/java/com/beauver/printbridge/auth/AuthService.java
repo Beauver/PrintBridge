@@ -10,6 +10,8 @@ import com.beauver.printbridge.user.PasswordHasher;
 import com.beauver.printbridge.user.User;
 import com.beauver.printbridge.user.UserMapper;
 import com.beauver.printbridge.user.UserRepository;
+import com.beauver.printbridge.user.UserService;
+import com.beauver.printbridge.user.dto.UpdateAccountRequest;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
@@ -42,6 +44,9 @@ public class AuthService {
 
     @Inject
     RateLimiter rateLimiter;
+
+    @Inject
+    UserService userService;
 
     /**
      * Logs in with a username or email address.
@@ -98,6 +103,15 @@ public class AuthService {
 
     public void logout(String refreshToken) {
         refreshTokens.revoke(refreshToken);
+    }
+
+    /**
+     * Updates the caller's own account and starts a new session for this browser: a new password
+     * logs out every existing session, and a new username belongs in the new access token.
+     */
+    @Transactional
+    public AuthSession updateOwnAccount(long userId, UpdateAccountRequest request) {
+        return startSession(userService.updateOwnAccount(userId, request));
     }
 
     /** Issues a fresh token pair for an already authenticated user. */

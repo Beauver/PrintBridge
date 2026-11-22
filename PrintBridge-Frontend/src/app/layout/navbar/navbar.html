@@ -73,12 +73,18 @@
       </ul>
 
       <div class="d-flex align-items-center gap-2 py-2 py-md-0">
-        <span class="text-body-secondary small" data-cy="nav-username">
+        <a
+          class="link-secondary small text-decoration-none"
+          routerLink="/account"
+          title="My account"
+          (click)="closeMenu()"
+          data-cy="nav-username"
+        >
           {{ auth.user()?.username }}
           @if (auth.isAdmin()) {
             <span class="badge text-bg-primary ms-1">admin</span>
           }
-        </span>
+        </a>
         <button
           type="button"
           class="btn btn-sm btn-outline-danger"

@@ -34,8 +34,8 @@ public class RefreshToken extends PanacheEntityBase {
 
     /**
      * Set together with {@link #revokedAt} when a refresh replaced this token with a new one.
-     * Stays {@code null} for a token revoked by logout or password reset, and is cleared again
-     * when those happen later.
+     * Stays {@code null} for a token revoked by logout, and is cleared again when a logout or a
+     * reuse happens later. (A password change deletes the user's tokens.)
      */
     @Column(name = "rotated_at")
     public Instant rotatedAt;

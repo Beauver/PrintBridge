@@ -137,39 +137,6 @@
             <ng-container *ngTemplateOutlet="actions; context: { $implicit: user }" />
           </div>
 
-          @if (resettingId() === user.id) {
-            <div class="d-flex flex-wrap gap-2 mt-3" data-cy="user-reset-form">
-              <input
-                type="password"
-                class="form-control form-control-sm w-auto flex-grow-1"
-                placeholder="New password (min. 8 characters)"
-                autocomplete="new-password"
-                [formControl]="resetPassword"
-                [class.is-invalid]="fieldError(resetPassword, 'Password')"
-                data-cy="user-reset-password"
-              />
-              <button
-                type="button"
-                class="btn btn-sm btn-primary"
-                [disabled]="busyId() === user.id"
-                (click)="saveReset(user)"
-                data-cy="user-reset-save"
-              >
-                Save
-              </button>
-              <button
-                type="button"
-                class="btn btn-sm btn-outline-secondary"
-                (click)="cancelReset()"
-              >
-                Cancel
-              </button>
-              @if (fieldError(resetPassword, 'Password'); as message) {
-                <div class="w-100 small text-danger">{{ message }}</div>
-              }
-            </div>
-          }
-
           @if (confirmingDeleteId() === user.id) {
             <div
               class="alert alert-danger d-flex flex-wrap align-items-center gap-2 mt-3 mb-0 py-2"
@@ -210,10 +177,10 @@
     <button
       type="button"
       class="btn btn-sm btn-outline-secondary"
-      (click)="startReset(user)"
-      data-cy="user-reset"
+      (click)="openUpdate(user)"
+      data-cy="user-update"
     >
-      Reset password
+      Update user
     </button>
     @if (!isSelf(user)) {
       <button

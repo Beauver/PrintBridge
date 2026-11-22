@@ -23,6 +23,7 @@ All endpoints are under `/api`. Errors handled by the app return `{"message": ".
 | POST | `/auth/refresh` | refresh cookie | – | `200` auth response + new cookie; `401` |
 | POST | `/auth/logout` | public | – | `204`, cookie cleared |
 | GET | `/auth/me` | logged in | – | `200` user |
+| PUT | `/auth/me` | logged in | `{username, email, changePassword, newPassword, currentPassword}` | `200` auth response + new refresh cookie; `400` invalid input or "Current password is incorrect"; `409` username/email taken; `429` after 10 tries a minute. A new password logs out every other session |
 
 Auth response: `{accessToken, expiresIn (seconds), user}`.
 
@@ -32,16 +33,18 @@ Auth response: `{accessToken, expiresIn (seconds), user}`.
 |---|---|---|---|
 | GET | `/users` | – | `200` list of users, sorted by username |
 | POST | `/users` | `{username, email, password}` | `201` user; `409` username/email taken; `400` invalid |
-| PUT | `/users/{id}/password` | `{password}` | `204`; `404` unknown user. Logs the user out everywhere |
+| PUT | `/users/{id}` | `{username, email, changePassword, newPassword}` | `200` user; `404` unknown; `409` username/email taken, or updating yourself (use `PUT /auth/me`); `400` invalid. A new password logs the user out everywhere |
 | DELETE | `/users/{id}` | – | `204`; `404` unknown; `409` deleting yourself |
 
 User: `{id, username, email, role, createdAt}`.
 
 Validation: username 3–32 characters (`A-Z a-z 0-9 . _ -`), unique ignoring case; email valid, max 254, unique ignoring case; password at least 8 characters and at most 72 bytes in UTF-8 (72 characters for plain ASCII).
 
+Updates (`PUT /users/{id}`, `PUT /auth/me`): the password only changes when `changePassword` is `true`, and `newPassword` is then required; otherwise `newPassword` is ignored. Keeping your own username or email isn't a conflict.
+
 Non-admins get `403`, requests without a valid token `401`.
 
-An endpoint with a rate limit answers `429 Too Many Requests` once the limit is passed, with a `Retry-After` header (seconds) and `{"message": "Too many attempts, try again in N seconds"}`. Currently only login has one.
+An endpoint with a rate limit answers `429 Too Many Requests` once the limit is passed, with a `Retry-After` header (seconds) and `{"message": "Too many attempts, try again in N seconds"}`. Currently login and `PUT /auth/me` have one.
 
 Deleting a user also deletes their print requests and files.
 

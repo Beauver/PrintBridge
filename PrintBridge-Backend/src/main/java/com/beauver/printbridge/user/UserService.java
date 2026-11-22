@@ -2,8 +2,11 @@ package com.beauver.printbridge.user;
 
 import com.beauver.printbridge.auth.token.RefreshTokenService;
 import com.beauver.printbridge.common.error.ConflictException;
+import com.beauver.printbridge.common.error.InvalidInputException;
 import com.beauver.printbridge.common.error.ResourceNotFoundException;
 import com.beauver.printbridge.user.dto.NewAccountRequest;
+import com.beauver.printbridge.user.dto.UpdateAccountRequest;
+import com.beauver.printbridge.user.dto.UpdateUserRequest;
 import com.beauver.printbridge.user.dto.UserDto;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.enterprise.event.Event;
@@ -65,13 +68,64 @@ public class UserService {
         return mapper.toDto(create(request, Role.USER));
     }
 
-    /** Sets a new password and logs the user out everywhere (old access and refresh tokens stop working). */
+    /**
+     * An admin updating another user's details. Changing the password logs that user out
+     * everywhere; changing only the username or email keeps their sessions.
+     * <p>
+     * Admins update their own account through {@link #updateOwnAccount}, which asks for the
+     * current password.
+     */
     @Transactional
-    public void resetPassword(long id, String newPassword) {
+    public UserDto updateUser(long id, UpdateUserRequest request, long actingUserId) {
+        if (id == actingUserId) {
+            throw new ConflictException("Update your own account on the My account page");
+        }
         User user = find(id);
+        updateDetails(user, request.username(), request.email());
+        if (request.changePassword()) {
+            changePassword(user, request.newPassword());
+        }
+        return mapper.toDto(user);
+    }
+
+    /**
+     * A user updating their own account after confirming their current password. Changing the
+     * password logs out all their sessions; the caller starts a new one for the current browser.
+     *
+     * @throws InvalidInputException when the current password is wrong
+     */
+    @Transactional
+    public User updateOwnAccount(long id, UpdateAccountRequest request) {
+        User user = find(id);
+        if (!passwordHasher.matches(request.currentPassword(), user.passwordHash)) {
+            throw new InvalidInputException("Current password is incorrect");
+        }
+        updateDetails(user, request.username(), request.email());
+        if (request.changePassword()) {
+            changePassword(user, request.newPassword());
+        }
+        return user;
+    }
+
+    /** Checks that another account doesn't use the username or email; keeping your own is fine. */
+    private void updateDetails(User user, String username, String email) {
+        String trimmedUsername = username.trim();
+        String trimmedEmail = email.trim();
+        if (users.usernameTakenByOther(trimmedUsername, user.id)) {
+            throw new ConflictException("Username is already taken");
+        }
+        if (users.emailTakenByOther(trimmedEmail, user.id)) {
+            throw new ConflictException("Email is already in use");
+        }
+        user.username = trimmedUsername;
+        user.email = trimmedEmail;
+    }
+
+    /** Sets a new password and logs the user out everywhere (old access and refresh tokens stop working). */
+    private void changePassword(User user, String newPassword) {
         user.passwordHash = passwordHasher.hash(newPassword);
         user.credentialsChangedAt = Instant.now();
-        refreshTokens.revokeAll(id);
+        refreshTokens.deleteAll(user.id);
     }
 
     /**

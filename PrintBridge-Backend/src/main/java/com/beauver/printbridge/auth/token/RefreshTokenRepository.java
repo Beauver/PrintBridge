@@ -34,6 +34,10 @@ public class RefreshTokenRepository implements PanacheRepository<RefreshToken> {
         update("rotatedAt = null where user.id = ?1 and rotatedAt is not null", userId);
     }
 
+    public long deleteAllForUser(long userId) {
+        return delete("user.id", userId);
+    }
+
     /** Expired tokens can't be used for anything, not even to detect reuse. */
     public long deleteExpiredForUser(long userId, Instant now) {
         return delete("user.id = ?1 and expiresAt < ?2", userId, now);

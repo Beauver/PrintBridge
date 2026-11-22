@@ -29,7 +29,7 @@ public class User extends PanacheEntityBase {
     @Column(name = "created_at", nullable = false)
     public Instant createdAt;
 
-    /** Access tokens issued before this moment are rejected (set on password reset). */
+    /** Access tokens issued before this moment are rejected (set when the password changes). */
     @Column(name = "credentials_changed_at", nullable = false)
     public Instant credentialsChangedAt;
 
