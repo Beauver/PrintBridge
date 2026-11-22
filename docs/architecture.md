@@ -40,6 +40,8 @@ Layering:
 - Entities never leave the backend: resources return DTO records built by mappers.
 - **Mapper** (`*Mapper`): only copies fields into DTOs. It injects no service or repository; what isn't on the entity is loaded or worked out by the service and handed in (`ModelDetailsCalculator` for model details, `RequestTotals` for a request's totals).
 - A resource never calls a client of another system directly: `SlicerResource` → `SlicerService` → `SlicerClient` (and `SpoolmanResource` → `SpoolmanService` → `SpoolmanCatalog` → `SpoolmanClient`), and the API has its own DTOs, so the slicer's format can change on its own.
+- Service methods that return something start with a verb (`getSlicing()`, `updateSlicing()`). Events between packages carry what happened (`SlicingToggled(enabled)`, `SpoolmanToggled(enabled)`), never an empty record.
+- DTOs say things explicitly rather than through `null` (`wholeItem: true`, not a `null` plate). The frontend models follow the DTOs.
 - Services that check ownership take a `Caller` (`id`, `admin`) from `CurrentUser.caller()` instead of reading the JWT themselves.
 - A package that grows past about ten files gets sub-packages by what the code is about (`token`, `printer`, `threemf`), not by layer: the class names already say resource, service or repository.
 - `dto` sub-packages hold only what crosses HTTP (JSON records, multipart forms). Values used between services sit in the package itself.
