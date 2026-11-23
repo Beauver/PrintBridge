@@ -1,4 +1,5 @@
 import { ItemStatus, RequestStatus } from '../../core/models/print-request.model';
+import { formatDecimal, getBrowserLocale } from './locale';
 
 const STATUS_LABELS: Record<RequestStatus, string> = {
   SUBMITTED: 'Submitted',
@@ -59,8 +60,8 @@ export function statusBadgeClass(status: RequestStatus): string {
   return STATUS_BADGES[status];
 }
 
-/** Human-readable file size, e.g. "1.5 MB". */
-export function formatBytes(bytes: number): string {
+/** Human-readable file size in the browser locale (#86), e.g. "1.5 MB". */
+export function formatBytes(bytes: number, locale = getBrowserLocale()): string {
   const units = ['B', 'KB', 'MB', 'GB'];
   let value = bytes;
   let unit = 0;
@@ -71,7 +72,7 @@ export function formatBytes(bytes: number): string {
   if (unit === 0) {
     return `${value} ${units[unit]}`;
   }
-  return `${value.toFixed(1)} ${units[unit]}`;
+  return `${formatDecimal(value, 1, 1, locale)} ${units[unit]}`;
 }
 
 /** A link's name (#59), or else the host of its URL ("www.patreon.com"), or else the URL itself. */

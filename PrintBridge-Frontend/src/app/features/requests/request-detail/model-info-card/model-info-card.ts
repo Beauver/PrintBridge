@@ -179,7 +179,7 @@ export class ModelInfoCard implements OnInit {
     return formatVolume(volume);
   });
 
-  /** "65,25 g", or "~78 g" with a note when (partly) estimated. */
+  /** "65.25 g", or "~78 g" with a note when (partly) estimated. */
   protected readonly weight = computed(() => {
     const info = this.info();
     if (info.totalGrams === null) {
@@ -252,7 +252,7 @@ export class ModelInfoCard implements OnInit {
   });
 
   /**
-   * What the numbers are for: "Bambu Lab P1S · 0,4 mm nozzle". After a custom re-slice (#21)
+   * What the numbers are for: "Bambu Lab P1S · 0.4 mm nozzle". After a custom re-slice (#21)
    * also the chosen profiles: "… · 0.12mm Fine @BBL P1S · Bambu PLA Basic".
    */
   protected readonly slicedFor = computed(() => {
@@ -280,7 +280,7 @@ export class ModelInfoCard implements OnInit {
 
   /**
    * The printer and nozzle a project was made for, only when it was sliced on another printer or
-   * nozzle: "Bambu Lab A1 · 0,2 mm nozzle". The part that is the same comes from the slice.
+   * nozzle: "Bambu Lab A1 · 0.2 mm nozzle". The part that is the same comes from the slice.
    */
   protected readonly madeFor = computed(() => {
     const slicing = this.info().slicing;
@@ -336,7 +336,7 @@ export class ModelInfoCard implements OnInit {
     return formatDimensions(plate.width, plate.depth, plate.height);
   }
 
-  /** "33,69 g", or "~4 g" for an estimate. */
+  /** "33.69 g", or "~4 g" for an estimate. */
   protected plateGrams(plate: PlateInfo): string | null {
     if (plate.grams === null) {
       return null;

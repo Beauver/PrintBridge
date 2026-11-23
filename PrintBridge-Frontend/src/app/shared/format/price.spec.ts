@@ -1,7 +1,6 @@
 import {
   formatPrice,
   formatPriceInput,
-  getBrowserLocale,
   getCurrencyOptions,
   getCurrencySymbol,
   parsePrice,
@@ -23,21 +22,7 @@ describe('price helpers', () => {
   });
 
   it('uses the browser locale by default', () => {
-    expect(getBrowserLocale()).toBe(navigator.languages[0]);
     expect(formatPrice(12.5, 'EUR')).toBe(formatPrice(12.5, 'EUR', navigator.languages[0]));
-  });
-
-  it('falls back to the single language, then English', () => {
-    const languages = vi.spyOn(navigator, 'languages', 'get').mockReturnValue([]);
-    const language = vi.spyOn(navigator, 'language', 'get').mockReturnValue('nl-NL');
-    try {
-      expect(getBrowserLocale()).toBe('nl-NL');
-      language.mockReturnValue('');
-      expect(getBrowserLocale()).toBe('en');
-    } finally {
-      languages.mockRestore();
-      language.mockRestore();
-    }
   });
 
   it('formats input values without grouping and with Western digits', () => {

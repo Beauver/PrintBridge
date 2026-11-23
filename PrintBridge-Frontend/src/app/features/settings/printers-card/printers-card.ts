@@ -60,7 +60,7 @@ export class PrintersCard {
     return formatDimensions(plate.x, plate.y, plate.z);
   }
 
-  /** "0,2 mm · 0,4 mm (default)", or a hint when slicing isn't set up for it. */
+  /** "0.2 mm · 0.4 mm (default)", or a hint when slicing isn't set up for it. */
   protected nozzleText(printer: Printer): string {
     if (printer.ownedNozzles.length === 0) {
       return 'No nozzles chosen';

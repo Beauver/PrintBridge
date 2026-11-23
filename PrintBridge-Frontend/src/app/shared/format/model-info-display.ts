@@ -1,32 +1,33 @@
-import { formatNumber, registerLocaleData } from '@angular/common';
-import localeNl from '@angular/common/locales/nl';
+import { formatDecimal, getBrowserLocale } from './locale';
 
-// Numbers are shown the Dutch way, like prices (see price.ts).
-registerLocaleData(localeNl);
+// Numbers follow the viewer's browser locale (#86), like prices; the examples are en-US.
 
-const LOCALE = 'nl';
-
-/** "120 × 80,5 × 40 mm" (at most one decimal). */
-export function formatDimensions(width: number, depth: number, height: number): string {
+/** "120 × 80.5 × 40 mm" (at most one decimal). */
+export function formatDimensions(
+  width: number,
+  depth: number,
+  height: number,
+  locale = getBrowserLocale(),
+): string {
   const sizes = [width, depth, height].map((size) => {
-    return formatNumber(size, LOCALE, '1.0-1');
+    return formatDecimal(size, 0, 1, locale);
   });
   return `${sizes.join(' × ')} mm`;
 }
 
-/** "63,2 cm³" */
-export function formatVolume(cm3: number): string {
-  return `${formatNumber(cm3, LOCALE, '1.0-1')} cm³`;
+/** "63.2 cm³" */
+export function formatVolume(cm3: number, locale = getBrowserLocale()): string {
+  return `${formatDecimal(cm3, 0, 1, locale)} cm³`;
 }
 
-/** "33,69 g" for exact values; estimates are whole grams. */
-export function formatGrams(grams: number): string {
-  return `${formatNumber(grams, LOCALE, '1.0-2')} g`;
+/** "33.69 g" for exact values; estimates are whole grams. */
+export function formatGrams(grams: number, locale = getBrowserLocale()): string {
+  return `${formatDecimal(grams, 0, 2, locale)} g`;
 }
 
-/** "0,4 mm" */
-export function formatNozzle(mm: number): string {
-  return `${formatNumber(mm, LOCALE, '1.1-2')} mm`;
+/** "0.4 mm" */
+export function formatNozzle(mm: number, locale = getBrowserLocale()): string {
+  return `${formatDecimal(mm, 1, 2, locale)} mm`;
 }
 
 /** "49 min", "2 h 5 min", "3 h"; under a minute counts as 1 min. */
