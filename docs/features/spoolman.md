@@ -26,7 +26,7 @@ The Spoolman tab shows:
   - *Not configured: set SPOOLMAN_URL on the server.*
 - **Enable Spoolman integration:** read filaments and stock from Spoolman.
 - **Enable colour selection from Spoolman:** requesters choose filaments by clicking the colour circles.
-- **Use prices from Spoolman:** the [price estimate](pricing.md) uses each chosen filament's price per gram (#72). Like colour selection it needs the integration and goes off with it.
+- **Use prices from Spoolman:** the [price estimate](pricing.md) uses each chosen filament's price per gram (#72). Like colour selection it needs the integration and goes off with it. Spoolman's prices are taken to be in PrintBridge's [currency](pricing.md#currency) (#75).
   - Only possible while the integration is on.
   - Switching the integration off switches this off too (the form does it, and the backend refuses colour selection without the integration).
 - **Warning when there isn't enough filament:** the text requesters see on a request whose chosen filament runs short (max 300 characters). Empty means the default text.

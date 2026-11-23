@@ -45,7 +45,7 @@ export class PrintRequestsService {
     return this.http.put<PrintRequest>(`/api/requests/${id}/status`, { status, declineReason });
   }
 
-  /** Admin: set the final price in EUR, or clear it with `null`. */
+  /** Admin: set the final price in the configured currency, or clear it with `null`. */
   changePrice(id: number, finalPrice: number | null): Observable<PrintRequest> {
     return this.http.put<PrintRequest>(`/api/requests/${id}/price`, { finalPrice });
   }

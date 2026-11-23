@@ -11,6 +11,7 @@ import java.time.Instant;
  * @param itemsCompleted files and links that are completed (#61)
  * @param itemsActive    files and links that aren't declined
  * @param estimatedPrice the automatic price while there is no final price (#72); {@code null} otherwise
+ * @param currency       ISO 4217 code of the final and estimated price (#75), e.g. EUR
  */
 public record PrintRequestSummaryDto(
         Long id,
@@ -22,5 +23,6 @@ public record PrintRequestSummaryDto(
         Instant createdAt,
         int itemsCompleted,
         int itemsActive,
-        EstimatedPriceDto estimatedPrice) {
+        EstimatedPriceDto estimatedPrice,
+        String currency) {
 }

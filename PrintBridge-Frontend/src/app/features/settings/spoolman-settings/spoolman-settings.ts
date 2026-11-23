@@ -51,6 +51,8 @@ export class SpoolmanSettingsCard implements OnInit {
   readonly settings = input.required<SpoolmanSettings>();
   /** Null while it is being checked. */
   readonly status = input<SpoolmanStatus | null>(null);
+  /** ISO 4217 code that Spoolman's prices are taken to be in (#75). */
+  readonly currency = input('EUR');
   readonly saved = output<Settings>();
 
   protected readonly form = this.fb.nonNullable.group({

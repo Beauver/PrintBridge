@@ -22,6 +22,7 @@ import java.math.BigDecimal;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Optional;
 import java.util.TreeSet;
 
@@ -171,12 +172,14 @@ public class SettingsService {
     }
 
     /**
-     * Sets the markup and the default price per 100 g of the estimate (#72). Whether Spoolman's
-     * prices are used is set with the Spoolman switches.
+     * Sets the currency (#75), and the markup and the default price per 100 g of the estimate (#72).
+     * Whether Spoolman's prices are used is set with the Spoolman switches. Changing the currency
+     * relabels every amount; nothing is converted.
      */
     @Transactional
     public SettingsDto updatePricing(PricingSettingsDto input) {
         AppSettings settings = repository.get();
+        settings.currency = input.currency().toUpperCase(Locale.ROOT);
         settings.pricingMarkup = input.markup();
         settings.pricePer100Grams = input.pricePer100Grams();
         repository.flush();
@@ -188,6 +191,12 @@ public class SettingsService {
     public PricingSettings getPricing() {
         AppSettings settings = repository.get();
         return new PricingSettings(getSpoolman().prices(), settings.pricingMarkup, settings.pricePer100Grams);
+    }
+
+    /** ISO 4217 code of every price (#75), e.g. EUR. */
+    @Transactional
+    public String getCurrency() {
+        return repository.get().currency;
     }
 
     /** The upload limits that apply now. */

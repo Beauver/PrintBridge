@@ -13,4 +13,4 @@
   - [Server slicing](features/server-slicing.md)
   - [3D preview](features/model-preview.md)
   - [Spoolman filaments](features/spoolman.md)
-  - [Price estimate and filament density](features/pricing.md)
+  - [Currency, price estimate and filament density](features/pricing.md)

@@ -47,8 +47,12 @@ class PricingResourceTest {
     }
 
     private ValidatableResponse savePricing(String markup, String pricePer100Grams) {
+        return savePricing("EUR", markup, pricePer100Grams);
+    }
+
+    private ValidatableResponse savePricing(String currency, String markup, String pricePer100Grams) {
         return given().auth().oauth2(adminToken).contentType(ContentType.JSON)
-                .body(Map.of("markup", new BigDecimal(markup),
+                .body(Map.of("currency", currency, "markup", new BigDecimal(markup),
                         "pricePer100Grams", new BigDecimal(pricePer100Grams)))
                 .put("/api/settings/pricing").then();
     }
@@ -73,6 +77,7 @@ class PricingResourceTest {
     void settingsDefaultToNoAutomaticPrice() {
         given().auth().oauth2(adminToken).get("/api/settings").then().statusCode(200)
                 .body("spoolman.prices", is(false))
+                .body("pricing.currency", is("EUR"))
                 .body("pricing.markup", is(1.0f))
                 .body("pricing.pricePer100Grams", is(0.0f));
         int id = cubeRequest();
@@ -93,8 +98,39 @@ class PricingResourceTest {
         savePricing("1", "1000.01").statusCode(400);
         savePricing("1", "1.005").statusCode(400);
         given().auth().oauth2(bobToken).contentType(ContentType.JSON)
-                .body(Map.of("markup", 1, "pricePer100Grams", 1))
+                .body(Map.of("currency", "EUR", "markup", 1, "pricePer100Grams", 1))
                 .put("/api/settings/pricing").then().statusCode(403);
+    }
+
+    @Test
+    void savesTheCurrencyUpperCaseAndRejectsUnknownCodes() {
+        savePricing("usd", "1", "2").statusCode(200)
+                .body("pricing.currency", is("USD"));
+
+        savePricing("XYZ", "1", "2").statusCode(400)
+                .body("violations[0].message", is("Currency must be an ISO 4217 code such as EUR or USD"));
+        savePricing("EURO", "1", "2").statusCode(400);
+        savePricing("", "1", "2").statusCode(400);
+        given().auth().oauth2(adminToken).contentType(ContentType.JSON)
+                .body(Map.of("markup", 1, "pricePer100Grams", 1))
+                .put("/api/settings/pricing").then().statusCode(400)
+                .body("violations[0].message", is("Currency is required"));
+        given().auth().oauth2(adminToken).get("/api/settings").then().body("pricing.currency", is("USD"));
+    }
+
+    @Test
+    void requestsCarryTheCurrencyAndAmountsAreNotConverted() {
+        savePricing("1", "10").statusCode(200);
+        int id = cubeRequest();
+        data.setPrice(id, new BigDecimal("12.34"));
+        assertEquals("EUR", request(bobToken, id).getString("currency"));
+
+        savePricing("CHF", "1", "10").statusCode(200);
+        JsonPath detail = request(bobToken, id);
+        assertEquals("CHF", detail.getString("currency"));
+        assertEquals(12.34, detail.getDouble("finalPrice"), 0.001);
+        given().auth().oauth2(bobToken).get("/api/requests").then().body("[0].currency", is("CHF"));
+        given().auth().oauth2(adminToken).get("/api/requests/all").then().body("[0].currency", is("CHF"));
     }
 
     @Test

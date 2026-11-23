@@ -12,7 +12,7 @@ describe('PricingSettingsCard', () => {
   let saved: Settings[];
 
   function create(
-    pricing: PricingSettings = { markup: 1.5, pricePer100Grams: 2.5 },
+    pricing: PricingSettings = { currency: 'EUR', markup: 1.5, pricePer100Grams: 2.5 },
   ): PricingSettingsCard {
     const fixture = TestBed.createComponent(PricingSettingsCard);
     fixture.componentRef.setInput('settings', pricing);
@@ -33,18 +33,40 @@ describe('PricingSettingsCard', () => {
     });
   });
 
-  it('fills the form in Dutch format', () => {
-    expect(create()['form'].getRawValue()).toEqual({ markup: '1,50', pricePer100Grams: '2,50' });
+  it('fills the form in the browser locale (en-US in tests)', () => {
+    const card = create();
+    expect(card['form'].getRawValue()).toEqual({
+      currency: 'EUR',
+      markup: '1.50',
+      pricePer100Grams: '2.50',
+    });
+    expect(card['currencySymbol']()).toBe('€');
+    expect(card['markupExample']).toBe('1.50');
   });
 
-  it('saves both values, read in either style', () => {
+  it('offers every currency and follows the picked one', () => {
+    const card = create({ currency: 'CHF', markup: 1, pricePer100Grams: 0 });
+    const codes = card['currencies']().map((currency) => {
+      return currency.code;
+    });
+    expect(codes).toContain('CHF');
+    expect(codes).toContain('USD');
+    expect(card['currencySymbol']()).toBe('CHF');
+
+    card['form'].controls.currency.setValue('USD');
+    card['onCurrencyChange']();
+    expect(card['currencySymbol']()).toBe('$');
+  });
+
+  it('saves the currency and both values, read in either style', () => {
     settingsService.updatePricing.mockReturnValue(of(NO_SETTINGS));
     const card = create();
-    card['form'].setValue({ markup: '1.75', pricePer100Grams: '3,10' });
+    card['form'].setValue({ currency: 'GBP', markup: '1.75', pricePer100Grams: '3,10' });
 
     card['save']();
 
     expect(settingsService.updatePricing).toHaveBeenCalledWith({
+      currency: 'GBP',
       markup: 1.75,
       pricePer100Grams: 3.1,
     });
@@ -53,14 +75,14 @@ describe('PricingSettingsCard', () => {
   });
 
   it.each([
-    ['0', '1', 'Markup must be a number from 0,01 to 100 with at most 2 decimals'],
-    ['100,01', '1', 'Markup must be a number from 0,01 to 100 with at most 2 decimals'],
-    ['abc', '1', 'Markup must be a number from 0,01 to 100 with at most 2 decimals'],
-    ['1', '1000,01', 'Price per 100 g must be from 0 to 1.000 with at most 2 decimals'],
-    ['1', '1,005', 'Price per 100 g must be from 0 to 1.000 with at most 2 decimals'],
+    ['0', '1', 'Markup must be a number from 0.01 to 100 with at most 2 decimals'],
+    ['100,01', '1', 'Markup must be a number from 0.01 to 100 with at most 2 decimals'],
+    ['abc', '1', 'Markup must be a number from 0.01 to 100 with at most 2 decimals'],
+    ['1', '1000,01', 'Price per 100 g must be from 0 to €1,000.00 with at most 2 decimals'],
+    ['1', '1,005', 'Price per 100 g must be from 0 to €1,000.00 with at most 2 decimals'],
   ])('refuses markup %s and price %s', (markup, pricePer100Grams, message) => {
     const card = create();
-    card['form'].setValue({ markup, pricePer100Grams });
+    card['form'].setValue({ currency: 'EUR', markup, pricePer100Grams });
 
     card['save']();
 

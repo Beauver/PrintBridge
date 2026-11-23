@@ -102,6 +102,7 @@ export const REQUEST: PrintRequest = {
   notEnoughFilamentMessage: 'Order it',
   noMatchMessage: 'Pick another',
   estimatedPrice: null,
+  currency: 'EUR',
 };
 
 export const REQUEST_SUMMARY: PrintRequestSummary = {
@@ -115,6 +116,7 @@ export const REQUEST_SUMMARY: PrintRequestSummary = {
   itemsCompleted: 0,
   itemsActive: 1,
   estimatedPrice: null,
+  currency: 'EUR',
 };
 
 /** Server slicing switched off, file never queued. */
@@ -174,7 +176,7 @@ export const NO_SETTINGS: Settings = {
     notEnoughMessage: 'Order it',
     noMatchMessage: 'Pick another',
   },
-  pricing: { markup: 1, pricePer100Grams: 0 },
+  pricing: { currency: 'EUR', markup: 1, pricePer100Grams: 0 },
 };
 
 /** The P1S as the slicer lists it (0.2, 0.4 and 0.6 mm nozzles). */

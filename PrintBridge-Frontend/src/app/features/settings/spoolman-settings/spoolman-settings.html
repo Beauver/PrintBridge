@@ -140,6 +140,10 @@
     <div class="form-text">
       The price estimate uses each chosen filament's price per gram (spool price ÷ weight). Markup
       and the default price are in <a routerLink="." [queryParams]="{ tab: 'pricing' }">Pricing</a>.
+      <span data-cy="spoolman-prices-currency"
+        >Spoolman's prices are taken to be in {{ currency() }}; set the same currency in
+        Spoolman.</span
+      >
     </div>
   </div>
 

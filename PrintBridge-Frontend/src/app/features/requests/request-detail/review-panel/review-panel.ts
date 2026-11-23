@@ -11,14 +11,18 @@ import { errorMessage } from '../../../../core/http/api-error';
 import { PrintRequest } from '../../../../core/models/print-request.model';
 import { allowsPayment } from '../../../../shared/format/print-request-display';
 import {
-  formatEuro,
+  formatPrice,
   formatPriceInput,
+  getCurrencySymbol,
   MAX_PRICE,
   parsePrice,
 } from '../../../../shared/format/price';
 import { PrintRequestsService } from '../../print-requests.service';
 
-/** A readable price ("69,42", "6.900,42", "69.42", ...) within the backend's range. */
+/** Shown as an example of how to type a price. */
+const EXAMPLE_PRICE = 69.42;
+
+/** A readable price ("69,42", "6.900,42", "69.42", "$ 12", ...) within the backend's range. */
 function validPrice(control: AbstractControl<string>): ValidationErrors | null {
   if (control.value.trim() === '') {
     return null;
@@ -74,9 +78,14 @@ export class ReviewPanel {
   protected readonly pricePlaceholder = computed(() => {
     const estimate = this.request().estimatedPrice;
     if (estimate === null) {
-      return '69,42';
+      return formatPriceInput(EXAMPLE_PRICE);
     }
     return formatPriceInput(estimate.amount);
+  });
+
+  /** In front of the price input, e.g. "€" (#75). */
+  protected readonly currencySymbol = computed(() => {
+    return getCurrencySymbol(this.request().currency);
   });
 
   /** Paying needs a price (the backend refuses it otherwise). */
@@ -133,7 +142,7 @@ export class ReviewPanel {
     if (this.price.value.trim() === '' && estimate !== null) {
       this.save(
         this.requestsService.changePrice(this.request().id, estimate.amount),
-        `Price set to the estimate, ${formatEuro(estimate.amount)}.`,
+        `Price set to the estimate, ${this.format(estimate.amount)}.`,
         'Could not save the price.',
       );
       return;
@@ -145,7 +154,7 @@ export class ReviewPanel {
     }
     this.save(
       this.requestsService.changePrice(this.request().id, price),
-      `Price set to ${formatEuro(price)}.`,
+      `Price set to ${this.format(price)}.`,
       'Could not save the price.',
     );
   }
@@ -181,9 +190,9 @@ export class ReviewPanel {
       return 'Enter a price';
     }
     if (errors['priceMax']) {
-      return `Price must be at most ${formatEuro(MAX_PRICE)}`;
+      return `Price must be at most ${this.format(MAX_PRICE)}`;
     }
-    return 'Enter a price like 69,42 or 6.900,42';
+    return `Enter a price like ${formatPriceInput(EXAMPLE_PRICE)}`;
   }
 
   /** Runs a price/paid change and reports the result. */
@@ -202,6 +211,10 @@ export class ReviewPanel {
         this.error.set(errorMessage(err, failure));
       },
     });
+  }
+
+  private format(price: number): string {
+    return formatPrice(price, this.request().currency);
   }
 
   private priceText(price: number | null): string {

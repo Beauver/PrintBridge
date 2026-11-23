@@ -31,7 +31,7 @@ describe('PrintersCard', () => {
       notEnoughMessage: 'Order it',
       noMatchMessage: 'Pick another',
     },
-    pricing: { markup: 1, pricePer100Grams: 0 },
+    pricing: { currency: 'EUR', markup: 1, pricePer100Grams: 0 },
   };
 
   function create(): PrintersCard {
