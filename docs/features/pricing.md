@@ -49,7 +49,7 @@ A `PricingStrategy` per mode, over every file and link of the request times its 
 
   When nothing at all can be priced, there is no estimate.
 - **Rounding:** to cents (half up).
-- **No estimate** once the admin set a final price, for a declined request, or when nothing can be priced (e.g. Spoolman prices off and a price per 100 g of 0).
+- **No estimate** once the admin set a final price, for a declined or cancelled request, or when nothing can be priced (e.g. Spoolman prices off and a price per 100 g of 0).
 
 ## Density
 
