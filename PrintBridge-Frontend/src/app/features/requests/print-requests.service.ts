@@ -45,6 +45,11 @@ export class PrintRequestsService {
     return this.http.put<PrintRequest>(`/api/requests/${id}/status`, { status, declineReason });
   }
 
+  /** Change the name and description (#84); an empty description clears it. */
+  changeDetails(id: number, name: string, description: string): Observable<PrintRequest> {
+    return this.http.put<PrintRequest>(`/api/requests/${id}`, { name, description });
+  }
+
   /** Admin: set the final price in the configured currency, or clear it with `null`. */
   changePrice(id: number, finalPrice: number | null): Observable<PrintRequest> {
     return this.http.put<PrintRequest>(`/api/requests/${id}/price`, { finalPrice });

@@ -24,13 +24,33 @@
 
   @if (request(); as request) {
     <div class="d-flex flex-wrap align-items-center gap-2 mt-2 mb-3">
-      <h1 class="h3 mb-0 me-auto text-break" data-cy="request-name">{{ request.name }}</h1>
+      <h1 class="h3 mb-0 text-break" data-cy="request-name">{{ request.name }}</h1>
+      <div class="me-auto">
+        @if (canEditDetails() && !editingDetails()) {
+          <button
+            type="button"
+            class="btn btn-sm btn-outline-secondary"
+            (click)="startEditingDetails()"
+            data-cy="request-edit"
+          >
+            <span aria-hidden="true">✎</span> Edit
+          </button>
+        }
+      </div>
       <app-request-status
         [request]="request"
         [isAdmin]="auth.isAdmin()"
         (changed)="onReviewed($event)"
       />
     </div>
+
+    @if (editingDetails()) {
+      <app-details-editor
+        [request]="request"
+        (saved)="onDetailsSaved($event)"
+        (cancelled)="stopEditingDetails()"
+      />
+    }
 
     @if (canReview()) {
       <app-review-panel [request]="request" (changed)="onReviewed($event)" />
