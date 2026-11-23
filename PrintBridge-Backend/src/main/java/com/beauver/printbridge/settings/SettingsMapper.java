@@ -32,7 +32,7 @@ public class SettingsMapper {
                 new SpoolmanSettingsDto(settings.spoolmanEnabled, settings.spoolmanColorSelection,
                         settings.spoolmanPrices, settings.spoolmanAutoMatch, settings.spoolmanMatchTolerance,
                         spoolman.notEnoughMessage(), spoolman.noMatchMessage()),
-                new PricingSettingsDto(settings.pricingMarkup, settings.pricePer100Grams));
+                new PricingSettingsDto(settings.currency, settings.pricingMarkup, settings.pricePer100Grams));
     }
 
     public PrinterDto toDto(Printer printer) {

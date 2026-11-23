@@ -139,9 +139,10 @@ public class PrintRequestService {
         for (int i = 0; i < files.size(); i++) {
             filesByRequest.computeIfAbsent(files.get(i).request.id, id -> new ArrayList<>()).add(described.get(i));
         }
+        String currency = settings.getCurrency();
         return found.stream()
                 .map(r -> mapper.toSummary(r, progress.getOrDefault(r.id, ItemProgress.NONE),
-                        estimate(r, filesByRequest.getOrDefault(r.id, List.of()))))
+                        estimate(r, filesByRequest.getOrDefault(r.id, List.of())), currency))
                 .toList();
     }
 
@@ -433,7 +434,7 @@ public class PrintRequestService {
         SpoolmanSettings spoolman = settings.getSpoolman();
         boolean filamentSelection = spoolman.colorSelection() && mayChooseFilaments(request, admin);
         return mapper.toDto(request, files, RequestTotals.of(files), filamentSelection, spoolman.notEnoughMessage(),
-                spoolman.noMatchMessage(), estimate(request, files));
+                spoolman.noMatchMessage(), estimate(request, files), settings.getCurrency());
     }
 
     /**

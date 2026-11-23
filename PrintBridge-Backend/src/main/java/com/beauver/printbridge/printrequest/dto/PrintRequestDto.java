@@ -17,6 +17,7 @@ import java.util.List;
  * @param noMatchMessage           what to show for colours without a close filament (#76; set by the admin)
  * @param estimatedPrice           the automatic price while there is no final price (#72); {@code null} when
  *                                 there is a final price, the request is declined or nothing could be priced
+ * @param currency                 ISO 4217 code of the final and estimated price (#75), e.g. EUR
  */
 public record PrintRequestDto(
         Long id,
@@ -36,5 +37,6 @@ public record PrintRequestDto(
         boolean filamentSelection,
         String notEnoughFilamentMessage,
         String noMatchMessage,
-        EstimatedPriceDto estimatedPrice) {
+        EstimatedPriceDto estimatedPrice,
+        String currency) {
 }

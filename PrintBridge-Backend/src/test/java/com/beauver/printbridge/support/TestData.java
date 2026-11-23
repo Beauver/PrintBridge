@@ -57,7 +57,7 @@ public class TestData {
                 + "spoolman_enabled = FALSE, spoolman_color_selection = FALSE, "
                 + "spoolman_not_enough_message = NULL, spoolman_auto_match = FALSE, spoolman_match_tolerance = 20, "
                 + "spoolman_no_match_message = NULL, spoolman_prices = FALSE, pricing_markup = 1, "
-                + "price_per_100_grams = 0").executeUpdate();
+                + "price_per_100_grams = 0, currency = 'EUR'").executeUpdate();
         // Not TRUNCATE: app_settings references printers, and its row must stay.
         em.createNativeQuery("DELETE FROM printers").executeUpdate();
         em.createNativeQuery("ALTER SEQUENCE printers_id_seq RESTART").executeUpdate();

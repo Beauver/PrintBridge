@@ -28,7 +28,7 @@ public class PrintRequest extends PanacheEntityBase {
     @Column(length = 2000)
     public String description;
 
-    /** Final price in EUR, set by the admin; {@code null} while pending. */
+    /** Final price in the configured currency (#75), set by the admin; {@code null} while pending. */
     @Column(name = "final_price", precision = 10, scale = 2)
     public BigDecimal finalPrice;
 

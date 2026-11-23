@@ -66,7 +66,14 @@ public class AppSettings extends PanacheEntityBase {
     @Column(name = "pricing_markup", nullable = false, precision = 5, scale = 2)
     public BigDecimal pricingMarkup;
 
-    /** EUR per 100 g: the default price for everything without a Spoolman price; zero means none. */
+    /** ISO 4217 code of every price (#75), upper case; amounts are never converted. */
+    @Column(nullable = false, length = 3)
+    public String currency = "EUR";
+
+    /**
+     * Price per 100 g in {@link #currency}: the default price for everything without a Spoolman
+     * price; zero means none.
+     */
     @Column(name = "price_per_100_grams", nullable = false, precision = 6, scale = 2)
     public BigDecimal pricePer100Grams;
 
