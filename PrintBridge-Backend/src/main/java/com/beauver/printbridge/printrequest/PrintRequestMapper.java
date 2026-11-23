@@ -39,7 +39,8 @@ public class PrintRequestMapper {
     public PrintRequestDto toDto(PrintRequest r, List<RequestFileDto> files, RequestTotalsDto totals,
                                  boolean filamentSelection, String notEnoughFilamentMessage, String noMatchMessage,
                                  PriceEstimate estimate, String currency) {
-        return new PrintRequestDto(r.id, r.name, r.description, r.status, r.finalPrice, r.declineReason, r.paidAt,
+        return new PrintRequestDto(r.id, r.name, r.description, r.status, r.finalPrice, r.declineReason,
+                r.cancelReason, r.paidAt,
                 r.owner.id, r.owner.username, r.createdAt, r.updatedAt, files, totals, r.status.nextStatuses(),
                 filamentSelection, notEnoughFilamentMessage, noMatchMessage, toDto(estimate), currency);
     }

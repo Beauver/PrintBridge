@@ -4,8 +4,8 @@ import java.util.List;
 import java.util.Set;
 
 /**
- * Lifecycle of a print request. DECLINED and COMPLETED are final: nothing on the request
- * changes after that.
+ * Lifecycle of a print request. DECLINED, COMPLETED and CANCELLED are final: nothing on the
+ * request changes after that.
  *
  * <pre>
  * SUBMITTED → IN_REVIEW, ACCEPTED, DECLINED
@@ -14,7 +14,8 @@ import java.util.Set;
  * PRINTING  → COMPLETED, ACCEPTED, DECLINED
  * </pre>
  * PRINTING (#22) may go back to ACCEPTED for a failed print that is queued again, or to
- * DECLINED when it can't be printed after all.
+ * DECLINED when it can't be printed after all. CANCELLED (#85) isn't the admin's move: the
+ * requester cancels a SUBMITTED or IN_REVIEW request ({@link #mayBeCancelled()}).
  */
 public enum RequestStatus {
     SUBMITTED,
@@ -22,7 +23,8 @@ public enum RequestStatus {
     ACCEPTED,
     PRINTING,
     DECLINED,
-    COMPLETED;
+    COMPLETED,
+    CANCELLED;
 
     /** Statuses that still need work from the admin. */
     public static final Set<RequestStatus> OPEN = Set.of(SUBMITTED, IN_REVIEW, ACCEPTED, PRINTING);
@@ -34,7 +36,7 @@ public enum RequestStatus {
             case IN_REVIEW -> List.of(ACCEPTED, DECLINED);
             case ACCEPTED -> List.of(PRINTING, COMPLETED);
             case PRINTING -> List.of(COMPLETED, ACCEPTED, DECLINED);
-            case DECLINED, COMPLETED -> List.of();
+            case DECLINED, COMPLETED, CANCELLED -> List.of();
         };
     }
 
@@ -44,6 +46,11 @@ public enum RequestStatus {
 
     public boolean isFinal() {
         return nextStatuses().isEmpty();
+    }
+
+    /** Whether the requester may still cancel (#85): before the admin accepted it. */
+    public boolean mayBeCancelled() {
+        return this == SUBMITTED || this == IN_REVIEW;
     }
 
     /**
