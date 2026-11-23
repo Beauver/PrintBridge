@@ -15,7 +15,7 @@ Issue: #5 (part of #2); the Printing status is #22.
   - Completed is disabled ("set a price first") until a price is set.
   - Errors from the server (e.g. someone else changed it first) appear under the name.
 - **Price & payment panel** (admin, on the request detail page, above the details; shown while the price or paid can still change):
-  - **Final price (EUR):** €0 to € 99.999.999,99 with at most 2 decimals. *Save* (or Enter) sets or changes it; *Clear* returns it to "Price pending" (or the [estimate](pricing.md)). Locked while the request is paid.
+  - **Final price** (in the [currency](pricing.md#currency), whose symbol is in front of the field): 0 to 99999999.99 with at most 2 decimals. *Save* (or Enter) sets or changes it; *Clear* returns it to "Price pending" (or the [estimate](pricing.md)). Locked while the request is paid.
   - While there is an [estimated price](pricing.md) (#72), it is the field's placeholder, and *Save* with an empty field saves it.
   - **Paid:** *Mark as paid* / *Mark as unpaid* on Accepted, Printing and Completed requests that have a price. This is the only thing that can still change on a Completed request.
   - The page updates in place after every change. Errors from the server appear in the panel.
@@ -25,7 +25,7 @@ Issue: #5 (part of #2); the Printing status is #22.
 
 ## Prices
 
-- **Display:** prices are shown the Dutch way everywhere: `€ 6.900,42`. The rest of the UI, dates included, stays English.
+- **Display:** prices are in the [currency](pricing.md#currency) from Settings and formatted the way the viewer's browser formats numbers (#75): `€6,900.42` in an English (US) browser, `€ 6.900,42` in a Dutch one. Always 2 decimals. The rest of the UI, dates included, stays English.
 - **Input:** the price field is a text field (`inputmode="decimal"` gives a number keyboard on phones). It accepts both styles:
 
   | Typed | Saved |
@@ -34,10 +34,12 @@ Issue: #5 (part of #2); the Printing status is #22.
   | `69,4` | 69.40 |
   | `6.900,42` / `6,900.42` / `6 900,42` | 6900.42 |
   | `6.900` / `6,900` / `6900` | 6900 |
+  | `1'234.50` / `1’234.50` | 1234.50 |
+  | `$ 12,34` / `12,34 €` / `CHF 5` | 12.34 / 5 |
   | `69,4231`, `6.90.0`, `6.900.42`, `-5` | error |
 
 - **Thousands vs. decimals:** a separator followed by exactly 3 digits is always a thousands separator, because prices have at most 2 decimals. So `69,423` means 69423, not 69.42.
-- **After saving:** the field shows the saved price in Dutch format (`6.900,42`).
+- **After saving:** the field shows the saved price in the viewer's format, without thousands separators (`6900.42` or `6900,42`). The placeholder and error messages use the same format.
 
 ## Status flow
 

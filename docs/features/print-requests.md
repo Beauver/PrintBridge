@@ -94,7 +94,7 @@ The *Uploads* card on the admin settings page:
 
 ## Data
 
-- `print_requests`: owner, name, description, `final_price` (`NUMERIC(10,2)`, EUR, null = pending), status (`SUBMITTED`, `IN_REVIEW`, `ACCEPTED`, `PRINTING` (V7), `DECLINED`, `COMPLETED`; see [admin review](admin-review.md) for the flow), decline reason, timestamps. `ON DELETE CASCADE` from users. `paid_at` (V3) marks when it was paid; only possible with a price.
+- `print_requests`: owner, name, description, `final_price` (`NUMERIC(10,2)`, in the [currency](pricing.md#currency), null = pending), status (`SUBMITTED`, `IN_REVIEW`, `ACCEPTED`, `PRINTING` (V7), `DECLINED`, `COMPLETED`; see [admin review](admin-review.md) for the flow), decline reason, timestamps. `ON DELETE CASCADE` from users. `paid_at` (V3) marks when it was paid; only possible with a price.
 - `request_files`: one row per file or link: `kind` (V10, `FILE`/`LINK`, existing rows `FILE`), `quantity` (V8, 1–100, existing files got 1), and either the file columns (original filename, storage path, type `STL`/`THREE_MF`, size) or the link columns (`url`, optional `link_name`). A check constraint keeps the other kind's columns empty. `ON DELETE CASCADE` from requests; a file's model info and slicing result go with it.
 - `app_settings.upload_max_files` / `upload_max_file_size_mb` (V8): the upload settings; `NULL` means the default.
 
