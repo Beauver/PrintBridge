@@ -25,7 +25,7 @@ Issue: #5 (part of #2); the Printing status is #22.
 
 ## Prices
 
-- **Display:** prices are in the [currency](pricing.md#currency) from Settings and formatted the way the viewer's browser formats numbers (#75): `€6,900.42` in an English (US) browser, `€ 6.900,42` in a Dutch one. Always 2 decimals. The rest of the UI, dates included, stays English.
+- **Display:** prices are in the [currency](pricing.md#currency) from Settings and formatted the way the viewer's browser formats numbers (#75): `€6,900.42` in an English (US) browser, `€ 6.900,42` in a Dutch one. Always 2 decimals. Model info and file sizes follow the browser the same way (#86). The rest of the UI, dates included, stays English.
 - **Input:** the price field is a text field (`inputmode="decimal"` gives a number keyboard on phones). It accepts both styles:
 
   | Typed | Saved |

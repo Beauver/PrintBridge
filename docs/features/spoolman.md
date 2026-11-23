@@ -52,7 +52,7 @@ The Spoolman tab shows:
   - The list is loaded once per page visit. A refused choice reloads it.
 - **A chosen filament:**
   - The circle takes its colour, and its tooltip reads `Vendor Name – Material (was PLA #FFFFFF)`.
-  - As soon as a colour of a plate has a choice, the one-plate *Filaments* row and the preview's *Colours* row show only the circles. An **Old colours** row under them shows the file's own colours (circle + hex, read-only). Without choices the *Filaments* row keeps its labels (`PLA · #FFFFFF · 33,69 g`). A whole file or link keeps its label next to the circle.
+  - As soon as a colour of a plate has a choice, the one-plate *Filaments* row and the preview's *Colours* row show only the circles. An **Old colours** row under them shows the file's own colours (circle + hex, read-only). Without choices the *Filaments* row keeps its labels (`PLA · #FFFFFF · 33.69 g`). A whole file or link keeps its label next to the circle.
   - A filament since deleted in Spoolman still shows what was chosen (a copy is kept), with *· no longer in Spoolman*.
 
 - **3D preview:** the [preview](model-preview.md) draws the chosen filaments' colours, live while choosing (see there for how parts are matched). Under its plate buttons it shows the colour circles of the plate on screen (or the whole-file circle), the same pickers as in the card, so colours can be changed while watching the model. Only while choosing is allowed or something was chosen.

@@ -43,7 +43,7 @@ A printer counts as owned when the project names the same model (case doesn't ma
 ## On the Model card
 
 - **Slicing…** badge while queued or running; the page reloads every 3 seconds until it is done.
-- When done: the server's grams, time and filaments per plate (the same type and colour from several slots are added up), and a *Sliced for* row: "Bambu Lab P1S · 0,4 mm nozzle". When it was sliced on another printer or nozzle than the project's, a *Made for* row above it shows the project's: "Bambu Lab A1 · 0,2 mm nozzle" (then the colours shown are the project's, since your filament was used for every slot).
+- When done: the server's grams, time and filaments per plate (the same type and colour from several slots are added up), and a *Sliced for* row: "Bambu Lab P1S · 0.4 mm nozzle". When it was sliced on another printer or nozzle than the project's, a *Made for* row above it shows the project's: "Bambu Lab A1 · 0.2 mm nozzle" (then the colours shown are the project's, since your filament was used for every slot).
 - The fit check uses the build plate of the printer it was sliced for.
 - A plate OrcaSlicer refused shows its own estimate (`~X g`); the total then says *(partly estimated)*. The admin also sees OrcaSlicer's reason under the plate.
 - When the whole job failed (slicer unreachable, timed out, file missing, …) the card falls back to the file's own slice data or the estimate. The admin sees *Slicing failed: <reason>* and can re-slice; the requester just sees the fallback.
@@ -72,7 +72,7 @@ Issue: #21. The admin can re-slice one file with chosen settings, to see what a 
 
 - **Checks** (`400`): the printer must be owned and set up, the nozzle owned on it, and each chosen profile must exist for that printer + nozzle (asked from the slicer; `503` when it can't be reached). *Project's own settings* only for a project on its own printer and nozzle, *Project's filaments* only for projects. `409` while slicing is off or the file is queued or running; links can't be sliced.
 - **Stored:** the choice is saved with the job when it is queued (`custom`, printer, nozzle, process, filament), so it survives a restart. When the chosen printer is removed, or no longer owns that nozzle, before the job runs, the job fails with that reason. A profile OrcaSlicer no longer knows fails it too.
-- **On the card:** the *Sliced for* row adds the profiles: "Bambu Lab P1S · 0,2 mm nozzle · 0.12mm Fine @BBL P1S · Bambu PLA Basic", or "project's settings" / "project's filaments". The *Made for* row appears when a project was sliced on another printer or nozzle than its own (custom or automatic). The requester sees the same rows. The result stays until the file is re-sliced again.
+- **On the card:** the *Sliced for* row adds the profiles: "Bambu Lab P1S · 0.2 mm nozzle · 0.12mm Fine @BBL P1S · Bambu PLA Basic", or "project's settings" / "project's filaments". The *Made for* row appears when a project was sliced on another printer or nozzle than its own (custom or automatic). The requester sees the same rows. The result stays until the file is re-sliced again.
 - Only that file is re-sliced, not the rest of the request.
 
 ## Slicer service
