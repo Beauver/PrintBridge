@@ -79,6 +79,7 @@ export const REQUEST: PrintRequest = {
   status: 'SUBMITTED',
   finalPrice: null,
   declineReason: null,
+  cancelReason: null,
   paidAt: null,
   ownerId: 2,
   ownerUsername: 'alice',

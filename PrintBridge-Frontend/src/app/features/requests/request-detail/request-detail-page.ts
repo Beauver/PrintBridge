@@ -35,6 +35,8 @@ import { HasPendingUploads } from '../pending-uploads.guard';
 import { PrintRequestsService } from '../print-requests.service';
 import { isValidQuantity, MAX_QUANTITY, MIN_QUANTITY } from '../upload-checks';
 import { AddFiles } from './add-files/add-files';
+import { CancelRequestControl } from './cancel-request/cancel-request';
+import { DetailsEditor } from './details-editor/details-editor';
 import { ItemStatusControl } from './item-status/item-status';
 import { RequestStatusControl } from './request-status/request-status';
 import { LinkCard } from './link-card/link-card';
@@ -131,6 +133,8 @@ function printTimeTotal(request: PrintRequest): { text: string; note: string | n
     ItemStatusControl,
     RequestStatusControl,
     AddFiles,
+    DetailsEditor,
+    CancelRequestControl,
   ],
   templateUrl: './request-detail-page.html',
   styleUrl: './request-detail-page.css',
@@ -188,6 +192,14 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
     }
     return request.status === 'SUBMITTED';
   });
+
+  /** Name and description (#84): like quantities, the owner while SUBMITTED, the admin until final. */
+  protected readonly canEditDetails = computed(() => {
+    return this.canChangeQuantity();
+  });
+
+  /** The name and description are being edited (#84). */
+  protected readonly editingDetails = signal(false);
 
   /** The last file or link can't be removed; that is deleting the request. */
   protected readonly canRemoveFiles = computed(() => {
@@ -298,6 +310,19 @@ export class RequestDetailPage implements OnInit, HasPendingUploads {
 
   protected onReviewed(updated: PrintRequest): void {
     this.show(updated);
+  }
+
+  protected startEditingDetails(): void {
+    this.editingDetails.set(true);
+  }
+
+  protected onDetailsSaved(updated: PrintRequest): void {
+    this.editingDetails.set(false);
+    this.show(updated);
+  }
+
+  protected stopEditingDetails(): void {
+    this.editingDetails.set(false);
   }
 
   /** A file from "Add files" is in; the request comes back with it (and new totals). */

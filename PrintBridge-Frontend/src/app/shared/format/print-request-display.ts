@@ -8,6 +8,7 @@ const STATUS_LABELS: Record<RequestStatus, string> = {
   PRINTING: 'Printing',
   DECLINED: 'Declined',
   COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
 };
 
 const STATUS_BADGES: Record<RequestStatus, string> = {
@@ -17,6 +18,7 @@ const STATUS_BADGES: Record<RequestStatus, string> = {
   PRINTING: 'text-bg-warning',
   DECLINED: 'text-bg-danger',
   COMPLETED: 'text-bg-success',
+  CANCELLED: 'text-bg-light border',
 };
 
 const ITEM_STATUS_LABELS: Record<ItemStatus, string> = {
@@ -40,10 +42,18 @@ const ITEM_STATUS_BADGES: Record<ItemStatus, string> = {
 const PROGRESS_STATUSES: RequestStatus[] = ['ACCEPTED', 'PRINTING', 'COMPLETED'];
 
 /** Statuses after which nothing on a request can change. */
-const FINAL_STATUSES: RequestStatus[] = ['DECLINED', 'COMPLETED'];
+const FINAL_STATUSES: RequestStatus[] = ['DECLINED', 'COMPLETED', 'CANCELLED'];
+
+/** Statuses in which the requester may still cancel (#85): before the admin accepted it. */
+const CANCELLABLE_STATUSES: RequestStatus[] = ['SUBMITTED', 'IN_REVIEW'];
 
 export function isFinalStatus(status: RequestStatus): boolean {
   return FINAL_STATUSES.includes(status);
+}
+
+/** Whether the requester may cancel a request in this status (#85); mirrors the backend. */
+export function allowsCancelling(status: RequestStatus): boolean {
+  return CANCELLABLE_STATUSES.includes(status);
 }
 
 /** Whether the admin may mark a request (un)paid in this status; mirrors the backend. */

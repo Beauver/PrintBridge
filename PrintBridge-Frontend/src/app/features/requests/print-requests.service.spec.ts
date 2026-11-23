@@ -69,6 +69,16 @@ describe('PrintRequestsService', () => {
     expect(review.request.body).toEqual({ status: 'IN_REVIEW', declineReason: null });
     review.flush(REQUEST);
 
+    service.cancel(4, 'Changed my mind').subscribe();
+    const cancel = http.expectOne({ method: 'POST', url: '/api/requests/4/cancel' });
+    expect(cancel.request.body).toEqual({ reason: 'Changed my mind' });
+    cancel.flush(REQUEST);
+
+    service.changeDetails(4, 'Benchy', '').subscribe();
+    const details = http.expectOne({ method: 'PUT', url: '/api/requests/4' });
+    expect(details.request.body).toEqual({ name: 'Benchy', description: '' });
+    details.flush(REQUEST);
+
     service.changePrice(4, 12.5).subscribe();
     const price = http.expectOne({ method: 'PUT', url: '/api/requests/4/price' });
     expect(price.request.body).toEqual({ finalPrice: 12.5 });

@@ -25,6 +25,10 @@ Issue: #4 (part of #2); several files per request, quantities and upload setting
   - **Remove** a file or link (owner while *Submitted*, admin always) asks for confirmation. The last one can't be removed; delete the request instead.
   - **Download all (ZIP)** holds every file under its original name; a duplicate name gets a number (`part (2).stl`), also when only the case differs. A request with links also gets `links.txt`, listing each link's name (or host), quantity and URL; a request with only links gets just that.
   - The admin also sees who submitted it.
+  - **Edit** (#84; owner while *Submitted*, admin until the request is final): a small *✎ Edit* button next to the name opens a form under the heading with the **Name** and **Description**, filled in, plus *Save* and *Cancel*.
+    - Same rules as a new request: name required (trimmed, max 100), description optional (max 2000). An empty description clears it and the page shows "–".
+    - *Save* updates the page in place (*Last updated* changes) and closes the form; errors from the server show in the form. *Cancel* closes it without saving.
+    - The form keeps what was typed while the page reloads the request (e.g. while files are being sliced).
   - *Delete request* asks for confirmation, then removes the request and its files.
     - Owners only get the button while the request is *Submitted*.
     - The admin always gets it.
@@ -47,7 +51,7 @@ Issue: #59. Instead of, or next to, files, a request can hold links to models el
 
 ## Rules
 
-| Who | See / open | Download (file, ZIP) | Add / remove files | Quantity | Delete |
+| Who | See / open | Download (file, ZIP) | Add / remove files | Quantity, name & description | Delete |
 |---|---|---|---|---|---|
 | Owner | own requests | own files | only while SUBMITTED (else `409`) | only while SUBMITTED (else `409`) | own, only while SUBMITTED (else `409`) |
 | Other user | `404` | `404` | `404` | `404` | `404` |
@@ -94,10 +98,10 @@ The *Uploads* card on the admin settings page:
 
 ## Data
 
-- `print_requests`: owner, name, description, `final_price` (`NUMERIC(10,2)`, in the [currency](pricing.md#currency), null = pending), status (`SUBMITTED`, `IN_REVIEW`, `ACCEPTED`, `PRINTING` (V7), `DECLINED`, `COMPLETED`; see [admin review](admin-review.md) for the flow), decline reason, timestamps. `ON DELETE CASCADE` from users. `paid_at` (V3) marks when it was paid; only possible with a price.
+- `print_requests`: owner, name, description, `final_price` (`NUMERIC(10,2)`, in the [currency](pricing.md#currency), null = pending), status (`SUBMITTED`, `IN_REVIEW`, `ACCEPTED`, `PRINTING` (V7), `DECLINED`, `COMPLETED`, `CANCELLED` (V19, #85); see [admin review](admin-review.md) for the flow), decline reason, cancel reason (V19), timestamps. `ON DELETE CASCADE` from users. `paid_at` (V3) marks when it was paid; only possible with a price.
 - `request_files`: one row per file or link: `kind` (V10, `FILE`/`LINK`, existing rows `FILE`), `quantity` (V8, 1–100, existing files got 1), and either the file columns (original filename, storage path, type `STL`/`THREE_MF`, size) or the link columns (`url`, optional `link_name`). A check constraint keeps the other kind's columns empty. `ON DELETE CASCADE` from requests; a file's model info and slicing result go with it.
 - `app_settings.upload_max_files` / `upload_max_file_size_mb` (V8): the upload settings; `NULL` means the default.
 
 ## Not included
 
-Review (see [admin review](admin-review.md)), comments, editing name/description, the price estimate ([pricing](pricing.md), #72). Choosing filaments per colour is in [Spoolman filaments](spoolman.md) (#11). Out of #23: reordering files, per-file statuses or prices, uploading folders or ZIPs to unpack, changing the allowed extensions in the app, resumable uploads. Out of #59: attaching the real file to a link later (the admin uses *Add files* and removes the link), editing a link, fetching titles or thumbnails, allowing only certain sites.
+Review (see [admin review](admin-review.md)), comments, the price estimate ([pricing](pricing.md), #72). Choosing filaments per colour is in [Spoolman filaments](spoolman.md) (#11). Out of #23: reordering files, per-file statuses or prices, uploading folders or ZIPs to unpack, changing the allowed extensions in the app, resumable uploads. Out of #59: attaching the real file to a link later (the admin uses *Add files* and removes the link), editing a link, fetching titles or thumbnails, allowing only certain sites. Out of #84: an edit history or "edited" marker, notifying the other side.

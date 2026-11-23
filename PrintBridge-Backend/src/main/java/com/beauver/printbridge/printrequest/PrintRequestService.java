@@ -312,6 +312,44 @@ public class PrintRequestService {
     }
 
     /**
+     * The owner cancels their request (#85) while the admin hasn't accepted it yet (SUBMITTED or
+     * IN_REVIEW). It becomes CANCELLED, which is final; its items and files stay as they are, so
+     * the admin keeps the history. A blank reason means none.
+     */
+    @Transactional
+    public PrintRequestDto cancel(long requestId, String reason, Caller caller) {
+        PrintRequest request = findVisible(requestId, caller);
+        if (!request.status.mayBeCancelled()) {
+            throw new ConflictException("Only a submitted or in-review request can be cancelled");
+        }
+        request.status = RequestStatus.CANCELLED;
+        request.cancelReason = blankToNull(reason);
+        requests.flush();
+        return describe(request, caller.admin());
+    }
+
+    /**
+     * Changes the name and description (#84), like the quantity: the owner while the request is
+     * SUBMITTED (the admin reviews what was asked), the admin until it is final. A blank
+     * description clears it.
+     */
+    @Transactional
+    public PrintRequestDto changeDetails(long requestId, String name, String description, Caller caller) {
+        PrintRequest request = findVisible(requestId, caller);
+        if (caller.admin()) {
+            if (request.status.isFinal()) {
+                throw new ConflictException("This request is " + request.status + " and can no longer be changed");
+            }
+        } else if (request.status != RequestStatus.SUBMITTED) {
+            throw new ConflictException("The name and description can only be changed while the request is submitted");
+        }
+        request.name = name.trim();
+        request.description = blankToNull(description);
+        requests.flush();
+        return describe(request, caller.admin());
+    }
+
+    /**
      * Changes how many copies of a file to print (#23): the owner while the request is SUBMITTED,
      * the admin until it is final.
      */
@@ -454,7 +492,8 @@ public class PrintRequestService {
 
     /** No estimate once the admin set the final price, or for a declined request. */
     private static boolean needsEstimate(PrintRequest request) {
-        return request.finalPrice == null && request.status != RequestStatus.DECLINED;
+        return request.finalPrice == null && request.status != RequestStatus.DECLINED
+                && request.status != RequestStatus.CANCELLED;
     }
 
     /** The automatic price (#72) while there is no final price; {@code null} when there is none. */

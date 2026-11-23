@@ -1,12 +1,12 @@
 # Admin review, status flow and final price
 
-Issue: #5 (part of #2); the Printing status is #22.
+Issue: #5 (part of #2); the Printing status is #22; cancelling by the requester is #85.
 
 ## What it does
 
 - **All requests** (admin only, *All requests* in the navbar, `/admin/requests`):
   - Lists everyone's requests, newest first, using the same table/cards as *My requests* plus a requester column.
-  - The status filter defaults to **Open** (Submitted, In review, Accepted, Printing). It also offers **All** and each single status, and changing it reloads straight away.
+  - The status filter defaults to **Open** (Submitted, In review, Accepted, Printing). It also offers **All** and each single status (including **Cancelled**), and changing it reloads straight away.
   - The search box matches the request name or the requester's username, ignoring case. It runs on the server after a short typing pause.
   - No paging (prototype).
 - **Status** (admin, the status badge next to the request name; #65, like the [item statuses](#item-statuses)): the badge is a dropdown with only the statuses the request may move to. Users, and the admin on a final request, see a plain badge.
@@ -14,6 +14,7 @@ Issue: #5 (part of #2); the Printing status is #22.
   - Declined and Completed are final, so they ask for confirmation first, in a row under the name. Declining takes an optional reason (max 2000), which the user sees on the detail page.
   - Completed is disabled ("set a price first") until a price is set.
   - Errors from the server (e.g. someone else changed it first) appear under the name.
+- **Cancel request** (requester, #85; see [cancelling](#cancelling)).
 - **Price & payment panel** (admin, on the request detail page, above the details; shown while the price or paid can still change):
   - **Final price** (in the [currency](pricing.md#currency), whose symbol is in front of the field): 0 to 99999999.99 with at most 2 decimals. *Save* (or Enter) sets or changes it; *Clear* returns it to "Price pending" (or the [estimate](pricing.md)). Locked while the request is paid.
   - While there is an [estimated price](pricing.md) (#72), it is the field's placeholder, and *Save* with an empty field saves it.
@@ -49,9 +50,21 @@ Issue: #5 (part of #2); the Printing status is #22.
 | In review | Accepted, Declined |
 | Accepted | Printing, Completed (needs a final price) |
 | Printing | Completed (needs a final price), Accepted (e.g. a failed print to queue again), Declined (can't be printed after all) |
-| Declined, Completed | – (final) |
+| Declined, Completed, Cancelled | – (final) |
+
+Cancelled isn't one of the admin's moves: only the requester can cancel, see below.
 
 **Printing** (#22) tells the requester their print is on the printer. It shows as a yellow badge. Skipping it (Accepted → Completed) stays possible. While Printing, the price, paid and server re-slicing still work like for Accepted.
+
+## Cancelling
+
+Issue #85. The requester can back out of a request before the admin accepted it.
+
+- **When:** on their own request while it's *Submitted* or *In review*. From *Accepted* on they have to ask the admin, who can decline. The admin never sees the button and uses Decline instead (the API answers `403`).
+- **How:** a red outline *Cancel request* button next to the status badge. It opens a row under the name: "Cancel this request? This is final…", an optional **Reason** (max 2000, shown to the admin) and *Cancel request* / *Keep it*. Errors appear in that row.
+- **After:** the request is **Cancelled** (a light grey badge), which is final like Declined and Completed: nothing on it can change and there's no estimated price. A given reason shows to both sides as *Reason for cancelling* in the details card.
+- **What stays:** the request, its files and links, and their item statuses are kept, so the admin keeps the history. The requester can no longer delete it (that's only while Submitted); the admin still can.
+- **Overview:** not under *Open*; under *All* and *Cancelled*.
 
 - **Final requests:** status and price can't change any more (`409`). Completed requests can still be marked (un)paid. The admin can still delete final requests, as in #4.
 - **Owners:** can only delete while the request is Submitted (#4).

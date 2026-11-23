@@ -39,6 +39,10 @@ public class PrintRequest extends PanacheEntityBase {
     @Column(name = "decline_reason", length = 2000)
     public String declineReason;
 
+    /** Why the requester cancelled it (#85); optional, only while CANCELLED. */
+    @Column(name = "cancel_reason", length = 2000)
+    public String cancelReason;
+
     /** When the admin marked it paid; {@code null} while not paid. */
     @Column(name = "paid_at")
     public Instant paidAt;
