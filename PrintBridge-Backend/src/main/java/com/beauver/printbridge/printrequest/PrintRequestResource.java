@@ -92,6 +92,14 @@ public class PrintRequestResource {
         return service.get(id, currentUser.caller());
     }
 
+    /** Changes the name and description (#84); answers with the whole request. */
+    @PUT
+    @Path("/{id}")
+    @Consumes(MediaType.APPLICATION_JSON)
+    public PrintRequestDto changeDetails(@PathParam("id") long id, @Valid @NotNull RequestDetailsChange change) {
+        return service.changeDetails(id, change.name(), change.description(), currentUser.caller());
+    }
+
     /** Adds a model file to the request (#23); answers with the whole request. */
     @POST
     @Path("/{id}/files")

@@ -312,6 +312,27 @@ public class PrintRequestService {
     }
 
     /**
+     * Changes the name and description (#84), like the quantity: the owner while the request is
+     * SUBMITTED (the admin reviews what was asked), the admin until it is final. A blank
+     * description clears it.
+     */
+    @Transactional
+    public PrintRequestDto changeDetails(long requestId, String name, String description, Caller caller) {
+        PrintRequest request = findVisible(requestId, caller);
+        if (caller.admin()) {
+            if (request.status.isFinal()) {
+                throw new ConflictException("This request is " + request.status + " and can no longer be changed");
+            }
+        } else if (request.status != RequestStatus.SUBMITTED) {
+            throw new ConflictException("The name and description can only be changed while the request is submitted");
+        }
+        request.name = name.trim();
+        request.description = blankToNull(description);
+        requests.flush();
+        return describe(request, caller.admin());
+    }
+
+    /**
      * Changes how many copies of a file to print (#23): the owner while the request is SUBMITTED,
      * the admin until it is final.
      */
