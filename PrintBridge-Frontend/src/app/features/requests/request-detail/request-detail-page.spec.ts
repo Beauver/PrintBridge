@@ -383,7 +383,7 @@ describe('RequestDetailPage', () => {
       it('sums up exact grams and time', () => {
         const request: PrintRequest = { ...TWO_FILES, totals: TOTALS };
         expect(create(request)['summary']()).toEqual({
-          filament: { text: '65,25 g', note: null },
+          filament: { text: '65.25 g', note: null },
           printTime: { text: '18 h 20 min', note: null },
         });
       });

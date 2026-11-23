@@ -118,10 +118,10 @@ describe('ModelInfoCard', () => {
 
     expect(card['showPlates']()).toBe(true);
     expect(card['plateCount']()).toBe('3 plates');
-    expect(card['weight']()).toEqual({ text: '65,25 g', note: null });
+    expect(card['weight']()).toEqual({ text: '65.25 g', note: null });
     expect(card['printTime']()).toBe('1 h 35 min');
     expect(card['noFitText']()).toBe('Too big for Bambu Lab P1S');
-    expect(card['slicedFor']()).toBe('Bambu Lab P1S · 0,4 mm nozzle');
+    expect(card['slicedFor']()).toBe('Bambu Lab P1S · 0.4 mm nozzle');
   });
 
   it('marks partly estimated totals', () => {
@@ -135,20 +135,20 @@ describe('ModelInfoCard', () => {
       return create({ ...BAMBU, slicing: { ...SLICED, ...slicing } });
     }
 
-    expect(card({ madeForNozzle: 0.8 })['madeFor']()).toBe('Bambu Lab P1S · 0,8 mm nozzle');
+    expect(card({ madeForNozzle: 0.8 })['madeFor']()).toBe('Bambu Lab P1S · 0.8 mm nozzle');
     expect(card({ madeForPrinter: 'Bambu Lab X1 Carbon' })['madeFor']()).toBe(
-      'Bambu Lab X1 Carbon · 0,4 mm nozzle',
+      'Bambu Lab X1 Carbon · 0.4 mm nozzle',
     );
     expect(card({ madeForPrinter: 'Bambu Lab A1', madeForNozzle: 0.2 })['madeFor']()).toBe(
-      'Bambu Lab A1 · 0,2 mm nozzle',
+      'Bambu Lab A1 · 0.2 mm nozzle',
     );
-    expect(card({ printer: null, madeForNozzle: 0.2 })['madeFor']()).toBe('0,2 mm nozzle');
+    expect(card({ printer: null, madeForNozzle: 0.2 })['madeFor']()).toBe('0.2 mm nozzle');
     expect(card({ madeForPrinter: 'Bambu Lab A1' })['slicedFor']()).toBe(
-      'Bambu Lab P1S · 0,4 mm nozzle',
+      'Bambu Lab P1S · 0.4 mm nozzle',
     );
     expect(card({})['madeFor']()).toBeNull();
     expect(card({ status: 'QUEUED', madeForNozzle: 0.2 })['madeFor']()).toBeNull();
-    expect(card({ printer: null })['slicedFor']()).toBe('0,4 mm nozzle');
+    expect(card({ printer: null })['slicedFor']()).toBe('0.4 mm nozzle');
   });
 
   it('shows the profiles of a custom re-slice', () => {
@@ -157,10 +157,10 @@ describe('ModelInfoCard', () => {
     }
 
     expect(slicedFor({ process: '0.12mm Fine @BBL P1S', filament: 'Bambu PLA Basic' })).toBe(
-      'Bambu Lab P1S · 0,4 mm nozzle · 0.12mm Fine @BBL P1S · Bambu PLA Basic',
+      'Bambu Lab P1S · 0.4 mm nozzle · 0.12mm Fine @BBL P1S · Bambu PLA Basic',
     );
     expect(slicedFor({ process: null, filament: null })).toBe(
-      "Bambu Lab P1S · 0,4 mm nozzle · project's settings · project's filaments",
+      "Bambu Lab P1S · 0.4 mm nozzle · project's settings · project's filaments",
     );
   });
 
@@ -178,7 +178,7 @@ describe('ModelInfoCard', () => {
     expect(card['plateLabel'](empty)).toBe('Plate 2');
     expect(card['plateDimensions'](lid)).toBe('20 × 10 × 5 mm');
     expect(card['plateDimensions'](empty)).toBeNull();
-    expect(card['plateGrams'](lid)).toBe('33,69 g');
+    expect(card['plateGrams'](lid)).toBe('33.69 g');
     expect(card['plateGrams'](empty)).toBeNull();
     expect(card['plateGrams'](refused)).toBe('~4 g');
     expect(card['plateTime'](lid)).toBe('49 min');
@@ -189,7 +189,7 @@ describe('ModelInfoCard', () => {
     const card = create(BAMBU);
 
     expect(card['filamentLabel']({ type: 'PLA', color: '#FFFFFF', grams: 33.69 })).toBe(
-      'PLA · #FFFFFF · 33,69 g',
+      'PLA · #FFFFFF · 33.69 g',
     );
     expect(card['filamentLabel']({ type: null, color: null, grams: null })).toBe(
       'Unknown filament',
@@ -358,7 +358,7 @@ describe('ModelInfoCard', () => {
     });
 
     it('sums up weight and time for the header', () => {
-      expect(create(BAMBU)['headerSummary']()).toBe('65,25 g · 1 h 35 min');
+      expect(create(BAMBU)['headerSummary']()).toBe('65.25 g · 1 h 35 min');
       expect(create(STL_INFO)['headerSummary']()).toBe('~4 g');
       expect(create({ ...STL_INFO, status: 'PENDING', totalGrams: null })['headerSummary']()).toBe(
         '',

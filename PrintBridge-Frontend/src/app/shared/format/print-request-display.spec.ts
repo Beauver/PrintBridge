@@ -39,7 +39,8 @@ describe('print request display helpers', () => {
     expect(formatBytes(512)).toBe('512 B');
     expect(formatBytes(1536)).toBe('1.5 KB');
     expect(formatBytes(100 * 1024 * 1024)).toBe('100.0 MB');
-    expect(formatBytes(3 * 1024 ** 4)).toBe('3072.0 GB');
+    expect(formatBytes(3 * 1024 ** 4)).toBe('3,072.0 GB');
+    expect(formatBytes(1536, 'nl')).toBe('1,5 KB');
   });
 
   it('labels a link by its name, else its host, else the URL', () => {

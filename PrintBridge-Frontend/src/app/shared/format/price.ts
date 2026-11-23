@@ -1,3 +1,5 @@
+import { getBrowserLocale } from './locale';
+
 /*
  * Prices are in the currency the admin chose (#75) and formatted the way the viewer's browser
  * formats numbers: an American sees "$6,900.42", a Dutch viewer "US$ 6.900,42". Amounts always
@@ -28,20 +30,6 @@ export interface CurrencyOption {
   code: string;
   /** "EUR – Euro" */
   label: string;
-}
-
-/** The viewer's preferred locale, e.g. "en-US"; "en" when the browser doesn't say. */
-export function getBrowserLocale(): string {
-  if (typeof navigator === 'undefined') {
-    return 'en';
-  }
-  if (navigator.languages && navigator.languages.length > 0) {
-    return navigator.languages[0];
-  }
-  if (navigator.language) {
-    return navigator.language;
-  }
-  return 'en';
 }
 
 /** "$6,900.42" in en-US, "US$ 6.900,42" in nl. */

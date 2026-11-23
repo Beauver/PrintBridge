@@ -55,7 +55,7 @@ describe('PrintersCard', () => {
     expect(card['isDefault'](SAVED_P1S)).toBe(true);
     expect(card['isDefault'](MINI)).toBe(false);
     expect(card['plateText'](SAVED_P1S)).toBe('256 × 256 × 250 mm');
-    expect(card['nozzleText'](SAVED_P1S)).toBe('0,2 mm · 0,4 mm (default)');
+    expect(card['nozzleText'](SAVED_P1S)).toBe('0.2 mm · 0.4 mm (default)');
     expect(card['nozzleText'](MINI)).toBe('No nozzles chosen');
   });
 
