@@ -1,3 +1,5 @@
+<img src="PrintBridge-Frontend/public/logo.svg" alt="PrintBridge logo" width="96">
+
 # PrintBridge
 
 A web app where registered users can request custom 3D prints from you. Users upload models (STL or 3MF) or link to them, pick filaments from what's actually in stock, and submit a request with an indicative price. You review each request, set the final price, and accept or decline it, as a whole or file by file.
