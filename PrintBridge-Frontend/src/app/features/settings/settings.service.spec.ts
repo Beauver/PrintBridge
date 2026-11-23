@@ -38,7 +38,7 @@ describe('SettingsService', () => {
   });
 
   it('saves the pricing', () => {
-    const pricing = { markup: 1.5, pricePer100Grams: 2.5 };
+    const pricing = { currency: 'USD', markup: 1.5, pricePer100Grams: 2.5 };
     service.updatePricing(pricing).subscribe();
     const update = http.expectOne({ method: 'PUT', url: '/api/settings/pricing' });
     expect(update.request.body).toEqual(pricing);

@@ -47,6 +47,7 @@ describe('AllRequestsPage', () => {
       'PRINTING',
       'DECLINED',
       'COMPLETED',
+      'CANCELLED',
     ]);
     expect(page['filterOptions'][3].label).toBe('In review');
   });

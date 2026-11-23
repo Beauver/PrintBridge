@@ -1,7 +1,7 @@
 <form class="card card-body mb-4" [formGroup]="form" (ngSubmit)="save()" data-cy="pricing-form">
   <h2 class="h5">Pricing</h2>
   <p class="text-body-secondary small">
-    Requests get an estimated price until you set the final price.
+    The currency of every price, and the estimated price requests get until you set the final price.
   </p>
 
   @if (notice()) {
@@ -23,6 +23,23 @@
   </p>
 
   <div class="row g-3">
+    <div class="col-12">
+      <label class="form-label" for="pricing-currency">Currency</label>
+      <select
+        id="pricing-currency"
+        class="form-select"
+        formControlName="currency"
+        (change)="onCurrencyChange()"
+        data-cy="pricing-currency"
+      >
+        @for (currency of currencies(); track currency.code) {
+          <option [value]="currency.code">{{ currency.label }}</option>
+        }
+      </select>
+      <div class="form-text" data-cy="pricing-currency-hint">
+        Changing the currency doesn't convert existing prices.
+      </div>
+    </div>
     <div class="col-sm-6">
       <label class="form-label" for="pricing-markup">Markup</label>
       <div class="input-group">
@@ -36,12 +53,14 @@
           data-cy="pricing-markup"
         />
       </div>
-      <div class="form-text">Multiplies every price, e.g. 1,5.</div>
+      <div class="form-text">Multiplies every price, e.g. {{ markupExample }}.</div>
     </div>
     <div class="col-sm-6">
       <label class="form-label" for="pricing-per-100">Price per 100 g</label>
       <div class="input-group">
-        <span class="input-group-text">€</span>
+        <span class="input-group-text" data-cy="pricing-currency-symbol">{{
+          currencySymbol()
+        }}</span>
         <input
           id="pricing-per-100"
           class="form-control"

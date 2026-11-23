@@ -1,4 +1,5 @@
 import {
+  allowsCancelling,
   allowsPayment,
   formatBytes,
   isFinalStatus,
@@ -25,6 +26,20 @@ describe('print request display helpers', () => {
     expect(isFinalStatus('COMPLETED')).toBe(true);
     expect(isFinalStatus('ACCEPTED')).toBe(false);
     expect(isFinalStatus('PRINTING')).toBe(false);
+    expect(isFinalStatus('CANCELLED')).toBe(true);
+  });
+
+  it('labels a cancelled request (#85)', () => {
+    expect(statusLabel('CANCELLED')).toBe('Cancelled');
+    expect(statusBadgeClass('CANCELLED')).toBe('text-bg-light border');
+  });
+
+  it('allows cancelling only before acceptance', () => {
+    expect(allowsCancelling('SUBMITTED')).toBe(true);
+    expect(allowsCancelling('IN_REVIEW')).toBe(true);
+    expect(allowsCancelling('ACCEPTED')).toBe(false);
+    expect(allowsCancelling('DECLINED')).toBe(false);
+    expect(allowsCancelling('CANCELLED')).toBe(false);
   });
 
   it('allows payment from accepted on', () => {
@@ -39,7 +54,8 @@ describe('print request display helpers', () => {
     expect(formatBytes(512)).toBe('512 B');
     expect(formatBytes(1536)).toBe('1.5 KB');
     expect(formatBytes(100 * 1024 * 1024)).toBe('100.0 MB');
-    expect(formatBytes(3 * 1024 ** 4)).toBe('3072.0 GB');
+    expect(formatBytes(3 * 1024 ** 4)).toBe('3,072.0 GB');
+    expect(formatBytes(1536, 'nl')).toBe('1,5 KB');
   });
 
   it('labels a link by its name, else its host, else the URL', () => {

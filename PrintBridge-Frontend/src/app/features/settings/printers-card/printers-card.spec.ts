@@ -31,7 +31,7 @@ describe('PrintersCard', () => {
       notEnoughMessage: 'Order it',
       noMatchMessage: 'Pick another',
     },
-    pricing: { markup: 1, pricePer100Grams: 0 },
+    pricing: { currency: 'EUR', markup: 1, pricePer100Grams: 0 },
   };
 
   function create(): PrintersCard {
@@ -55,7 +55,7 @@ describe('PrintersCard', () => {
     expect(card['isDefault'](SAVED_P1S)).toBe(true);
     expect(card['isDefault'](MINI)).toBe(false);
     expect(card['plateText'](SAVED_P1S)).toBe('256 × 256 × 250 mm');
-    expect(card['nozzleText'](SAVED_P1S)).toBe('0,2 mm · 0,4 mm (default)');
+    expect(card['nozzleText'](SAVED_P1S)).toBe('0.2 mm · 0.4 mm (default)');
     expect(card['nozzleText'](MINI)).toBe('No nozzles chosen');
   });
 

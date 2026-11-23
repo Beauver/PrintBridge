@@ -1,8 +1,14 @@
 <nav class="navbar navbar-expand-md border-bottom bg-body-tertiary">
   <div class="container-lg">
-    <a class="navbar-brand fw-semibold" routerLink="/" (click)="closeMenu()" data-cy="nav-brand"
-      >PrintBridge</a
+    <a
+      class="navbar-brand fw-semibold d-inline-flex align-items-center gap-2"
+      routerLink="/"
+      (click)="closeMenu()"
+      data-cy="nav-brand"
     >
+      <img src="logo.svg" alt="" width="28" height="28" data-cy="nav-logo" />
+      PrintBridge
+    </a>
 
     <button
       class="navbar-toggler"

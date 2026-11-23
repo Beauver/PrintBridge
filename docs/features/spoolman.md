@@ -16,7 +16,7 @@ PrintBridge reads the owner's self-hosted [Spoolman](https://github.com/Donkie/S
 
 ## Settings → Spoolman (`/admin/settings?tab=spoolman`)
 
-The settings page has one tab per card: *Printers*, *Slicing*, *Uploads* and *Spoolman*. The open tab is in the URL (`?tab=`); without one, *Printers* opens.
+The settings page has one tab per card: *Printers*, *Slicing*, *Uploads*, *Spoolman* and *Pricing*. The open tab is in the URL (`?tab=`); without one, *Printers* opens.
 
 The Spoolman tab shows:
 
@@ -26,11 +26,11 @@ The Spoolman tab shows:
   - *Not configured: set SPOOLMAN_URL on the server.*
 - **Enable Spoolman integration:** read filaments and stock from Spoolman.
 - **Enable colour selection from Spoolman:** requesters choose filaments by clicking the colour circles.
-- **Use prices from Spoolman:** the [price estimate](pricing.md) uses each chosen filament's price per gram (#72). Like colour selection it needs the integration and goes off with it.
+- **Use prices from Spoolman:** the [price estimate](pricing.md) uses each chosen filament's price per gram (#72). Like colour selection it needs the integration and goes off with it. Spoolman's prices are taken to be in PrintBridge's [currency](pricing.md#currency) (#75).
   - Only possible while the integration is on.
   - Switching the integration off switches this off too (the form does it, and the backend refuses colour selection without the integration).
 - **Warning when there isn't enough filament:** the text requesters see on a request whose chosen filament runs short (max 300 characters). Empty means the default text.
-- Both switches are disabled while `SPOOLMAN_URL` isn't set. While it isn't set, both also count as off, whatever is saved.
+- The switches are disabled while `SPOOLMAN_URL` isn't set. While it isn't set, they also count as off, whatever is saved.
 
 ## Choosing a filament (request page)
 
@@ -52,7 +52,7 @@ The Spoolman tab shows:
   - The list is loaded once per page visit. A refused choice reloads it.
 - **A chosen filament:**
   - The circle takes its colour, and its tooltip reads `Vendor Name – Material (was PLA #FFFFFF)`.
-  - As soon as a colour of a plate has a choice, the one-plate *Filaments* row and the preview's *Colours* row show only the circles. An **Old colours** row under them shows the file's own colours (circle + hex, read-only). Without choices the *Filaments* row keeps its labels (`PLA · #FFFFFF · 33,69 g`). A whole file or link keeps its label next to the circle.
+  - As soon as a colour of a plate has a choice, the one-plate *Filaments* row and the preview's *Colours* row show only the circles. An **Old colours** row under them shows the file's own colours (circle + hex, read-only). Without choices the *Filaments* row keeps its labels (`PLA · #FFFFFF · 33.69 g`). A whole file or link keeps its label next to the circle.
   - A filament since deleted in Spoolman still shows what was chosen (a copy is kept), with *· no longer in Spoolman*.
 
 - **3D preview:** the [preview](model-preview.md) draws the chosen filaments' colours, live while choosing (see there for how parts are matched). Under its plate buttons it shows the colour circles of the plate on screen (or the whole-file circle), the same pickers as in the card, so colours can be changed while watching the model. Only while choosing is allowed or something was chosen.

@@ -1,18 +1,20 @@
+<img src="PrintBridge-Frontend/public/logo.svg" alt="PrintBridge logo" width="96">
+
 # PrintBridge
 
-A web app where registered users can request custom 3D prints from you. Users upload a model (STL or 3MF), pick a filament from what's actually in stock, and submit a request with an indicative price. You review each request, discuss it via comments, adjust the final price, and accept or decline it.
+A web app where registered users can request custom 3D prints from you. Users upload models (STL or 3MF) or link to them, pick filaments from what's actually in stock, and submit a request with an indicative price. You review each request, set the final price, and accept or decline it, as a whole or file by file.
 
 Payment is out of scope: prices are indications and payment happens in person.
 
 ## Features
 
-- **Requesters:** register and log in, upload STL/3MF files with a 3D preview, choose filament (colour and material) from live data, set quantity and notes, see the estimated and final price, track status and comment.
-- **Owner (admin):** dashboard of all requests with filters and search, review the model and choices, comment, edit details and the final price, accept or decline with a reason, update status.
-- **Filaments from Spoolman:** the backend reads your self-hosted [Spoolman](https://github.com/Donkie/Spoolman) (read-only, with caching), so options always reflect your inventory. Requesters pick a filament per colour of each plate; when there isn't enough left, they're told it will be ordered and the print may be delayed.
+- **Requesters:** log in with an account the owner creates, upload one or more STL/3MF files with a 3D preview or add links to models elsewhere, choose filament (colour and material) from live data, set quantities and a description, see the estimated and final price, track the status of the request and of each file, change the name and description while it's submitted, and cancel it until it's accepted.
+- **Owner (admin):** all requests with filters and search, review the models and choices, edit details and the final price, accept or decline with a reason (the whole request or file by file), update the status, mark requests as paid, manage users, and set up printers, slicing, upload limits, Spoolman, the currency and pricing in *Settings*.
+- **Filaments from Spoolman:** the backend reads your self-hosted [Spoolman](https://github.com/Donkie/Spoolman) (read-only, with caching), so options always reflect your inventory. Requesters pick a filament per colour of each plate, or have the closest colour matched automatically; when there isn't enough left, they're told it will be ordered and the print may be delayed.
 - **Model info and server slicing:** dimensions, plates, filament and print time per upload. With the optional slicer service, every upload is sliced with OrcaSlicer for your printer, so the numbers are exact.
-- **Price indication:** estimated weight × the chosen filament's Spoolman price per gram × a markup, or a fixed price per 100 g, behind a `PricingStrategy`. Estimated grams use the filament's density. The owner's final price overrides it.
+- **Price indication:** estimated weight × the chosen filament's Spoolman price per gram × a markup, or a fixed price per 100 g, behind a `PricingStrategy`. Estimated grams use the filament's density. The owner's final price overrides it. Prices are in the currency you choose and shown in each viewer's number format.
 
-Status flow: `SUBMITTED → IN_REVIEW → ACCEPTED / DECLINED → COMPLETED`
+Status flow: `SUBMITTED → IN_REVIEW → ACCEPTED → PRINTING → COMPLETED`. The owner can decline a request before accepting it or while printing; the requester can cancel it until it's accepted (`CANCELLED`). See [admin review](docs/features/admin-review.md#status-flow).
 
 ## Tech stack
 
@@ -20,7 +22,8 @@ Status flow: `SUBMITTED → IN_REVIEW → ACCEPTED / DECLINED → COMPLETED`
 |----------|---------------------------------------------------|
 | Backend  | Quarkus, REST, Hibernate ORM with Panache, SmallRye JWT |
 | Database | PostgreSQL                                        |
-| Frontend | Angular (Three.js for model preview)              |
+| Frontend | Angular, Bootstrap, ng-bootstrap (Three.js for model preview) |
+| Slicer (optional) | OrcaSlicer command line behind a small Python HTTP API |
 | Integration | Spoolman REST API (`/api/v1/`), backend only   |
 
 ## Repository layout
@@ -45,16 +48,16 @@ docs/                   architecture, auth, API, deployment and per-feature docu
    cd local && cp .env.example .env && docker compose up -d
    ```
 2. Run the backend: `./gradlew quarkusDev` in `PrintBridge-Backend` (JDK 21+). It connects to the local Postgres with its defaults and runs the Flyway migrations. To change a setting, copy `PrintBridge-Backend/.env.example` to `PrintBridge-Backend/.env`.
-3. Run the frontend: `npm start` in `PrintBridge-Frontend`, then open http://localhost:4200. The dev server proxies `/api` to the backend on :8080.
+3. Run the frontend: `npm ci` (first time) and `npm start` in `PrintBridge-Frontend` (Node.js 22.22.3+, 24.15+ or 26+, as Angular 22 needs; CI uses 24), then open http://localhost:4200. The dev server proxies `/api` to the backend on :8080.
 4. The first visit asks you to create the admin account.
 
 Dev mode and tests generate throwaway JWT keys; real keys are only needed for a deployment. Documentation lives in [`docs/`](docs/README.md).
 
-All external connections (database, file storage, slicer) are configured through environment variables.
+All external connections (database, file storage, slicer, Spoolman) are configured through environment variables.
 
 ## Out of scope (v1)
 
-Payments, writing back to Spoolman (including filament deduction), print queues, configurable pricing rules, and multi-owner support.
+Payments, comments on requests, writing back to Spoolman (including filament deduction), print queues, a full cost model for prices (electricity, machine time, fees), and multi-owner support.
 
 ## Contributing
 

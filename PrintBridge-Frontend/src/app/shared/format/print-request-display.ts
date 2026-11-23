@@ -1,4 +1,5 @@
 import { ItemStatus, RequestStatus } from '../../core/models/print-request.model';
+import { formatDecimal, getBrowserLocale } from './locale';
 
 const STATUS_LABELS: Record<RequestStatus, string> = {
   SUBMITTED: 'Submitted',
@@ -7,6 +8,7 @@ const STATUS_LABELS: Record<RequestStatus, string> = {
   PRINTING: 'Printing',
   DECLINED: 'Declined',
   COMPLETED: 'Completed',
+  CANCELLED: 'Cancelled',
 };
 
 const STATUS_BADGES: Record<RequestStatus, string> = {
@@ -16,6 +18,7 @@ const STATUS_BADGES: Record<RequestStatus, string> = {
   PRINTING: 'text-bg-warning',
   DECLINED: 'text-bg-danger',
   COMPLETED: 'text-bg-success',
+  CANCELLED: 'text-bg-light border',
 };
 
 const ITEM_STATUS_LABELS: Record<ItemStatus, string> = {
@@ -39,10 +42,18 @@ const ITEM_STATUS_BADGES: Record<ItemStatus, string> = {
 const PROGRESS_STATUSES: RequestStatus[] = ['ACCEPTED', 'PRINTING', 'COMPLETED'];
 
 /** Statuses after which nothing on a request can change. */
-const FINAL_STATUSES: RequestStatus[] = ['DECLINED', 'COMPLETED'];
+const FINAL_STATUSES: RequestStatus[] = ['DECLINED', 'COMPLETED', 'CANCELLED'];
+
+/** Statuses in which the requester may still cancel (#85): before the admin accepted it. */
+const CANCELLABLE_STATUSES: RequestStatus[] = ['SUBMITTED', 'IN_REVIEW'];
 
 export function isFinalStatus(status: RequestStatus): boolean {
   return FINAL_STATUSES.includes(status);
+}
+
+/** Whether the requester may cancel a request in this status (#85); mirrors the backend. */
+export function allowsCancelling(status: RequestStatus): boolean {
+  return CANCELLABLE_STATUSES.includes(status);
 }
 
 /** Whether the admin may mark a request (un)paid in this status; mirrors the backend. */
@@ -59,8 +70,8 @@ export function statusBadgeClass(status: RequestStatus): string {
   return STATUS_BADGES[status];
 }
 
-/** Human-readable file size, e.g. "1.5 MB". */
-export function formatBytes(bytes: number): string {
+/** Human-readable file size in the browser locale (#86), e.g. "1.5 MB". */
+export function formatBytes(bytes: number, locale = getBrowserLocale()): string {
   const units = ['B', 'KB', 'MB', 'GB'];
   let value = bytes;
   let unit = 0;
@@ -71,7 +82,7 @@ export function formatBytes(bytes: number): string {
   if (unit === 0) {
     return `${value} ${units[unit]}`;
   }
-  return `${value.toFixed(1)} ${units[unit]}`;
+  return `${formatDecimal(value, 1, 1, locale)} ${units[unit]}`;
 }
 
 /** A link's name (#59), or else the host of its URL ("www.patreon.com"), or else the URL itself. */

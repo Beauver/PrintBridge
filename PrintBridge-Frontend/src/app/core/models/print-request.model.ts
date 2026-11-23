@@ -2,7 +2,7 @@ import { ModelInfo, WeightKind } from './model-info.model';
 import { ColorSlot, FilamentChoice } from './spoolman.model';
 
 export type RequestStatus =
-  'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'PRINTING' | 'DECLINED' | 'COMPLETED';
+  'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'PRINTING' | 'DECLINED' | 'COMPLETED' | 'CANCELLED';
 
 /** Admin overview filter: open requests, all, or one status. */
 export type StatusFilter = 'OPEN' | 'ALL' | RequestStatus;
@@ -14,7 +14,7 @@ export type ItemStatus = 'PENDING' | 'ACCEPTED' | 'DECLINED' | 'PRINTING' | 'COM
 
 /** The automatic price of a request until the admin sets the final price (#72). */
 export interface EstimatedPrice {
-  /** EUR, rounded to cents. */
+  /** In the request's `currency` (#75), rounded to cents. */
   amount: number;
   /** Some parts had no grams or price, so the real price is higher. */
   partial: boolean;
@@ -36,6 +36,8 @@ export interface PrintRequestSummary {
   itemsActive: number;
   /** While there is no final price and the request isn't declined; null when nothing could be priced. */
   estimatedPrice: EstimatedPrice | null;
+  /** ISO 4217 code of the final and estimated price (#75), e.g. "EUR". */
+  currency: string;
 }
 
 /** An uploaded STL/3MF of a request. */
@@ -119,6 +121,8 @@ export interface PrintRequest {
   status: RequestStatus;
   finalPrice: number | null;
   declineReason: string | null;
+  /** Why the requester cancelled it (#85); null without a reason or when not cancelled. */
+  cancelReason: string | null;
   paidAt: string | null;
   ownerId: number;
   ownerUsername: string;
@@ -136,6 +140,8 @@ export interface PrintRequest {
   noMatchMessage: string;
   /** While there is no final price and the request isn't declined; null when nothing could be priced. */
   estimatedPrice: EstimatedPrice | null;
+  /** ISO 4217 code of the final and estimated price (#75), e.g. "EUR". */
+  currency: string;
 }
 
 export interface UploadConfig {

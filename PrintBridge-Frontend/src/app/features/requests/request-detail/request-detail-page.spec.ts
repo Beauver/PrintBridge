@@ -343,6 +343,33 @@ describe('RequestDetailPage', () => {
       expect(completed['canChangeQuantity']()).toBe(false);
     });
 
+    it('lets the owner edit name and description while submitted, the admin until final (#84)', () => {
+      expect(create()['canEditDetails']()).toBe(true);
+      const inReview = create({ ...REQUEST, status: 'IN_REVIEW', nextStatuses: ['ACCEPTED'] });
+      expect(inReview['canEditDetails']()).toBe(false);
+
+      isAdmin.set(true);
+      const printing = create({ ...REQUEST, status: 'PRINTING', nextStatuses: ['COMPLETED'] });
+      expect(printing['canEditDetails']()).toBe(true);
+      const declined = create({ ...REQUEST, status: 'DECLINED', nextStatuses: [] });
+      expect(declined['canEditDetails']()).toBe(false);
+    });
+
+    it('opens and closes the details editor, showing what was saved', () => {
+      const page = create();
+      expect(page['editingDetails']()).toBe(false);
+      page['startEditingDetails']();
+      expect(page['editingDetails']()).toBe(true);
+      page['stopEditingDetails']();
+      expect(page['editingDetails']()).toBe(false);
+
+      page['startEditingDetails']();
+      const renamed = { ...REQUEST, name: 'Renamed' };
+      page['onDetailsSaved'](renamed);
+      expect(page['editingDetails']()).toBe(false);
+      expect(page['request']()).toEqual(renamed);
+    });
+
     it('never offers to remove the last file', () => {
       isAdmin.set(true);
       expect(create()['canRemoveFiles']()).toBe(false);
@@ -383,7 +410,7 @@ describe('RequestDetailPage', () => {
       it('sums up exact grams and time', () => {
         const request: PrintRequest = { ...TWO_FILES, totals: TOTALS };
         expect(create(request)['summary']()).toEqual({
-          filament: { text: '65,25 g', note: null },
+          filament: { text: '65.25 g', note: null },
           printTime: { text: '18 h 20 min', note: null },
         });
       });

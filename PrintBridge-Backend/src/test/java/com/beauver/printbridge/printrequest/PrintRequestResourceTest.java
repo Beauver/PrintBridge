@@ -15,6 +15,7 @@ import java.io.IOException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Stream;
@@ -315,6 +316,61 @@ class PrintRequestResourceTest {
         changeQuantity(bobToken, r.id(), file, 100).statusCode(200);
         changeQuantity(eveToken, r.id(), file, 2).statusCode(404);
         changeQuantity(bobToken, r.id(), 999, 2).statusCode(404);
+    }
+
+    private ValidatableResponse changeDetails(String token, long requestId, String name, String description) {
+        Map<String, String> body = new HashMap<>();
+        body.put("name", name);
+        body.put("description", description);
+        return given().auth().oauth2(token).contentType(ContentType.JSON).body(body)
+                .put("/api/requests/" + requestId).then();
+    }
+
+    @Test
+    void ownerChangesNameAndDescriptionWhileSubmitted() {
+        PrintRequestDto r = data.printRequest(bob, RequestStatus.SUBMITTED);
+        changeDetails(bobToken, r.id(), "  Big benchy ", "In blue, please")
+                .statusCode(200)
+                .body("name", is("Big benchy"))
+                .body("description", is("In blue, please"))
+                .body("updatedAt", not(is(r.updatedAt().toString())));
+        given().auth().oauth2(bobToken).get("/api/requests").then().body("[0].name", is("Big benchy"));
+
+        // A blank description clears it.
+        changeDetails(bobToken, r.id(), "Big benchy", "   ").statusCode(200).body("description", nullValue());
+        changeDetails(bobToken, r.id(), "Big benchy", null).statusCode(200).body("description", nullValue());
+
+        data.setStatus(r.id(), RequestStatus.IN_REVIEW);
+        changeDetails(bobToken, r.id(), "Too late", null).statusCode(409)
+                .body("message", is("The name and description can only be changed while the request is submitted"));
+        changeDetails(eveToken, r.id(), "Not mine", null).statusCode(404);
+    }
+
+    @Test
+    void adminChangesDetailsUntilTheRequestIsFinal() {
+        PrintRequestDto r = data.printRequest(bob, RequestStatus.PRINTING);
+        changeDetails(adminToken, r.id(), "Renamed", "By the owner").statusCode(200).body("name", is("Renamed"));
+
+        data.setStatus(r.id(), RequestStatus.COMPLETED);
+        changeDetails(adminToken, r.id(), "Again", null).statusCode(409);
+        data.setStatus(r.id(), RequestStatus.DECLINED);
+        changeDetails(adminToken, r.id(), "Again", null).statusCode(409);
+        changeDetails(adminToken, 999, "Missing", null).statusCode(404);
+    }
+
+    @Test
+    void detailsFollowTheRulesOfANewRequest() {
+        PrintRequestDto r = data.printRequest(bob, RequestStatus.SUBMITTED);
+        changeDetails(bobToken, r.id(), "  ", null).statusCode(400)
+                .body("violations[0].message", is("Name is required"));
+        changeDetails(bobToken, r.id(), null, null).statusCode(400);
+        changeDetails(bobToken, r.id(), "x".repeat(101), null).statusCode(400)
+                .body("violations[0].message", is("Name must be at most 100 characters"));
+        changeDetails(bobToken, r.id(), "Ok", "x".repeat(2001)).statusCode(400)
+                .body("violations[0].message", is("Description must be at most 2000 characters"));
+        changeDetails(bobToken, r.id(), "x".repeat(100), "x".repeat(2000)).statusCode(200);
+        given().auth().oauth2(bobToken).contentType(ContentType.JSON)
+                .put("/api/requests/" + r.id()).then().statusCode(400);
     }
 
     @Test

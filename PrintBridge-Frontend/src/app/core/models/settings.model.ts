@@ -58,11 +58,13 @@ export interface SpoolmanSettings {
   notEnoughMessage: string;
 }
 
-/** The price estimate (#72); whether Spoolman's prices are used is a Spoolman setting. */
+/** Prices (#72, #75); whether Spoolman's prices are used is a Spoolman setting. */
 export interface PricingSettings {
+  /** ISO 4217 code of every price, e.g. "EUR". Changing it doesn't convert amounts. */
+  currency: string;
   /** Multiplies every price (0.01–100). */
   markup: number;
-  /** EUR per 100 g: the default for everything without a Spoolman price; 0 = none. */
+  /** Price per 100 g in `currency`: the default for everything without a Spoolman price; 0 = none. */
   pricePer100Grams: number;
 }
 

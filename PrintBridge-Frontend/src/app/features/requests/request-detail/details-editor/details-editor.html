@@ -1,0 +1,43 @@
+<form class="card card-body mb-3" [formGroup]="form" (ngSubmit)="save()" data-cy="details-editor">
+  @if (error()) {
+    <div class="alert alert-danger py-2" role="alert" data-cy="details-error">{{ error() }}</div>
+  }
+
+  <div class="mb-3">
+    <label class="form-label" for="details-name">Name</label>
+    <input
+      id="details-name"
+      class="form-control"
+      type="text"
+      formControlName="name"
+      [attr.maxlength]="100"
+      data-cy="details-name"
+    />
+  </div>
+  <div class="mb-3">
+    <label class="form-label" for="details-description">Description</label>
+    <textarea
+      id="details-description"
+      class="form-control"
+      rows="4"
+      formControlName="description"
+      [attr.maxlength]="2000"
+      data-cy="details-description"
+    ></textarea>
+  </div>
+
+  <div class="d-flex gap-2">
+    <button type="submit" class="btn btn-primary" [disabled]="saving()" data-cy="details-save">
+      {{ saving() ? 'Saving…' : 'Save' }}
+    </button>
+    <button
+      type="button"
+      class="btn btn-outline-secondary"
+      [disabled]="saving()"
+      (click)="cancel()"
+      data-cy="details-cancel"
+    >
+      Cancel
+    </button>
+  </div>
+</form>

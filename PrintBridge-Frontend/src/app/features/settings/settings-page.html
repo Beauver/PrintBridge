@@ -60,6 +60,7 @@
         <app-spoolman-settings
           [settings]="settings.spoolman"
           [status]="spoolmanStatus()"
+          [currency]="settings.pricing.currency"
           (saved)="onChanged($event)"
         />
       }

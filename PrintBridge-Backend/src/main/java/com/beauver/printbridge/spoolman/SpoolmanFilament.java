@@ -12,7 +12,7 @@ import java.util.List;
  * @param colors          the colours of a multi-colour filament ({@code #RRGGBB}); otherwise empty
  * @param gramsLeft       the weight left on its spools that aren't archived; 0 without such spools,
  *                        {@code null} when a spool's weight is unknown
- * @param price           what a spool of it costs (Spoolman's currency, taken as EUR); optional (#72)
+ * @param price           what a spool of it costs (Spoolman's currency, taken as PrintBridge's); optional (#72)
  * @param weight          the net filament weight of a spool in grams; optional
  * @param density         g/cm³; optional
  */

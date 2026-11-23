@@ -19,6 +19,7 @@ const STATUSES: RequestStatus[] = [
   'PRINTING',
   'DECLINED',
   'COMPLETED',
+  'CANCELLED',
 ];
 
 /** Typing pause before the search runs, so not every keystroke hits the server. */

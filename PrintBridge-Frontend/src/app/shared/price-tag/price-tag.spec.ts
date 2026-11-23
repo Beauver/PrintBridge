@@ -6,6 +6,7 @@ describe('PriceTag', () => {
     const fixture = TestBed.createComponent(PriceTag);
     fixture.componentRef.setInput('price', price);
     fixture.componentRef.setInput('paidAt', paidAt);
+    fixture.componentRef.setInput('currency', 'USD');
     fixture.detectChanges();
     return fixture.componentInstance;
   }
@@ -16,8 +17,8 @@ describe('PriceTag', () => {
     expect(tag['paid']()).toBe(false);
   });
 
-  it('formats the price in euros', () => {
-    expect(create(6900.42)['formatted']()?.replace(/\s/g, ' ')).toBe('€ 6.900,42');
+  it('formats the price in its currency, in the browser locale (en-US in tests)', () => {
+    expect(create(6900.42)['formatted']()).toBe('$6,900.42');
   });
 
   it('knows when the request is paid', () => {
@@ -27,9 +28,10 @@ describe('PriceTag', () => {
   it('shows the estimate while there is no final price', () => {
     const fixture = TestBed.createComponent(PriceTag);
     fixture.componentRef.setInput('price', null);
+    fixture.componentRef.setInput('currency', 'EUR');
     fixture.componentRef.setInput('estimate', { amount: 12.34, partial: false });
     const tag = fixture.componentInstance;
-    expect(tag['estimated']()?.text.replace(/\s/g, ' ')).toBe('~ € 12,34');
+    expect(tag['estimated']()?.text).toBe('~ €12.34');
     expect(tag['estimated']()?.note).toBe('(estimate)');
 
     fixture.componentRef.setInput('estimate', { amount: 12.34, partial: true });

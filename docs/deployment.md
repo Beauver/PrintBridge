@@ -16,7 +16,7 @@ How to run PrintBridge from the published images with the compose file in [`depl
 
 Only the frontend has a public port. The slicer has no authentication, so it must stay that way. Spoolman has none either: its port is bound to `127.0.0.1` by default; put a proxy with a login in front before opening it up.
 
-Data lives in two named volumes and one folder:
+Data lives in three named volumes and one folder:
 
 | Where | What |
 |---|---|
@@ -79,11 +79,13 @@ All in `deploy/.env`; the file explains each one. The ones that matter most:
 | `PUBLIC_URL` | (required) | The address users open. |
 | `POSTGRES_PASSWORD` | (required) | Database password. |
 | `HTTP_BIND`, `HTTP_PORT` | `127.0.0.1`, `8080` | Where the app listens on the host. |
-| `PRINTBRIDGE_VERSION` | `latest` | Image tag for all three images. |
+| `PRINTBRIDGE_VERSION` | `latest` | Image tag for all three PrintBridge images, see [versions](#versions). |
 | `UPLOAD_MAX_SIZE_MB` | `100` | Ceiling per uploaded file, for nginx and the backend. The admin sets the actual limit in *Settings → Uploads*, up to this. |
 | `SLICER_URL` | `http://slicer:8000` | The bundled slicer; empty to not use one. |
 | `SPOOLMAN_URL` | `http://spoolman:8000` | The bundled Spoolman, or your own as the backend container reaches it; empty to not use one. |
 | `SPOOLMAN_CACHE_TTL_SECONDS` | `60` | How long the filament list from Spoolman is kept. |
+| `SPOOLMAN_BIND`, `SPOOLMAN_PORT` | `127.0.0.1`, `7912` | Where the bundled Spoolman's web UI listens on the host. |
+| `SPOOLMAN_VERSION` | `latest` | Image tag of the bundled Spoolman. |
 | `AUTH_COOKIE_SECURE` | `true` | `false` only for a test without HTTPS. |
 | `SOURCE_URL` | this repository | Where the footer's source link points; change it if you run a changed version for others (AGPL-3.0). |
 
@@ -93,11 +95,21 @@ Other backend settings (token lifetimes, `RATE_LIMIT_ENABLED`, ...) are listed i
 
 The slicer starts with everything else. Switch slicing on in *Settings → Slicing* after adding your printers. The image is about 1.6 GB and x86_64 only (on ARM, start with `--scale slicer=0`). See [server slicing](features/server-slicing.md).
 
+The slicer accepts files up to 200 MB. If you raise `UPLOAD_MAX_SIZE_MB` above that, add `MAX_UPLOAD_MB` with a somewhat higher value under `slicer: environment:` in the compose file, or larger files can't be sliced.
+
 ## Spoolman
 
 PrintBridge reads filaments and stock from [Spoolman](https://github.com/Donkie/Spoolman) (read-only). The bundled one starts with everything else: manage your spools in its web UI (`http://127.0.0.1:7912`) and switch the integration on in *Settings → Spoolman*. If you already run your own, set `SPOOLMAN_URL` to an address the backend container can reach and start with `--scale spoolman=0`. See [Spoolman filaments](features/spoolman.md).
 
+## Versions
+
+Images are published to Docker Hub for every release on GitHub, never for other changes. Each image gets the release's version without its leading `v` as its tag: release `v1.0.0` is `beauver/printbridge-backend:1.0.0`. `latest` moves to the newest release; pre-releases never get it.
+
+Set `PRINTBRIDGE_VERSION` to a version, e.g. `1.0.0`, to choose when you update. With `latest`, every `docker compose pull` can bring a new version.
+
 ## Updating
+
+Make a backup first, set `PRINTBRIDGE_VERSION` to the new version if you pinned one, then:
 
 ```sh
 docker compose pull
@@ -105,23 +117,37 @@ docker compose up -d
 ```
 
 - Database changes are applied by the backend when it starts.
-- Pin `PRINTBRIDGE_VERSION` to a release tag if you want to choose when to update.
-- Make a backup first.
+- If you left the slicer or Spoolman out, pass the same `--scale` option to `docker compose up -d` again: without it they start too. On ARM, pull only the services you run, e.g. `docker compose pull frontend backend postgres spoolman`, since the slicer image has no ARM version.
 
 ## Backups
 
-Three things, all needed to restore an installation:
+Three things, all needed to restore an installation, plus the bundled Spoolman if you use it. Run these in `deploy/`:
 
 ```sh
 # database
-docker compose exec postgres pg_dump -U printbridge printbridge > printbridge.sql
+docker compose exec -T postgres pg_dump -U printbridge printbridge > printbridge.sql
 # uploaded files
 docker run --rm -v printbridge-app_uploads:/data:ro -v "$PWD":/backup alpine tar czf /backup/uploads.tar.gz -C /data .
 # keys and settings: copy deploy/keys/ and deploy/.env
+# the bundled Spoolman (stopped, so its database is consistent)
+docker compose stop spoolman
+docker run --rm -v printbridge-app_spoolman-data:/data:ro -v "$PWD":/backup alpine tar czf /backup/spoolman.tar.gz -C /data .
+docker compose start spoolman
 ```
 
-The volume names start with the compose project name, `printbridge-app`.
+The volume names start with the compose project name, `printbridge-app`. With other `POSTGRES_USER` or `POSTGRES_DB` values, use those in the `pg_dump` command.
+
+To restore on a new machine, put `deploy/keys/` and `deploy/.env` back first. Load the database before the backend has ever started, since the backend creates an empty schema on its first start:
+
+```sh
+docker compose up -d postgres
+docker compose exec -T postgres psql -U printbridge printbridge < printbridge.sql
+docker run --rm -v printbridge-app_uploads:/data -v "$PWD":/backup alpine \
+  sh -c 'tar xzf /backup/uploads.tar.gz -C /data && chown -R 185:0 /data'
+docker run --rm -v printbridge-app_spoolman-data:/data -v "$PWD":/backup alpine tar xzf /backup/spoolman.tar.gz -C /data
+docker compose up -d
+```
 
 ## Removing
 
-`docker compose down` stops everything and keeps the data. `docker compose down -v` also deletes the database and the uploads.
+`docker compose down` stops everything and keeps the data. `docker compose down -v` also deletes the database, the uploads and the bundled Spoolman's data.

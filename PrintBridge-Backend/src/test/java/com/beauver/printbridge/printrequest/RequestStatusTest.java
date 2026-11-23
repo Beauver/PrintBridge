@@ -17,6 +17,18 @@ class RequestStatusTest {
         assertEquals(List.of(COMPLETED, ACCEPTED, DECLINED), PRINTING.nextStatuses());
         assertTrue(DECLINED.nextStatuses().isEmpty());
         assertTrue(COMPLETED.nextStatuses().isEmpty());
+        assertTrue(CANCELLED.nextStatuses().isEmpty());
+    }
+
+    @Test
+    void onlyRequestsBeforeAcceptanceMayBeCancelled() {
+        assertTrue(SUBMITTED.mayBeCancelled());
+        assertTrue(IN_REVIEW.mayBeCancelled());
+        for (RequestStatus status : List.of(ACCEPTED, PRINTING, DECLINED, COMPLETED, CANCELLED)) {
+            assertFalse(status.mayBeCancelled(), status.name());
+        }
+        // Cancelling isn't one of the admin's moves.
+        assertFalse(SUBMITTED.canMoveTo(CANCELLED));
     }
 
     @Test
@@ -41,8 +53,10 @@ class RequestStatusTest {
     }
 
     @Test
-    void declinedAndCompletedAreFinal() {
+    void declinedCompletedAndCancelledAreFinal() {
         assertTrue(DECLINED.isFinal());
+        assertTrue(CANCELLED.isFinal());
+        assertFalse(CANCELLED.allowsPayment());
         assertTrue(COMPLETED.isFinal());
         assertFalse(ACCEPTED.isFinal());
         assertFalse(PRINTING.isFinal());

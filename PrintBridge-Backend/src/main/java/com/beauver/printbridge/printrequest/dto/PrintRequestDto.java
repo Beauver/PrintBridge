@@ -9,6 +9,7 @@ import java.util.List;
  * A request with its files.
  *
  * @param paidAt       when it was marked paid; {@code null} while not paid
+ * @param cancelReason why the requester cancelled it (#85); {@code null} without a reason or when not cancelled
  * @param totals       all files times their quantities
  * @param nextStatuses statuses the admin may move this request to; empty once it is final
  * @param filamentSelection the caller may choose filaments from Spoolman now (#11): colour selection is on
@@ -17,6 +18,7 @@ import java.util.List;
  * @param noMatchMessage           what to show for colours without a close filament (#76; set by the admin)
  * @param estimatedPrice           the automatic price while there is no final price (#72); {@code null} when
  *                                 there is a final price, the request is declined or nothing could be priced
+ * @param currency                 ISO 4217 code of the final and estimated price (#75), e.g. EUR
  */
 public record PrintRequestDto(
         Long id,
@@ -25,6 +27,7 @@ public record PrintRequestDto(
         RequestStatus status,
         BigDecimal finalPrice,
         String declineReason,
+        String cancelReason,
         Instant paidAt,
         Long ownerId,
         String ownerUsername,
@@ -36,5 +39,6 @@ public record PrintRequestDto(
         boolean filamentSelection,
         String notEnoughFilamentMessage,
         String noMatchMessage,
-        EstimatedPriceDto estimatedPrice) {
+        EstimatedPriceDto estimatedPrice,
+        String currency) {
 }

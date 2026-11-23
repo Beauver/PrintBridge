@@ -28,7 +28,7 @@ public class PrintRequest extends PanacheEntityBase {
     @Column(length = 2000)
     public String description;
 
-    /** Final price in EUR, set by the admin; {@code null} while pending. */
+    /** Final price in the configured currency (#75), set by the admin; {@code null} while pending. */
     @Column(name = "final_price", precision = 10, scale = 2)
     public BigDecimal finalPrice;
 
@@ -38,6 +38,10 @@ public class PrintRequest extends PanacheEntityBase {
 
     @Column(name = "decline_reason", length = 2000)
     public String declineReason;
+
+    /** Why the requester cancelled it (#85); optional, only while CANCELLED. */
+    @Column(name = "cancel_reason", length = 2000)
+    public String cancelReason;
 
     /** When the admin marked it paid; {@code null} while not paid. */
     @Column(name = "paid_at")

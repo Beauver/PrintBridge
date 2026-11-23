@@ -21,22 +21,23 @@ Packages under `com.beauver.printbridge`, one per domain:
 | `auth` | Login/refresh/logout, `CurrentUser`. `token`: JWT and refresh tokens, refresh cookie, stale-token filter. `setup`: first-run setup |
 | `user` | `User` entity, user management, password hashing |
 | `printrequest` | Print requests: entity, status flow, upload rules, access rules. `file`: the model files of a request |
-| `modelfile` | Reading model files. The package itself is what others use: file types and validation, `ModelAnalyzer`, `PreviewMeshReader`, read limits, `StoredModelFiles` (find a stored file by id). `analysis`: what an analysis returns. `stl`, `threemf`: the readers per format (Bambu Studio / OrcaSlicer projects are in `threemf`). `geometry`: bounds, transforms, mesh building. `mesh`: the preview mesh and its placement on the bed |
+| `modelfile` | Reading model files. The package itself is what others use: file types and validation, `ModelAnalyzer`, `PreviewMeshReader`, read limits, `StoredModelFiles` (find a stored file by id). `analysis`: what an analysis returns. `stl`, `threemf`: the readers per format (Bambu Studio / OrcaSlicer projects are in `threemf`). `geometry`: bounds, transforms, mesh building. `mesh`: the preview mesh and its placement on the bed. `exception`: a file that can't be read or is too detailed |
 | `modelinfo` | What is known about an uploaded file: stored analysis results, startup backfill |
 | `preview` | 3D preview: mesh encoding, preview before upload, mesh and plate images of request files |
-| `settings` | Admin-editable application settings (server slicing, upload limits, Spoolman switches). `printer`: the owned printers with their build plate |
+| `settings` | Admin-editable application settings (server slicing, upload limits, Spoolman switches, currency and pricing). `printer`: the owned printers with their build plate |
 | `spoolman` | Read-only Spoolman client, the cached filament list (`SpoolmanCatalog`) and the status / filament endpoints (#11) |
 | `pricing` | The price estimate (#72): `PricingStrategy` with `SpoolmanPrices` (Spoolman price per gram × markup) and `PricePerHundredGrams`, chosen by `PricingService` from the settings |
 | `filamentchoice` | The Spoolman filaments chosen per colour of a plate (or whole item), which colours a file has (`FilamentSlots`) and the grams a request needs of each filament |
 | `slicing` | Server slicing: planner (which printer/nozzle/profiles), background worker. `result`: stored results, which are also the job queue. `client`: client for the slicer service |
 | `storage` | `FileStorage`: files on disk under `STORAGE_PATH` |
 | `common.error` | Domain exceptions and their HTTP mapping |
+| `common.validation` | Bean Validation constraints shared by DTOs: `@CurrencyCode` (ISO 4217, #75), `@MaxUtf8Bytes` (the password limit) |
 | `common.ratelimit` | `@RateLimit` for REST endpoints and the in-memory `RateLimiter` behind it |
 | `common.transaction` | `AfterTransaction`: run disk side effects only after commit/rollback. `Transactions`: run one step of a longer flow in its own short transaction |
 
 Layering:
 - **Resource** (`*Resource`): HTTP only. Paths, status codes, `@RolesAllowed`/`@PermitAll`, Bean Validation on DTOs. No business logic.
-- **Service** (`*Service`): business rules, ownership checks, transactions. Slow work (copying an upload, reading a model, calling the slicer) stays outside transactions: such a method is `NOT_SUPPORTED` and wraps its database steps in `Transactions`. Throws domain exceptions (`InvalidInputException` → 400, `ConflictException` → 409, `ResourceNotFoundException` → 404, `InvalidCredentialsException` → 401, `TooManyRequestsException` → 429), mapped in `ExceptionMappers`.
+- **Service** (`*Service`): business rules, ownership checks, transactions. Slow work (copying an upload, reading a model, calling the slicer) stays outside transactions: such a method is `NOT_SUPPORTED` and wraps its database steps in `Transactions`. Throws domain exceptions (`InvalidInputException` → 400, `ConflictException` → 409, `ResourceNotFoundException` → 404, `InvalidCredentialsException` → 401, `UnprocessableContentException` → 422, `TooManyRequestsException` → 429, `ServiceUnavailableException` → 503), mapped in `ExceptionMappers`.
 - **Repository** (`*Repository`, Panache repository pattern): queries.
 - Entities never leave the backend: resources return DTO records built by mappers.
 - **Mapper** (`*Mapper`): only copies fields into DTOs. It injects no service or repository; what isn't on the entity is loaded or worked out by the service and handed in (`ModelDetailsCalculator` for model details, `RequestTotals` for a request's totals).
@@ -55,6 +56,7 @@ common, storage ◀─ modelfile ◀─ settings ◀─ modelinfo, slicing ◀�
 ```
 
 - `auth` and `user` belong together and use each other; everything may use them.
+- `modelinfo` and `slicing` use each other too: a file's details combine its analysis and its slicing result, and the slicing worker reads the analysis.
 - `modelinfo` and `slicing` work on files by id and find them through `modelfile.StoredModelFiles`, which `printrequest` implements (`RequestFileLookup`). Links (#59) live in the same table but are never found there, so they are never analysed or sliced.
 - `settings` checks whether Spoolman is set up through `SpoolmanConnection`, which the Spoolman client implements, and fires `SpoolmanToggled` so the catalog forgets its list when the integration is switched on. `filamentchoice` and `pricing` get the items of a request as plain values (`ChoiceItem`, `PricedItem`), not as entities. `modelinfo` gets the densities for its estimates as a `FilamentDensities` lookup per file, built by `filamentchoice`, so it doesn't depend on the choices.
 - When a file's plates and colours become known (analysed, or sliced on the server), `modelinfo` and `slicing` fire `modelfile.FilePlatesChanged` outside any transaction. `printrequest.AutomaticMatching` listens and has `filamentchoice` match filaments to the colours (#76); it never lets a failure reach the analysis or the slice job.
@@ -78,7 +80,7 @@ Optional. OrcaSlicer's command line behind a small Python HTTP API (standard lib
 | `core/` | App-wide services: auth (service, interceptor, guards), setup status, licence and source link, theme, file saving, models, HTTP error helper |
 | `features/<name>/` | One folder per page/feature: page component (`.ts` + `.html`) and its API service |
 | `layout/` | Navbar, footer (licence and source links), theme toggle |
-| `shared/` | Reusable pieces: `format/` (status labels/badges, file sizes, prices, model sizes/weights/times), `forms/` (account form, field error texts), `price-tag/`, `model-viewer/` (the Three.js 3D preview, loaded on demand) |
+| `shared/` | Reusable pieces: `format/` (status labels/badges, file sizes, prices, model sizes/weights/times, filament names; numbers in the browser's locale, #75/#86), `forms/` (account form, field error texts), `price-tag/`, `model-viewer/` (the Three.js 3D preview, loaded on demand) |
 
 Test fixtures shared by the specs are in `src/testing/`, outside the app build.
 

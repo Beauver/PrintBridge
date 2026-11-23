@@ -14,11 +14,11 @@ docker compose up -d
 | Slicer | http://localhost:18000 (`/health`) |
 | Spoolman | http://localhost:7912 |
 
-`docker compose up -d` starts all of them. The first time it builds the OrcaSlicer image (a few minutes, ~1.6 GB). To leave a service out: `docker compose up -d --scale slicer=0` (or `spoolman=0`).
+`docker compose up -d` starts all of them. The first time it builds the OrcaSlicer image (a few minutes, ~1.6 GB, x86_64 only). To leave a service out: `docker compose up -d --scale slicer=0` (or `spoolman=0`).
 
 All ports are bound to `127.0.0.1`: they are not reachable from other machines.
 
-The backend's own settings have defaults that match this stack. To change one, copy `PrintBridge-Backend/.env.example` to `PrintBridge-Backend/.env`.
+The backend's own settings have defaults that match this stack. To change one, copy `PrintBridge-Backend/.env.example` to `PrintBridge-Backend/.env`. If you change the Postgres settings or ports in `local/.env`, set the matching `DB_URL`, `DB_USER`, `DB_PASSWORD`, `SLICER_URL` or `SPOOLMAN_URL` there.
 
 ## Server slicing
 
@@ -34,4 +34,4 @@ Not needed for development: in dev mode and in tests the backend generates a thr
 
 ## Reset
 
-`docker compose down -v` wipes the database. Uploaded files of a dev run are in `PrintBridge-Backend/local/data/uploads` (git-ignored).
+`docker compose down -v` wipes the database and Spoolman's data. Uploaded files of a dev run are in `PrintBridge-Backend/local/data/uploads` (git-ignored).

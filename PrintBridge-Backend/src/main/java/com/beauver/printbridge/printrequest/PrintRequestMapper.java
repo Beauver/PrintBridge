@@ -20,23 +20,29 @@ import java.util.Map;
 @ApplicationScoped
 public class PrintRequestMapper {
 
-    /** @param estimate the automatic price (#72); {@code null} for none */
-    public PrintRequestSummaryDto toSummary(PrintRequest r, ItemProgress progress, PriceEstimate estimate) {
+    /**
+     * @param estimate the automatic price (#72); {@code null} for none
+     * @param currency ISO 4217 code of the prices (#75)
+     */
+    public PrintRequestSummaryDto toSummary(PrintRequest r, ItemProgress progress, PriceEstimate estimate,
+                                            String currency) {
         return new PrintRequestSummaryDto(r.id, r.name, r.status, r.finalPrice, r.paidAt, r.owner.username,
-                r.createdAt, progress.completed(), progress.active(), toDto(estimate));
+                r.createdAt, progress.completed(), progress.active(), toDto(estimate), currency);
     }
 
     /**
      * @param filamentSelection        the caller may choose filaments now (#11)
      * @param notEnoughFilamentMessage the warning for a chosen filament that runs short (#11)
      * @param estimate                 the automatic price (#72); {@code null} for none
+     * @param currency                 ISO 4217 code of the prices (#75)
      */
     public PrintRequestDto toDto(PrintRequest r, List<RequestFileDto> files, RequestTotalsDto totals,
                                  boolean filamentSelection, String notEnoughFilamentMessage, String noMatchMessage,
-                                 PriceEstimate estimate) {
-        return new PrintRequestDto(r.id, r.name, r.description, r.status, r.finalPrice, r.declineReason, r.paidAt,
+                                 PriceEstimate estimate, String currency) {
+        return new PrintRequestDto(r.id, r.name, r.description, r.status, r.finalPrice, r.declineReason,
+                r.cancelReason, r.paidAt,
                 r.owner.id, r.owner.username, r.createdAt, r.updatedAt, files, totals, r.status.nextStatuses(),
-                filamentSelection, notEnoughFilamentMessage, noMatchMessage, toDto(estimate));
+                filamentSelection, notEnoughFilamentMessage, noMatchMessage, toDto(estimate), currency);
     }
 
     public EstimatedPriceDto toDto(PriceEstimate estimate) {
