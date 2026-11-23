@@ -44,9 +44,9 @@ describe('ReviewPanel', () => {
   });
 
   describe('price', () => {
-    it('starts with the current price in Dutch format', () => {
+    it('starts with the current price in the browser locale (en-US in tests)', () => {
       show({ ...REQUEST, finalPrice: 6900.5 });
-      expect(panel['price'].value).toBe('6.900,50');
+      expect(panel['price'].value).toBe('6900.50');
       show(REQUEST);
       expect(panel['price'].value).toBe('');
     });
@@ -70,7 +70,7 @@ describe('ReviewPanel', () => {
       panel['savePrice']();
       expect(requestsService.changePrice).toHaveBeenCalledWith(4, 6900.42);
       expect(emitted).toEqual([priced]);
-      expect(panel['notice']()?.replace(/\s/g, ' ')).toBe('Price set to € 6.900,42.');
+      expect(panel['notice']()).toBe('Price set to €6,900.42.');
 
       panel['price'].setValue('69.42');
       panel['savePrice']();
@@ -78,17 +78,17 @@ describe('ReviewPanel', () => {
     });
 
     it('hints and saves the estimate when left empty', () => {
-      expect(panel['pricePlaceholder']()).toBe('69,42');
+      expect(panel['pricePlaceholder']()).toBe('69.42');
       const estimated = { ...REQUEST, estimatedPrice: { amount: 12.3, partial: false } };
       show(estimated);
-      expect(panel['pricePlaceholder']()).toBe('12,30');
+      expect(panel['pricePlaceholder']()).toBe('12.30');
       requestsService.changePrice.mockReturnValue(of({ ...estimated, finalPrice: 12.3 }));
 
       panel['price'].setValue('  ');
       panel['savePrice']();
 
       expect(requestsService.changePrice).toHaveBeenCalledWith(4, 12.3);
-      expect(panel['notice']()?.replace(/\s/g, ' ')).toBe('Price set to the estimate, € 12,30.');
+      expect(panel['notice']()).toBe('Price set to the estimate, €12.30.');
 
       // A typed price still wins over the estimate.
       panel['price'].setValue('20');
@@ -106,16 +106,28 @@ describe('ReviewPanel', () => {
     it('validates before saving', () => {
       const cases: [string, string][] = [
         ['', 'Enter a price'],
-        ['69,4231', 'Enter a price like 69,42 or 6.900,42'],
-        ['-1', 'Enter a price like 69,42 or 6.900,42'],
-        ['100.000.000', 'Price must be at most € 99.999.999,99'],
+        ['69,4231', 'Enter a price like 69.42'],
+        ['-1', 'Enter a price like 69.42'],
+        ['100.000.000', 'Price must be at most €99,999,999.99'],
       ];
       for (const [value, message] of cases) {
         panel['price'].setValue(value);
         panel['savePrice']();
-        expect(panel['priceError']()?.replace(/\s/g, ' ')).toBe(message);
+        expect(panel['priceError']()).toBe(message);
       }
       expect(requestsService.changePrice).not.toHaveBeenCalled();
+    });
+
+    it('uses the request currency', () => {
+      show({ ...REQUEST, currency: 'USD' });
+      expect(panel['currencySymbol']()).toBe('$');
+      requestsService.changePrice.mockReturnValue(
+        of({ ...REQUEST, currency: 'USD', finalPrice: 5 }),
+      );
+      panel['price'].setValue('$ 5');
+      panel['savePrice']();
+      expect(requestsService.changePrice).toHaveBeenCalledWith(4, 5);
+      expect(panel['notice']()).toBe('Price set to $5.00.');
     });
 
     it('accepts zero', () => {
