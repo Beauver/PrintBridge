@@ -29,6 +29,7 @@ Issue: #4 (part of #2); several files per request, quantities and upload setting
     - Same rules as a new request: name required (trimmed, max 100), description optional (max 2000). An empty description clears it and the page shows "–".
     - *Save* updates the page in place (*Last updated* changes) and closes the form; errors from the server show in the form. *Cancel* closes it without saving.
     - The form keeps what was typed while the page reloads the request (e.g. while files are being sliced).
+  - *Cancel request* (owner while *Submitted* or *In review*, #85): see [cancelling](admin-review.md#cancelling).
   - *Delete request* asks for confirmation, then removes the request and its files.
     - Owners only get the button while the request is *Submitted*.
     - The admin always gets it.
@@ -55,9 +56,9 @@ Issue: #59. Instead of, or next to, files, a request can hold links to models el
 |---|---|---|---|---|---|
 | Owner | own requests | own files | only while SUBMITTED (else `409`) | only while SUBMITTED (else `409`) | own, only while SUBMITTED (else `409`) |
 | Other user | `404` | `404` | `404` | `404` | `404` |
-| Admin | every request (*All requests*) | every file | in any status | until DECLINED / COMPLETED (else `409`) | any, in any status |
+| Admin | every request (*All requests*) | every file | in any status | until the request is final: DECLINED, COMPLETED or CANCELLED (else `409`) | any, in any status |
 
-Removing the last file or link of a request is always refused (`409`). Links follow the same rules as files.
+Removing the last file or link of a request is always refused (`409`). Links follow the same rules as files. The owner can also cancel their request while it is SUBMITTED or IN_REVIEW (#85, see [cancelling](admin-review.md#cancelling)); the admin can't.
 
 ## Upload validation (backend)
 
@@ -66,7 +67,7 @@ Every file is its own HTTP request (the first with `POST /requests`, the others 
 1. Extension: `.stl` or `.3mf` (case-insensitive), further limited by `UPLOAD_ALLOWED_EXTENSIONS`.
 2. Size: not empty and at most the *max size per file* from [the upload settings](#upload-settings-adminsettings) (default: the ceiling `UPLOAD_MAX_SIZE_MB`, default 100).
    - The HTTP layer itself rejects bodies above the ceiling with `413`. A file just under the limit can still hit it, because the multipart form adds a little overhead. The frontend shows the same "larger than" message for that.
-   - nginx in the frontend image has a fixed `client_max_body_size 100m`; raising `UPLOAD_MAX_SIZE_MB` above 100 also needs `docker/default.conf.template` changed. A reverse proxy in front needs a matching `client_max_body_size` as well. Because every file is uploaded on its own, these only have to fit one file.
+   - nginx in the frontend image takes its `client_max_body_size` from its own `UPLOAD_MAX_SIZE_MB` (default 100), so set the same value on the frontend and the backend (the compose file in `deploy/` does). A reverse proxy in front needs a matching `client_max_body_size` as well. Because every file is uploaded on its own, these only have to fit one file.
 3. Number of files: an added file or link is refused (`400`) when the request already holds *max files per request* (files and links together). The request's row is locked while adding, so two uploads at once can't both pass.
 4. Content:
    - **STL:** binary if the file size is exactly 84 + 50 × the triangle count in the header (and at least one triangle). Otherwise ASCII if it starts with `solid` and has a `facet` in the first 64 KB.
@@ -104,4 +105,4 @@ The *Uploads* card on the admin settings page:
 
 ## Not included
 
-Review (see [admin review](admin-review.md)), comments, the price estimate ([pricing](pricing.md), #72). Choosing filaments per colour is in [Spoolman filaments](spoolman.md) (#11). Out of #23: reordering files, per-file statuses or prices, uploading folders or ZIPs to unpack, changing the allowed extensions in the app, resumable uploads. Out of #59: attaching the real file to a link later (the admin uses *Add files* and removes the link), editing a link, fetching titles or thumbnails, allowing only certain sites. Out of #84: an edit history or "edited" marker, notifying the other side.
+Review (see [admin review](admin-review.md)), comments, the price estimate ([pricing](pricing.md), #72). Choosing filaments per colour is in [Spoolman filaments](spoolman.md) (#11). Out of #23: reordering files, per-file prices (per-file statuses came with [#61](admin-review.md#item-statuses)), uploading folders or ZIPs to unpack, changing the allowed extensions in the app, resumable uploads. Out of #59: attaching the real file to a link later (the admin uses *Add files* and removes the link), editing a link, fetching titles or thumbnails, allowing only certain sites. Out of #84: an edit history or "edited" marker, notifying the other side.

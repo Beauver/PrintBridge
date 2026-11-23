@@ -16,7 +16,7 @@ PrintBridge reads the owner's self-hosted [Spoolman](https://github.com/Donkie/S
 
 ## Settings → Spoolman (`/admin/settings?tab=spoolman`)
 
-The settings page has one tab per card: *Printers*, *Slicing*, *Uploads* and *Spoolman*. The open tab is in the URL (`?tab=`); without one, *Printers* opens.
+The settings page has one tab per card: *Printers*, *Slicing*, *Uploads*, *Spoolman* and *Pricing*. The open tab is in the URL (`?tab=`); without one, *Printers* opens.
 
 The Spoolman tab shows:
 
@@ -30,7 +30,7 @@ The Spoolman tab shows:
   - Only possible while the integration is on.
   - Switching the integration off switches this off too (the form does it, and the backend refuses colour selection without the integration).
 - **Warning when there isn't enough filament:** the text requesters see on a request whose chosen filament runs short (max 300 characters). Empty means the default text.
-- Both switches are disabled while `SPOOLMAN_URL` isn't set. While it isn't set, both also count as off, whatever is saved.
+- The switches are disabled while `SPOOLMAN_URL` isn't set. While it isn't set, they also count as off, whatever is saved.
 
 ## Choosing a filament (request page)
 

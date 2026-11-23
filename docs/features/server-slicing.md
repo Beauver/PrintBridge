@@ -6,7 +6,7 @@ Uploads are sliced on the server with [OrcaSlicer](https://github.com/OrcaSlicer
 
 ## Settings (`/admin/settings`)
 
-The page has one tab per card (#11): *Printers*, *Slicing*, *Uploads* and [*Spoolman*](spoolman.md); `?tab=` opens one.
+The page has one tab per card (#11): *Printers*, *Slicing*, *Uploads*, [*Spoolman*](spoolman.md) and [*Pricing*](pricing.md) (#72); `?tab=` opens one.
 
 **Printers** card (also used for the [fit check](model-info.md), with or without slicing):
 
@@ -94,4 +94,4 @@ Measured on the four sample projects and an STL: 1–5 s per file, peak memory 0
 
 ## Not included
 
-Keeping or downloading the sliced file, uploading your own profiles, slicing a file for every printer, picking the printer per request, prices (#11), 3D preview (#13).
+Keeping or downloading the sliced file, uploading your own profiles, slicing a file for every printer, picking the printer per request, prices ([pricing](pricing.md), #72), 3D preview (#13).

@@ -8,7 +8,7 @@
 - Features:
   - [First-run setup, login and user management](features/setup-auth-users.md)
   - [Print requests, STL/3MF uploads and links](features/print-requests.md)
-  - [Admin review, status flow and final price](features/admin-review.md)
+  - [Admin review, status flow, cancelling and final price](features/admin-review.md)
   - [Model info and settings](features/model-info.md)
   - [Server slicing](features/server-slicing.md)
   - [3D preview](features/model-preview.md)

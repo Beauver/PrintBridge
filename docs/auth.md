@@ -62,7 +62,7 @@ Two limits on `POST /api/auth/login`, both answered with `429`, a `Retry-After` 
 ## Roles
 
 - `USER`: own data only.
-- `ADMIN`: user management (and later: all requests).
+- `ADMIN`: user management, every request (review, status, price, paid) and the settings. The admin can also submit their own requests.
 
 Backend: `@RolesAllowed` on resources, ownership checks in services. Frontend: `authGuard`, `adminGuard`, `guestGuard`, `setupDoneGuard`, `setupPageGuard` in `core/auth/guards.ts`. The frontend guards are for navigation only; the backend is the real check.
 

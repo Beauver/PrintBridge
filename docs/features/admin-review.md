@@ -56,6 +56,10 @@ Cancelled isn't one of the admin's moves: only the requester can cancel, see bel
 
 **Printing** (#22) tells the requester their print is on the printer. It shows as a yellow badge. Skipping it (Accepted → Completed) stays possible. While Printing, the price, paid and server re-slicing still work like for Accepted.
 
+- **Final requests:** status and price can't change any more (`409`). Completed requests can still be marked (un)paid. The admin can still delete final requests, as in #4.
+- **Owners:** can only delete while the request is Submitted (#4).
+- **Single source of truth:** the allowed moves live in `RequestStatus.nextStatuses()`. The API sends them along as `nextStatuses`, so the frontend never duplicates the rules (except the "Completed needs a price" hint).
+
 ## Cancelling
 
 Issue #85. The requester can back out of a request before the admin accepted it.
@@ -65,10 +69,6 @@ Issue #85. The requester can back out of a request before the admin accepted it.
 - **After:** the request is **Cancelled** (a light grey badge), which is final like Declined and Completed: nothing on it can change and there's no estimated price. A given reason shows to both sides as *Reason for cancelling* in the details card.
 - **What stays:** the request, its files and links, and their item statuses are kept, so the admin keeps the history. The requester can no longer delete it (that's only while Submitted); the admin still can.
 - **Overview:** not under *Open*; under *All* and *Cancelled*.
-
-- **Final requests:** status and price can't change any more (`409`). Completed requests can still be marked (un)paid. The admin can still delete final requests, as in #4.
-- **Owners:** can only delete while the request is Submitted (#4).
-- **Single source of truth:** the allowed moves live in `RequestStatus.nextStatuses()`. The API sends them along as `nextStatuses`, so the frontend never duplicates the rules (except the "Completed needs a price" hint).
 
 ## Item statuses
 
@@ -86,7 +86,7 @@ Issue: #61. Every file and link of a request has its own status, so the admin ca
   | Printing | Completed, Accepted (failed print), Declined |
   | Declined, Completed | Accepted (reopened) |
 
-  Items only change while the request isn't final; on a Declined or Completed request they are locked (`409`, no dropdown).
+  Items only change while the request isn't final; on a Declined, Completed or Cancelled request they are locked (`409`, no dropdown).
 - **The request moves its items along** (in the same transaction):
   - accepting it (from Submitted or In review) accepts its Pending items;
   - declining it declines every item that isn't Completed (no per-item reason; the request's reason covers them);
@@ -99,4 +99,4 @@ Issue: #61. Every file and link of a request has its own status, so the admin ca
 
 ## Not included
 
-Comments, editing request details, notifications (also when printing starts), per-status timestamps, paging. The estimated price is in [pricing](pricing.md) (#72). The filaments requesters chose show on the model and link cards ([Spoolman filaments](spoolman.md), #11). Out of #61: per-item prices, items changing the request status, the requester changing item statuses.
+Comments, notifications (also when printing starts), per-status timestamps, paging. Editing a request's name and description is in [print requests](print-requests.md) (#84). The estimated price is in [pricing](pricing.md) (#72). The filaments requesters chose show on the model and link cards ([Spoolman filaments](spoolman.md), #11). Out of #61: per-item prices, items changing the request status, the requester changing item statuses.

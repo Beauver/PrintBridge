@@ -80,7 +80,7 @@ Estimated plate grams (`volume × density × 0.35`, see [model info](model-info.
 
 ## Data
 
-`app_settings` (V15): `spoolman_prices` (needs `spoolman_enabled`, like colour selection), `pricing_markup` (`NUMERIC(5,2)`, 0.01–100, default 1), `price_per_100_grams` (`NUMERIC(6,2)`, 0–1000, default 0). `currency` (V18, `VARCHAR(3)`, three capitals, default `EUR`). Estimates aren't stored; they are worked out when a request or list is shown.
+`app_settings` (V15): `spoolman_prices` (named in V16, which also adds the check that it needs `spoolman_enabled`, like colour selection), `pricing_markup` (`NUMERIC(5,2)`, 0.01–100, default 1), `price_per_100_grams` (`NUMERIC(6,2)`, 0–1000, default 0). `currency` (V18, `VARCHAR(3)`, three capitals, default `EUR`). Estimates aren't stored; they are worked out when a request or list is shown.
 
 ## Not included
 
@@ -89,6 +89,5 @@ Estimated plate grams (`volume × density × 0.35`, see [model info](model-info.
 - Reading Spoolman's own currency setting.
 - Currency-specific decimals (JPY without cents).
 - Spool-level prices.
-- A markup in the price-per-100 g mode.
 - Prices per material.
 - Changing the fill factor.

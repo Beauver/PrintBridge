@@ -11,4 +11,5 @@ npx prettier --check "src/**/*.{ts,html,css,scss}"
 npm run build -- --configuration production
 ```
 
-- Docker image: `docker build -t printbridge-frontend .` (nginx; `BACKEND_URL` says where `/api` goes).
+- Node.js 22.22.3+, 24.15+ or 26+ (what Angular 22 supports); CI uses 24.
+- Docker image: `docker build -t printbridge-frontend .` (nginx; `BACKEND_URL` says where `/api` goes, `UPLOAD_MAX_SIZE_MB` how large an upload may be, default 100).
