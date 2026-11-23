@@ -45,6 +45,11 @@ export class PrintRequestsService {
     return this.http.put<PrintRequest>(`/api/requests/${id}/status`, { status, declineReason });
   }
 
+  /** Requester: cancel the request (#85); a blank reason means none. */
+  cancel(id: number, reason: string): Observable<PrintRequest> {
+    return this.http.post<PrintRequest>(`/api/requests/${id}/cancel`, { reason });
+  }
+
   /** Change the name and description (#84); an empty description clears it. */
   changeDetails(id: number, name: string, description: string): Observable<PrintRequest> {
     return this.http.put<PrintRequest>(`/api/requests/${id}`, { name, description });

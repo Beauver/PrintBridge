@@ -1,4 +1,5 @@
 import {
+  allowsCancelling,
   allowsPayment,
   formatBytes,
   isFinalStatus,
@@ -25,6 +26,20 @@ describe('print request display helpers', () => {
     expect(isFinalStatus('COMPLETED')).toBe(true);
     expect(isFinalStatus('ACCEPTED')).toBe(false);
     expect(isFinalStatus('PRINTING')).toBe(false);
+    expect(isFinalStatus('CANCELLED')).toBe(true);
+  });
+
+  it('labels a cancelled request (#85)', () => {
+    expect(statusLabel('CANCELLED')).toBe('Cancelled');
+    expect(statusBadgeClass('CANCELLED')).toBe('text-bg-light border');
+  });
+
+  it('allows cancelling only before acceptance', () => {
+    expect(allowsCancelling('SUBMITTED')).toBe(true);
+    expect(allowsCancelling('IN_REVIEW')).toBe(true);
+    expect(allowsCancelling('ACCEPTED')).toBe(false);
+    expect(allowsCancelling('DECLINED')).toBe(false);
+    expect(allowsCancelling('CANCELLED')).toBe(false);
   });
 
   it('allows payment from accepted on', () => {

@@ -35,6 +35,7 @@ import { HasPendingUploads } from '../pending-uploads.guard';
 import { PrintRequestsService } from '../print-requests.service';
 import { isValidQuantity, MAX_QUANTITY, MIN_QUANTITY } from '../upload-checks';
 import { AddFiles } from './add-files/add-files';
+import { CancelRequestControl } from './cancel-request/cancel-request';
 import { DetailsEditor } from './details-editor/details-editor';
 import { ItemStatusControl } from './item-status/item-status';
 import { RequestStatusControl } from './request-status/request-status';
@@ -133,6 +134,7 @@ function printTimeTotal(request: PrintRequest): { text: string; note: string | n
     RequestStatusControl,
     AddFiles,
     DetailsEditor,
+    CancelRequestControl,
   ],
   templateUrl: './request-detail-page.html',
   styleUrl: './request-detail-page.css',

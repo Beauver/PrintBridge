@@ -2,7 +2,7 @@ import { ModelInfo, WeightKind } from './model-info.model';
 import { ColorSlot, FilamentChoice } from './spoolman.model';
 
 export type RequestStatus =
-  'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'PRINTING' | 'DECLINED' | 'COMPLETED';
+  'SUBMITTED' | 'IN_REVIEW' | 'ACCEPTED' | 'PRINTING' | 'DECLINED' | 'COMPLETED' | 'CANCELLED';
 
 /** Admin overview filter: open requests, all, or one status. */
 export type StatusFilter = 'OPEN' | 'ALL' | RequestStatus;
@@ -121,6 +121,8 @@ export interface PrintRequest {
   status: RequestStatus;
   finalPrice: number | null;
   declineReason: string | null;
+  /** Why the requester cancelled it (#85); null without a reason or when not cancelled. */
+  cancelReason: string | null;
   paidAt: string | null;
   ownerId: number;
   ownerUsername: string;

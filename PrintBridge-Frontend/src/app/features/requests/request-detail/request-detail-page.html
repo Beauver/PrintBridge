@@ -42,6 +42,11 @@
         [isAdmin]="auth.isAdmin()"
         (changed)="onReviewed($event)"
       />
+      <app-cancel-request
+        [request]="request"
+        [isAdmin]="auth.isAdmin()"
+        (changed)="onReviewed($event)"
+      />
     </div>
 
     @if (editingDetails()) {
@@ -117,6 +122,14 @@
           <dt class="col-md-2 col-5">Decline reason</dt>
           <dd class="col-md-10 col-7 mb-0 text-pre-wrap" data-cy="request-decline-reason">
             {{ request.declineReason }}
+          </dd>
+        </dl>
+      }
+      @if (request.cancelReason) {
+        <dl class="row mb-0 mt-3 pt-3 border-top">
+          <dt class="col-md-2 col-5">Reason for cancelling</dt>
+          <dd class="col-md-10 col-7 mb-0 text-pre-wrap" data-cy="request-cancel-reason-shown">
+            {{ request.cancelReason }}
           </dd>
         </dl>
       }

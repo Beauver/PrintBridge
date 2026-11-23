@@ -1,0 +1,62 @@
+@if (available() && !confirming()) {
+  <button
+    type="button"
+    class="btn btn-sm btn-outline-danger"
+    (click)="ask()"
+    data-cy="request-cancel"
+  >
+    Cancel request
+  </button>
+}
+
+@if (confirming()) {
+  <div class="w-100 alert alert-warning mb-0" data-cy="request-cancel-confirm">
+    <p class="mb-2">
+      Cancel this request? This is final: it can't be changed or reopened afterwards.
+    </p>
+    <label class="form-label" for="request-cancel-reason"
+      >Reason <span class="text-body-secondary small">(optional, shown to the admin)</span></label
+    >
+    <textarea
+      id="request-cancel-reason"
+      class="form-control mb-2"
+      rows="3"
+      [attr.maxlength]="maxReason"
+      [value]="reason()"
+      [disabled]="saving()"
+      (input)="setReason($event)"
+      data-cy="request-cancel-reason"
+    ></textarea>
+    <div class="d-flex gap-2">
+      <button
+        type="button"
+        class="btn btn-sm btn-danger"
+        [disabled]="saving()"
+        (click)="confirm()"
+        data-cy="request-cancel-yes"
+      >
+        Cancel request
+      </button>
+      <button
+        type="button"
+        class="btn btn-sm btn-outline-secondary"
+        [disabled]="saving()"
+        (click)="keep()"
+        data-cy="request-cancel-no"
+      >
+        Keep it
+      </button>
+    </div>
+  </div>
+}
+
+@if (error()) {
+  <div
+    class="w-100 alert alert-danger alert-dismissible py-2 mb-0"
+    role="alert"
+    data-cy="request-cancel-error"
+  >
+    {{ error() }}
+    <button type="button" class="btn-close" aria-label="Close" (click)="dismissError()"></button>
+  </div>
+}
